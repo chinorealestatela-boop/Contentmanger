@@ -86,6 +86,15 @@ async function executeAction(action: ActionDef, rule: { id: string; name: string
       break;
     }
     case "NOTIFY": {
+      const recipient = await prisma.user.findUnique({ where: { id: assigneeId }, select: { notificationPrefs: true } });
+      if (recipient?.notificationPrefs) {
+        try {
+          const prefs = JSON.parse(recipient.notificationPrefs) as Record<string, boolean>;
+          if (prefs[action.notifType] === false) break; // recipient opted out of this category
+        } catch {
+          /* malformed prefs — fall through and notify */
+        }
+      }
       const customer = await prisma.customer.findUnique({ where: { id: payload.customerId } });
       await prisma.notification.create({
         data: {
