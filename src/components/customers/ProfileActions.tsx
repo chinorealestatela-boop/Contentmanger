@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
-import { Phone, MessageSquare, Mail, StickyNote, CheckSquare, CalendarPlus, Car, ArrowLeftRight, FileEdit, Workflow, Trophy, XCircle } from "lucide-react";
+import { Phone, MessageSquare, Mail, StickyNote, CheckSquare, CalendarPlus, Car, ArrowLeftRight, FileEdit, Workflow, Trophy, XCircle, Gauge } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { logCommunication } from "@/lib/actions/communications";
 import { addNote } from "@/lib/actions/notes";
@@ -10,10 +10,11 @@ import { createAppointment } from "@/lib/actions/appointments";
 import { logActivityManual } from "@/lib/actions/activity";
 import { addVehicleInterest } from "@/lib/actions/vehicleInterests";
 import { addTradeIn } from "@/lib/actions/tradeins";
+import { logTestDrive } from "@/lib/actions/testdrives";
 import { changeLeadStage, markSold, markLost } from "@/lib/actions/leads";
-import { TASK_TYPES, TASK_PRIORITIES, APPOINTMENT_TYPES, APPRAISAL_STATUSES, FINANCE_TYPES } from "@/lib/constants";
+import { TASK_TYPES, TASK_PRIORITIES, APPOINTMENT_TYPES, APPRAISAL_STATUSES, FINANCE_TYPES, CUSTOMER_REACTIONS } from "@/lib/constants";
 
-type Kind = "CALL" | "TEXT" | "EMAIL" | "NOTE" | "TASK" | "APPOINTMENT" | "VEHICLE" | "TRADE" | "LOG" | "STAGE" | "SOLD" | "LOST" | null;
+type Kind = "CALL" | "TEXT" | "EMAIL" | "NOTE" | "TASK" | "APPOINTMENT" | "VEHICLE" | "TRADE" | "TESTDRIVE" | "LOG" | "STAGE" | "SOLD" | "LOST" | null;
 
 export function ProfileActions({
   customerId,
@@ -41,6 +42,7 @@ export function ProfileActions({
       <button className={btn} onClick={() => setModal("APPOINTMENT")}><CalendarPlus size={13} /> Appointment</button>
       <button className={btn} onClick={() => setModal("VEHICLE")}><Car size={13} /> Add Vehicle</button>
       <button className={btn} onClick={() => setModal("TRADE")}><ArrowLeftRight size={13} /> Add Trade</button>
+      <button className={btn} onClick={() => setModal("TESTDRIVE")}><Gauge size={13} /> Log Test Drive</button>
       <button className={btn} onClick={() => setModal("LOG")}><FileEdit size={13} /> Log Activity</button>
       {leadId && (
         <>
@@ -56,6 +58,7 @@ export function ProfileActions({
       {modal === "APPOINTMENT" && <AppointmentModal customerId={customerId} leadId={leadId} vehicles={vehicles} onClose={() => setModal(null)} />}
       {modal === "VEHICLE" && <VehicleModal customerId={customerId} leadId={leadId} vehicles={vehicles} onClose={() => setModal(null)} />}
       {modal === "TRADE" && <TradeModal customerId={customerId} onClose={() => setModal(null)} />}
+      {modal === "TESTDRIVE" && <TestDriveModal customerId={customerId} leadId={leadId} vehicles={vehicles} onClose={() => setModal(null)} />}
       {modal === "LOG" && <LogModal customerId={customerId} leadId={leadId} onClose={() => setModal(null)} />}
       {modal === "STAGE" && leadId && <StageModal leadId={leadId} stages={stages} onClose={() => setModal(null)} />}
       {modal === "SOLD" && leadId && <SoldModal leadId={leadId} vehicles={vehicles} onClose={() => setModal(null)} />}
@@ -251,6 +254,35 @@ function TradeModal({ customerId, onClose }: { customerId: string; onClose: () =
         </div>
         <div><label className="label">Notes</label><textarea name="notes" rows={2} className="input" /></div>
         <FormFooter pending={pending} onClose={onClose} label="Add Trade-In" />
+      </form>
+    </Modal>
+  );
+}
+
+function TestDriveModal({ customerId, leadId, vehicles, onClose }: { customerId: string; leadId: string | null; vehicles: { id: string; year: number; make: string; model: string; stockNumber: string }[]; onClose: () => void }) {
+  const [state, formAction, pending] = useActionState(logTestDrive, null);
+  useCloseOnSuccess(state, onClose);
+  return (
+    <Modal title="Log Test Drive" onClose={onClose}>
+      <form action={formAction} className="space-y-4">
+        <input type="hidden" name="customerId" value={customerId} />
+        {leadId && <input type="hidden" name="leadId" value={leadId} />}
+        {state?.error && <ErrorBox msg={state.error} />}
+        <div>
+          <label className="label">Vehicle</label>
+          <select name="vehicleId" required className="input">
+            <option value="">Select vehicle…</option>
+            {vehicles.map((v) => <option key={v.id} value={v.id}>{v.year} {v.make} {v.model} (#{v.stockNumber})</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="label">Customer Reaction</label>
+          <select name="customerReaction" className="input" defaultValue="POSITIVE">{CUSTOMER_REACTIONS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}</select>
+        </div>
+        <div><label className="label">Objections</label><textarea name="objections" rows={2} className="input" /></div>
+        <div><label className="label">Next Step</label><textarea name="nextStep" rows={2} className="input" placeholder="e.g. Send pricing worksheet, follow up tomorrow" /></div>
+        <p className="text-xs text-[var(--text-muted)]">A follow-up task is created automatically once you log this.</p>
+        <FormFooter pending={pending} onClose={onClose} label="Log Test Drive" />
       </form>
     </Modal>
   );
