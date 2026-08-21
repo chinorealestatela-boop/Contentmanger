@@ -256,6 +256,21 @@ export function optionColor(options: Option[], value: string | null | undefined)
   return options.find((o) => o.value === value)?.color ?? "#64748b";
 }
 
+export const TRIGGER_EVENTS: Option[] = [
+  { value: "NEW_LEAD", label: "New lead is created" },
+  { value: "STAGE_CHANGE", label: "Lead changes pipeline stage" },
+  { value: "HOT_LEAD", label: "Lead becomes HOT" },
+  { value: "APPOINTMENT_CREATED", label: "Appointment is created" },
+  { value: "APPOINTMENT_TOMORROW", label: "Appointment is tomorrow" },
+  { value: "APPOINTMENT_NO_SHOW", label: "Appointment is a no-show" },
+  { value: "APPOINTMENT_COMPLETED", label: "Appointment is completed" },
+  { value: "NO_CONTACT_X_DAYS", label: "No contact for X days" },
+  { value: "TEST_DRIVE_COMPLETED", label: "Test drive is completed" },
+  { value: "VEHICLE_SOLD", label: "Customer's vehicle of interest is sold" },
+  { value: "LEAD_LOST", label: "Lead becomes LOST" },
+  { value: "FOLLOW_UP_COMPLETED", label: "Follow-up task is completed" },
+];
+
 export const REACTIVATION_WINDOWS: Option[] = [
   { value: "30", label: "30 Days" },
   { value: "60", label: "60 Days" },

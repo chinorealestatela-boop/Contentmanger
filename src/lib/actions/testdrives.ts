@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireScope } from "@/lib/queries/scope";
 import { logActivity } from "@/lib/activity";
 import { runAutomation } from "@/lib/automation/engine";
+import { recomputeLeadScore } from "@/lib/scoring-engine";
 import { revalidatePath } from "next/cache";
 import type { SimpleActionState } from "@/lib/actions/communications";
 
@@ -56,6 +57,9 @@ export async function logTestDrive(_prev: SimpleActionState, formData: FormData)
   });
 
   await runAutomation("TEST_DRIVE_COMPLETED", { customerId: d.customerId, leadId: d.leadId, actorId: scope.userId, vehicleId: d.vehicleId });
+
+  const activeLead = d.leadId ? { id: d.leadId } : await prisma.lead.findFirst({ where: { customerId: d.customerId, status: "ACTIVE" } });
+  if (activeLead) await recomputeLeadScore(activeLead.id, scope.userId);
 
   revalidatePath(`/customers/${d.customerId}`);
   revalidatePath("/dashboard");

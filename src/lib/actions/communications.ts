@@ -4,6 +4,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireScope } from "@/lib/queries/scope";
 import { logActivity } from "@/lib/activity";
+import { recomputeLeadScore } from "@/lib/scoring-engine";
 import { revalidatePath } from "next/cache";
 
 const schema = z.object({
@@ -37,6 +38,9 @@ export async function logCommunication(_prev: SimpleActionState, formData: FormD
     where: { customerId, status: "ACTIVE" },
     data: { lastContactedAt: new Date() },
   });
+
+  const activeLeads = await prisma.lead.findMany({ where: { customerId, status: "ACTIVE" }, select: { id: true } });
+  for (const l of activeLeads) await recomputeLeadScore(l.id, scope.userId);
 
   await logActivity({
     customerId,

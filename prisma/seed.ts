@@ -210,7 +210,10 @@ async function main() {
       {
         name: "New lead → start Day 0 follow-up",
         triggerEvent: "NEW_LEAD",
-        actions: JSON.stringify([{ type: "ENROLL_SEQUENCE", sequenceName: "New Lead — Standard" }]),
+        actions: JSON.stringify([
+          { type: "ENROLL_SEQUENCE", sequenceName: "New Lead — Standard" },
+          { type: "NOTIFY", notifType: "NEW_LEAD", title: "New lead assigned to you" },
+        ]),
         order: 0,
       },
       {

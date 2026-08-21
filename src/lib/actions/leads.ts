@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireScope } from "@/lib/queries/scope";
 import { logActivity } from "@/lib/activity";
 import { runAutomation, enrollInSequence } from "@/lib/automation/engine";
+import { recomputeLeadScore } from "@/lib/scoring-engine";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { SimpleActionState } from "@/lib/actions/communications";
@@ -364,6 +365,8 @@ export async function reactivateLead(leadId: string) {
   const reactivationSeq = await prisma.followUpSequence.findFirst({ where: { trigger: "REACTIVATION", active: true } });
   if (reactivationSeq) await enrollInSequence(lead.customerId, leadId, reactivationSeq.id);
 
+  await recomputeLeadScore(leadId, scope.userId);
+
   revalidatePath("/reactivation");
   revalidatePath("/lost-leads");
   revalidatePath("/leads");
@@ -397,6 +400,7 @@ export async function updateLead(_prev: SimpleActionState, formData: FormData): 
 
   const lead = await prisma.lead.update({ where: { id: leadId }, data: rest });
   await logActivity({ customerId: lead.customerId, leadId, type: "LEAD_UPDATED", description: "Lead details updated.", actorId: scope.userId });
+  await recomputeLeadScore(leadId, scope.userId);
 
   revalidatePath(`/customers/${lead.customerId}`);
   revalidatePath("/leads");

@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireScope } from "@/lib/queries/scope";
 import { logActivity } from "@/lib/activity";
 import { runAutomation } from "@/lib/automation/engine";
+import { recomputeLeadScore } from "@/lib/scoring-engine";
 import { revalidatePath } from "next/cache";
 import type { SimpleActionState } from "@/lib/actions/communications";
 
@@ -57,6 +58,9 @@ export async function createAppointment(_prev: SimpleActionState, formData: Form
 
   await runAutomation("APPOINTMENT_CREATED", { customerId: parsed.data.customerId, leadId: parsed.data.leadId, actorId: scope.userId });
 
+  const activeLead = await prisma.lead.findFirst({ where: { customerId: parsed.data.customerId, status: "ACTIVE" } });
+  if (activeLead) await recomputeLeadScore(activeLead.id, scope.userId);
+
   revalidatePath("/appointments");
   revalidatePath("/dashboard");
   revalidatePath(`/customers/${parsed.data.customerId}`);
@@ -86,6 +90,8 @@ export async function updateAppointmentStatus(appointmentId: string, status: str
   } else if (status === "COMPLETED") {
     await runAutomation("APPOINTMENT_COMPLETED", { customerId: appt.customerId, leadId: lead?.id, actorId: scope.userId });
   }
+
+  if (lead) await recomputeLeadScore(lead.id, scope.userId);
 
   revalidatePath("/appointments");
   revalidatePath("/dashboard");

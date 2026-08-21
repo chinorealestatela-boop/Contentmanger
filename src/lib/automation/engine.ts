@@ -195,6 +195,13 @@ export async function runAutomation(triggerEvent: TriggerEvent, payload: Automat
  * dashboard load) and is safe to call repeatedly: it won't re-fire a rule
  * for the same lead more than once per day. */
 export async function runTimeBasedAutomationChecks() {
+  let created = 0;
+  created += await checkNoContactRules();
+  created += await checkAppointmentTomorrowRules();
+  return created;
+}
+
+async function checkNoContactRules() {
   const rules = await prisma.automationRule.findMany({ where: { triggerEvent: "NO_CONTACT_X_DAYS", active: true } });
   let created = 0;
   for (const rule of rules) {
@@ -222,6 +229,43 @@ export async function runTimeBasedAutomationChecks() {
       const actions = JSON.parse(rule.actions) as ActionDef[];
       for (const action of actions) {
         await executeAction(action, rule, { customerId: lead.customerId, leadId: lead.id });
+      }
+      created++;
+    }
+  }
+  return created;
+}
+
+/** Appointment reminders aren't triggered by a discrete event (nothing
+ * "happens" when midnight arrives) — this sweep finds appointments
+ * scheduled for tomorrow and fires the rule once per appointment per day. */
+async function checkAppointmentTomorrowRules() {
+  const rules = await prisma.automationRule.findMany({ where: { triggerEvent: "APPOINTMENT_TOMORROW", active: true } });
+  if (rules.length === 0) return 0;
+
+  const tomorrowStart = new Date();
+  tomorrowStart.setDate(tomorrowStart.getDate() + 1);
+  tomorrowStart.setHours(0, 0, 0, 0);
+  const tomorrowEnd = new Date(tomorrowStart);
+  tomorrowEnd.setHours(23, 59, 59, 999);
+
+  const appointments = await prisma.appointment.findMany({
+    where: { date: { gte: tomorrowStart, lte: tomorrowEnd }, status: { in: ["SCHEDULED", "CONFIRMED"] } },
+    select: { id: true, customerId: true },
+  });
+
+  let created = 0;
+  for (const rule of rules) {
+    for (const appt of appointments) {
+      const ranToday = await prisma.automationRun.findFirst({
+        where: { ruleId: rule.id, customerId: appt.customerId, createdAt: { gte: new Date(new Date().setHours(0, 0, 0, 0)) } },
+      });
+      if (ranToday) continue;
+
+      const lead = await prisma.lead.findFirst({ where: { customerId: appt.customerId, status: "ACTIVE" }, select: { id: true } });
+      const actions = JSON.parse(rule.actions) as ActionDef[];
+      for (const action of actions) {
+        await executeAction(action, rule, { customerId: appt.customerId, leadId: lead?.id });
       }
       created++;
     }
