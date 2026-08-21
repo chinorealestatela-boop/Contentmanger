@@ -1,0 +1,599 @@
+// Automotive Sales CRM — Database Schema
+// SQLite (file-based, zero external services required for v1).
+// SQLite has no native enum support in Prisma, so fixed-choice fields are
+// typed as String and validated/typed at the application layer (see
+// src/lib/constants.ts for the canonical value lists / TS union types).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// AUTH / USERS / ROLES
+// ─────────────────────────────────────────────────────────────────────────
+
+model Role {
+  id          String   @id @default(cuid())
+  name        String   @unique // SALESPERSON | MANAGER | ADMIN (extensible)
+  label       String
+  description String?
+  permissions String // JSON-encoded permission flags
+  createdAt   DateTime @default(now())
+  users       User[]
+}
+
+model User {
+  id                String    @id @default(cuid())
+  firstName         String
+  lastName          String
+  email             String    @unique
+  passwordHash      String
+  phone             String?
+  avatarColor       String    @default("#2563eb")
+  title             String? // e.g. "Sales Consultant"
+  isActive          Boolean   @default(true)
+  roleId            String
+  role              Role      @relation(fields: [roleId], references: [id])
+  notificationPrefs String? // JSON-encoded notification preferences
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  lastLoginAt       DateTime?
+
+  customers      Customer[]           @relation("CustomerOwner")
+  leads          Lead[]               @relation("LeadAssignee")
+  tasks          Task[]               @relation("TaskAssignee")
+  appointments   Appointment[]        @relation("AppointmentSalesperson")
+  testDrives     TestDrive[]          @relation("TestDriveSalesperson")
+  activities     Activity[]           @relation("ActivityActor")
+  communications Communication[]      @relation("CommunicationActor")
+  notes          Note[]               @relation("NoteAuthor")
+  sales          Sale[]               @relation("SaleSalesperson")
+  notifications  Notification[]
+  resetTokens    PasswordResetToken[]
+  sessions       Session[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// CUSTOMERS / LEADS
+// ─────────────────────────────────────────────────────────────────────────
+
+model Customer {
+  id                     String  @id @default(cuid())
+  firstName              String
+  lastName               String
+  phone                  String?
+  email                  String?
+  address                String?
+  city                   String?
+  state                  String?
+  zip                    String?
+  preferredContactMethod String  @default("PHONE") // PHONE | TEXT | EMAIL
+  bestContactTime        String? // MORNING | AFTERNOON | EVENING | ANYTIME
+
+  ownerId String
+  owner   User   @relation("CustomerOwner", fields: [ownerId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  leads               Lead[]
+  vehicleInterests    CustomerVehicle[]
+  tradeIns            TradeIn[]
+  appointments        Appointment[]
+  testDrives          TestDrive[]
+  tasks               Task[]
+  communications      Communication[]
+  notes               Note[]
+  offers              Offer[]
+  sales               Sale[]
+  activities          Activity[]
+  followUpEnrollments FollowUpEnrollment[]
+
+  @@index([lastName, firstName])
+}
+
+model LeadSource {
+  id     String  @id @default(cuid())
+  name   String  @unique
+  active Boolean @default(true)
+  order  Int     @default(0)
+  leads  Lead[]
+}
+
+model PipelineStage {
+  id           String  @id @default(cuid())
+  name         String  @unique
+  order        Int
+  color        String  @default("#64748b")
+  isClosedWon  Boolean @default(false)
+  isClosedLost Boolean @default(false)
+  active       Boolean @default(true)
+  leads        Lead[]
+}
+
+model LostReason {
+  id     String  @id @default(cuid())
+  name   String  @unique
+  active Boolean @default(true)
+  order  Int     @default(0)
+  leads  Lead[]
+}
+
+model Lead {
+  id String @id @default(cuid())
+
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  sourceId String?
+  source   LeadSource? @relation(fields: [sourceId], references: [id])
+
+  assigneeId String
+  assignee   User   @relation("LeadAssignee", fields: [assigneeId], references: [id])
+
+  stageId        String
+  stage          PipelineStage @relation(fields: [stageId], references: [id])
+  stageEnteredAt DateTime      @default(now())
+
+  status            String  @default("ACTIVE") // ACTIVE | ON_HOLD | SOLD | LOST
+  temperature       String  @default("COLD") // HOT | WARM | COLD
+  score             Int     @default(0)
+  purchaseTimeframe String? // IMMEDIATE | THIS_WEEK | THIS_MONTH | THIS_QUARTER | RESEARCHING
+
+  dateReceived DateTime @default(now())
+
+  // Financing
+  financeType     String? // CASH | FINANCE | LEASE
+  desiredPayment  Float?
+  downPayment     Float?
+  creditAppStatus String  @default("NOT_STARTED") // NOT_STARTED | SUBMITTED | APPROVED | DECLINED | PENDING
+  hasCoBuyer      Boolean @default(false)
+  coBuyerName     String?
+
+  // Vehicle matching preferences (used for inventory search)
+  prefBodyStyle  String?
+  prefMaxPrice   Float?
+  prefDrivetrain String?
+  prefThirdRow   Boolean @default(false)
+  prefColor      String?
+
+  // Notes
+  customerNeeds String?
+  customerWants String?
+  objections    String?
+  preferences   String?
+  salesNotes    String?
+
+  lastContactedAt DateTime?
+  nextFollowUpAt  DateTime?
+
+  lostReasonId String?
+  lostReason   LostReason? @relation(fields: [lostReasonId], references: [id])
+  lostAt       DateTime?
+  lostNotes    String?
+
+  soldAt DateTime?
+
+  reactivatedAt     DateTime?
+  reactivationCount Int       @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  vehicleInterests    CustomerVehicle[]
+  tasks               Task[]
+  activities          Activity[]
+  scoreEvents         LeadScoreEvent[]
+  followUpEnrollments FollowUpEnrollment[]
+  sales               Sale[]
+
+  @@index([assigneeId, status])
+  @@index([temperature])
+  @@index([stageId])
+}
+
+model LeadScoreEvent {
+  id        String   @id @default(cuid())
+  leadId    String
+  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  points    Int
+  reason    String
+  createdAt DateTime @default(now())
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// VEHICLES / INVENTORY / MATCHING
+// ─────────────────────────────────────────────────────────────────────────
+
+model Vehicle {
+  id              String   @id @default(cuid())
+  stockNumber     String   @unique
+  vin             String   @unique
+  year            Int
+  make            String
+  model           String
+  trim            String?
+  condition       String   @default("USED") // NEW | USED | CERTIFIED
+  bodyStyle       String? // SEDAN | SUV | TRUCK | COUPE | VAN | CONVERTIBLE
+  drivetrain      String? // FWD | RWD | AWD | 4WD
+  mileage         Int      @default(0)
+  exteriorColor   String?
+  interiorColor   String?
+  msrp            Float?
+  sellingPrice    Float?
+  internetPrice   Float?
+  status          String   @default("AVAILABLE") // AVAILABLE | HOLD | SOLD | IN_TRANSIT | UNAVAILABLE
+  location        String?
+  photos          String? // JSON-encoded array of photo URLs
+  description     String?
+  seatingCapacity Int?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  customerInterests CustomerVehicle[]
+  appointments      Appointment[]
+  testDrives        TestDrive[]
+  offers            Offer[]
+  sales             Sale[]
+
+  @@index([status])
+  @@index([make, model])
+}
+
+model CustomerVehicle {
+  id         String   @id @default(cuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  leadId     String?
+  lead       Lead?    @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  vehicleId  String?
+  vehicle    Vehicle? @relation(fields: [vehicleId], references: [id])
+
+  // Free-text fallback when no exact inventory match exists yet
+  year  Int?
+  make  String?
+  model String?
+  trim  String?
+
+  isPrimary     Boolean  @default(false)
+  interestLevel String   @default("INTERESTED") // INTERESTED | STRONG | PURCHASED | PASSED
+  createdAt     DateTime @default(now())
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// TRADE-INS
+// ─────────────────────────────────────────────────────────────────────────
+
+model TradeIn {
+  id              String   @id @default(cuid())
+  customerId      String
+  customer        Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  year            Int?
+  make            String?
+  model           String?
+  trim            String?
+  vin             String?
+  mileage         Int?
+  payoff          Float    @default(0)
+  estimatedValue  Float    @default(0)
+  desiredValue    Float?
+  appraisalStatus String   @default("PENDING") // PENDING | APPRAISED | ACCEPTED | DECLINED
+  photos          String? // JSON array
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// APPOINTMENTS / TEST DRIVES
+// ─────────────────────────────────────────────────────────────────────────
+
+model Appointment {
+  id            String   @id @default(cuid())
+  customerId    String
+  customer      Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  vehicleId     String?
+  vehicle       Vehicle? @relation(fields: [vehicleId], references: [id])
+  salespersonId String
+  salesperson   User     @relation("AppointmentSalesperson", fields: [salespersonId], references: [id])
+
+  date   DateTime // date component
+  time   String // "HH:mm"
+  type   String   @default("SHOWROOM_VISIT") // SHOWROOM_VISIT | TEST_DRIVE | TRADE_APPRAISAL | CREDIT_APPLICATION | VEHICLE_DELIVERY | FOLLOW_UP
+  status String   @default("SCHEDULED") // SCHEDULED | CONFIRMED | SHOWED | NO_SHOW | CANCELLED | COMPLETED
+  notes  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  testDrives TestDrive[]
+
+  @@index([date])
+  @@index([status])
+}
+
+model TestDrive {
+  id            String       @id @default(cuid())
+  customerId    String
+  customer      Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  vehicleId     String
+  vehicle       Vehicle      @relation(fields: [vehicleId], references: [id])
+  appointmentId String?
+  appointment   Appointment? @relation(fields: [appointmentId], references: [id])
+  salespersonId String
+  salesperson   User         @relation("TestDriveSalesperson", fields: [salespersonId], references: [id])
+
+  date             DateTime
+  startTime        String?
+  endTime          String?
+  notes            String?
+  customerReaction String? // POSITIVE | NEUTRAL | NEGATIVE
+  objections       String?
+  nextStep         String?
+
+  createdAt DateTime @default(now())
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// TASKS / ACTIVITIES / COMMUNICATIONS / NOTES
+// ─────────────────────────────────────────────────────────────────────────
+
+model Task {
+  id         String    @id @default(cuid())
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  leadId     String?
+  lead       Lead?     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  title    String
+  type     String   @default("OTHER") // CALL | TEXT | EMAIL | FOLLOW_UP | APPOINTMENT | TRADE | CREDIT | DELIVERY | OTHER
+  priority String   @default("NORMAL") // LOW | NORMAL | HIGH | URGENT
+  dueDate  DateTime
+  dueTime  String?
+  status   String   @default("PENDING") // PENDING | COMPLETED | SNOOZED | CANCELLED
+  notes    String?
+
+  assigneeId String
+  assignee   User   @relation("TaskAssignee", fields: [assigneeId], references: [id])
+
+  source      String    @default("MANUAL") // MANUAL | AUTOMATION | SEQUENCE
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([assigneeId, status, dueDate])
+}
+
+model Activity {
+  id         String   @id @default(cuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  leadId     String?
+  lead       Lead?    @relation(fields: [leadId], references: [id], onDelete: SetNull)
+
+  type        String // e.g. STAGE_CHANGE, NOTE_ADDED, CALL_LOGGED, TASK_COMPLETED, APPOINTMENT_SET, AUTOMATION, SOLD, LOST, REACTIVATED...
+  description String
+  metadata    String? // JSON
+
+  actorId String?
+  actor   User?   @relation("ActivityActor", fields: [actorId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([customerId, createdAt])
+}
+
+model Communication {
+  id         String   @id @default(cuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  type      String // CALL | TEXT | EMAIL | VOICEMAIL | IN_PERSON | OTHER
+  direction String  @default("OUTBOUND") // OUTBOUND | INBOUND
+  summary   String
+  body      String?
+
+  actorId String
+  actor   User   @relation("CommunicationActor", fields: [actorId], references: [id])
+
+  occurredAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+
+  @@index([customerId, occurredAt])
+}
+
+model Note {
+  id         String   @id @default(cuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  leadId     String?
+
+  body String
+
+  authorId String
+  author   User   @relation("NoteAuthor", fields: [authorId], references: [id])
+
+  createdAt DateTime @default(now())
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// OFFERS / SALES
+// ─────────────────────────────────────────────────────────────────────────
+
+model Offer {
+  id         String   @id @default(cuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  vehicleId  String?
+  vehicle    Vehicle? @relation(fields: [vehicleId], references: [id])
+
+  offerPrice     Float?
+  monthlyPayment Float?
+  term           Int?
+  downPayment    Float?
+  status         String  @default("PENDING") // PENDING | COUNTERED | ACCEPTED | REJECTED
+  notes          String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Sale {
+  id         String   @id @default(cuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  leadId     String?
+  lead       Lead?    @relation(fields: [leadId], references: [id])
+  vehicleId  String
+  vehicle    Vehicle  @relation(fields: [vehicleId], references: [id])
+
+  salePrice   Float
+  financeType String // CASH | FINANCE | LEASE
+  saleDate    DateTime @default(now())
+
+  salespersonId String
+  salesperson   User   @relation("SaleSalesperson", fields: [salespersonId], references: [id])
+
+  notes     String?
+  createdAt DateTime @default(now())
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// FOLLOW-UP SEQUENCES
+// ─────────────────────────────────────────────────────────────────────────
+
+model FollowUpSequence {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  isDefault   Boolean  @default(false)
+  trigger     String   @default("NEW_LEAD") // NEW_LEAD | REACTIVATION | MANUAL
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  steps       FollowUpStep[]
+  enrollments FollowUpEnrollment[]
+}
+
+model FollowUpStep {
+  id          String           @id @default(cuid())
+  sequenceId  String
+  sequence    FollowUpSequence @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
+  dayOffset   Int
+  type        String // CALL | TEXT | EMAIL | FOLLOW_UP | OTHER
+  title       String
+  description String?
+  order       Int
+
+  @@index([sequenceId, order])
+}
+
+model FollowUpEnrollment {
+  id         String           @id @default(cuid())
+  customerId String
+  customer   Customer         @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  leadId     String?
+  lead       Lead?            @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  sequenceId String
+  sequence   FollowUpSequence @relation(fields: [sequenceId], references: [id])
+
+  currentStepIndex Int       @default(0)
+  status           String    @default("ACTIVE") // ACTIVE | COMPLETED | CANCELLED
+  startedAt        DateTime  @default(now())
+  completedAt      DateTime?
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// AUTOMATION ENGINE
+// ─────────────────────────────────────────────────────────────────────────
+
+model AutomationRule {
+  id           String   @id @default(cuid())
+  name         String
+  description  String?
+  triggerEvent String // NEW_LEAD | STAGE_CHANGE | HOT_LEAD | APPOINTMENT_CREATED | APPOINTMENT_TOMORROW | APPOINTMENT_NO_SHOW | APPOINTMENT_COMPLETED | NO_CONTACT_X_DAYS | TEST_DRIVE_COMPLETED | VEHICLE_SOLD | LEAD_LOST | FOLLOW_UP_COMPLETED
+  conditions   String? // JSON-encoded condition set
+  actions      String // JSON-encoded array of actions to perform
+  active       Boolean  @default(true)
+  order        Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  runs AutomationRun[]
+}
+
+model AutomationRun {
+  id         String         @id @default(cuid())
+  ruleId     String
+  rule       AutomationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  customerId String?
+  leadId     String?
+  status     String         @default("SUCCESS") // SUCCESS | SKIPPED | FAILED
+  detail     String?
+  createdAt  DateTime       @default(now())
+
+  @@index([ruleId, createdAt])
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// NOTIFICATIONS / SETTINGS
+// ─────────────────────────────────────────────────────────────────────────
+
+model Notification {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type      String // NEW_LEAD | HOT_LEAD | OVERDUE_FOLLOW_UP | APPOINTMENT | APPOINTMENT_TOMORROW | NO_SHOW | CUSTOMER_ACTIVITY | VEHICLE_SOLD | IMPORTANT_TASK | AUTOMATION
+  title     String
+  body      String?
+  link      String?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, isRead])
+}
+
+model Setting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String // JSON-encoded
+  updatedAt DateTime @updatedAt
+}
+
+// Integration configuration placeholders (all disabled/absent by default).
+// Populated later when external API keys become available; never required
+// for v1 functionality.
+model Integration {
+  id        String   @id @default(cuid())
+  provider  String   @unique // OPENAI | TWILIO | GMAIL | OUTLOOK | GOOGLE_CALENDAR | DMS | INVENTORY_FEED
+  category  String // AI | SMS | EMAIL | CALENDAR | INVENTORY | LEADS | DMS
+  enabled   Boolean  @default(false)
+  config    String? // JSON-encoded, non-secret config only
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

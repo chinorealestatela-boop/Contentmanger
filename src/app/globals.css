@@ -1,0 +1,240 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #f4f6fa;
+  --bg-elevated: #ffffff;
+  --bg-subtle: #eef1f6;
+  --border: #e2e6ee;
+  --text: #0f172a;
+  --text-muted: #5b6478;
+  --text-faint: #94a0b8;
+
+  --brand: #2455e6;
+  --brand-dark: #1a3fc0;
+  --brand-soft: #e8eefd;
+
+  --sidebar-bg: #0b1220;
+  --sidebar-bg-hover: #161f33;
+  --sidebar-text: #aab3c8;
+  --sidebar-text-active: #ffffff;
+  --sidebar-border: #1b2436;
+
+  --hot: #dc2626;
+  --hot-soft: #fee2e2;
+  --warm: #ea580c;
+  --warm-soft: #ffedd5;
+  --cold: #2563eb;
+  --cold-soft: #dbeafe;
+  --overdue: #b91c1c;
+  --overdue-soft: #fee2e2;
+  --appointment: #7c3aed;
+  --appointment-soft: #ede9fe;
+  --sold: #16a34a;
+  --sold-soft: #dcfce7;
+  --lost: #64748b;
+  --lost-soft: #f1f5f9;
+
+  --success: #16a34a;
+  --warning: #d97706;
+  --danger: #dc2626;
+
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow-md: 0 4px 16px rgba(15, 23, 42, 0.08);
+  --shadow-lg: 0 12px 32px rgba(15, 23, 42, 0.12);
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-bg-elevated: var(--bg-elevated);
+  --color-bg-subtle: var(--bg-subtle);
+  --color-border: var(--border);
+  --color-text: var(--text);
+  --color-text-muted: var(--text-muted);
+  --color-text-faint: var(--text-faint);
+  --color-brand: var(--brand);
+  --color-brand-dark: var(--brand-dark);
+  --color-brand-soft: var(--brand-soft);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+* {
+  border-color: var(--border);
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd3e1;
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+/* ── Reusable component classes ─────────────────────────────────────── */
+
+.card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow-sm);
+}
+
+.input {
+  width: 100%;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  border-radius: 9px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  color: var(--text);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.input:focus {
+  outline: none;
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px var(--brand-soft);
+}
+.label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 0.25rem;
+  display: block;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  font-weight: 600;
+  font-size: 0.8125rem;
+  border-radius: 9px;
+  padding: 0.5rem 0.875rem;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.btn-primary {
+  background: var(--brand);
+  color: #fff;
+}
+.btn-primary:hover:not(:disabled) {
+  background: var(--brand-dark);
+}
+.btn-secondary {
+  background: var(--bg-elevated);
+  border-color: var(--border);
+  color: var(--text);
+}
+.btn-secondary:hover:not(:disabled) {
+  background: var(--bg-subtle);
+}
+.btn-ghost {
+  background: transparent;
+  color: var(--text-muted);
+}
+.btn-ghost:hover:not(:disabled) {
+  background: var(--bg-subtle);
+  color: var(--text);
+}
+.btn-danger {
+  background: var(--danger);
+  color: #fff;
+}
+.btn-danger:hover:not(:disabled) {
+  background: #b91c1c;
+}
+.btn-sm {
+  padding: 0.3rem 0.6rem;
+  font-size: 0.75rem;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.badge-hot {
+  background: var(--hot-soft);
+  color: var(--hot);
+}
+.badge-warm {
+  background: var(--warm-soft);
+  color: var(--warm);
+}
+.badge-cold {
+  background: var(--cold-soft);
+  color: var(--cold);
+}
+.badge-overdue {
+  background: var(--overdue-soft);
+  color: var(--overdue);
+}
+.badge-appointment {
+  background: var(--appointment-soft);
+  color: var(--appointment);
+}
+.badge-sold {
+  background: var(--sold-soft);
+  color: var(--sold);
+}
+.badge-lost {
+  background: var(--lost-soft);
+  color: var(--lost);
+}
+.badge-neutral {
+  background: var(--bg-subtle);
+  color: var(--text-muted);
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-none {
+  scrollbar-width: none;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-fade-in {
+  animation: fade-in 0.15s ease-out;
+}
