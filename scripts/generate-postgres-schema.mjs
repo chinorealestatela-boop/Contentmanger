@@ -24,7 +24,13 @@ if (!sqliteBlock.test(src)) {
   process.exit(1);
 }
 
-const postgresBlock = 'datasource db {\n  provider = "postgresql"\n  url      = env("DATABASE_URL")\n}';
+// url = pooled connection (PgBouncer/Supavisor, port 6543) for runtime
+// queries from serverless functions — a direct connection's max_connections
+// is exhausted fast when every invocation opens its own connection.
+// directUrl = the unpooled connection (port 5432), used only for
+// `prisma db push`/`migrate`, which need a session-mode connection.
+const postgresBlock =
+  'datasource db {\n  provider  = "postgresql"\n  url       = env("DATABASE_URL")\n  directUrl = env("DIRECT_URL")\n}';
 const out = src.replace(sqliteBlock, postgresBlock);
 
 writeFileSync(outPath, out);
