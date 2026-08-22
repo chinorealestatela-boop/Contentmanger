@@ -2,11 +2,11 @@ import { prisma } from "@/lib/prisma";
 import { customerScopeWhere, type Scope } from "@/lib/queries/scope";
 
 export async function globalSearch(scope: Scope, q: string) {
-  if (!q.trim()) return { customers: [], vehicles: [], appointments: [] };
+  if (!q.trim()) return { customers: [], vehicles: [], appointments: [], followUps: [] };
 
   const customerWhere = customerScopeWhere(scope);
 
-  const [customers, vehicles, appointments] = await Promise.all([
+  const [customers, vehicles, appointments, followUps] = await Promise.all([
     prisma.customer.findMany({
       where: {
         ...customerWhere,
@@ -36,12 +36,20 @@ export async function globalSearch(scope: Scope, q: string) {
     prisma.appointment.findMany({
       where: {
         salespersonId: scope.viewAll ? undefined : scope.userId,
-        OR: [{ notes: { contains: q } }, { type: { contains: q } }, { customer: { OR: [{ firstName: { contains: q } }, { lastName: { contains: q } }] } }],
+        OR: [{ notes: { contains: q } }, { type: { contains: q } }, { location: { contains: q } }, { customer: { OR: [{ firstName: { contains: q } }, { lastName: { contains: q } }] } }],
+      },
+      include: { customer: true },
+      take: 10,
+    }),
+    prisma.followUp.findMany({
+      where: {
+        assigneeId: scope.viewAll ? undefined : scope.userId,
+        OR: [{ topic: { contains: q } }, { notes: { contains: q } }, { completionNotes: { contains: q } }, { customer: { OR: [{ firstName: { contains: q } }, { lastName: { contains: q } }, { phone: { contains: q } }] } }],
       },
       include: { customer: true },
       take: 10,
     }),
   ]);
 
-  return { customers, vehicles, appointments };
+  return { customers, vehicles, appointments, followUps };
 }

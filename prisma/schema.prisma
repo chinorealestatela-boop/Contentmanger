@@ -56,6 +56,7 @@ model User {
   notifications  Notification[]
   resetTokens    PasswordResetToken[]
   sessions       Session[]
+  followUps      FollowUp[]           @relation("FollowUpAssignee")
 }
 
 model Session {
@@ -112,6 +113,7 @@ model Customer {
   sales               Sale[]
   activities          Activity[]
   followUpEnrollments FollowUpEnrollment[]
+  followUps           FollowUp[]
 
   @@index([lastName, firstName])
 }
@@ -210,6 +212,8 @@ model Lead {
   scoreEvents         LeadScoreEvent[]
   followUpEnrollments FollowUpEnrollment[]
   sales               Sale[]
+  followUps           FollowUp[]
+  appointments        Appointment[]
 
   @@index([assigneeId, status])
   @@index([temperature])
@@ -312,20 +316,35 @@ model TradeIn {
 // APPOINTMENTS / TEST DRIVES
 // ─────────────────────────────────────────────────────────────────────────
 
+// Also serves as the CRM's calendar event — every entry here is what
+// renders on the Calendar tab (month/week/day views), the dashboard's
+// upcoming-activities widgets, and the customer profile's "Add to
+// Calendar" list. leadId is optional (an appointment can be logged
+// against a customer with no active lead), customerId is always required
+// so it always shows on the customer's profile.
 model Appointment {
   id            String   @id @default(cuid())
   customerId    String
   customer      Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  leadId        String?
+  lead          Lead?    @relation(fields: [leadId], references: [id], onDelete: SetNull)
   vehicleId     String?
   vehicle       Vehicle? @relation(fields: [vehicleId], references: [id])
   salespersonId String
   salesperson   User     @relation("AppointmentSalesperson", fields: [salespersonId], references: [id])
 
-  date   DateTime // date component
-  time   String // "HH:mm"
-  type   String   @default("SHOWROOM_VISIT") // SHOWROOM_VISIT | TEST_DRIVE | TRADE_APPRAISAL | CREDIT_APPLICATION | VEHICLE_DELIVERY | FOLLOW_UP
-  status String   @default("SCHEDULED") // SCHEDULED | CONFIRMED | SHOWED | NO_SHOW | CANCELLED | COMPLETED
-  notes  String?
+  date     DateTime // date component
+  time     String // start time, "HH:mm"
+  endTime  String? // "HH:mm"
+  location String?
+  type     String @default("SALES_APPOINTMENT") // CUSTOMER_CALL | FOLLOW_UP_CALL | TEST_DRIVE | DEALERSHIP_APPOINTMENT | VEHICLE_WALKAROUND | FINANCING_DISCUSSION | TRADE_IN_EVALUATION | SALES_APPOINTMENT | DELIVERY | OTHER
+  status   String @default("SCHEDULED") // SCHEDULED | CONFIRMED | SHOWED | NO_SHOW | CANCELLED | COMPLETED
+  notes    String?
+
+  // Reminder: minutes before start to surface an in-app reminder
+  // notification (0 = at the scheduled time). Null = no reminder.
+  reminderOffsetMinutes Int?
+  reminderSentAt        DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -334,6 +353,56 @@ model Appointment {
 
   @@index([date])
   @@index([status])
+  @@index([leadId])
+}
+
+// A manually-scheduled follow-up call/touch on a specific customer (and
+// optionally a specific lead) — distinct from the generic Task list and
+// from calendar Appointments. Carries the conversation plan going in
+// (topic + notes) and, once done, what actually happened
+// (completionNotes). Rescheduling creates a new row linked back via
+// rescheduledFromId so the history of a follow-up chain is never lost.
+model FollowUp {
+  id         String   @id @default(cuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  leadId     String?
+  lead       Lead?    @relation(fields: [leadId], references: [id], onDelete: SetNull)
+
+  topic String // Conversation Topic / Reason for Follow-Up
+  notes String? // Detailed Follow-Up Notes — what to cover on the call
+
+  followUpDate DateTime // date component
+  followUpTime String // "HH:mm"
+
+  // Minutes before followUpDate+Time to fire an in-app reminder
+  // notification (0 = at the scheduled time, e.g. 15/30/60/1440, or any
+  // custom value). Null = no reminder.
+  reminderOffsetMinutes Int?
+  reminderSentAt        DateTime?
+
+  priority String @default("NORMAL") // LOW | NORMAL | HIGH | URGENT
+  status   String @default("SCHEDULED") // SCHEDULED | COMPLETED | RESCHEDULED | CANCELLED | MISSED
+  // "Due Today" isn't stored — it's SCHEDULED + followUpDate == today,
+  // computed at read time so it never needs a background job to stay
+  // accurate as the day rolls over.
+
+  assigneeId String
+  assignee   User   @relation("FollowUpAssignee", fields: [assigneeId], references: [id])
+
+  completedAt     DateTime?
+  completionNotes String? // what happened during the call
+
+  rescheduledFromId String?   @unique
+  rescheduledFrom   FollowUp? @relation("FollowUpReschedule", fields: [rescheduledFromId], references: [id])
+  rescheduledTo     FollowUp? @relation("FollowUpReschedule")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([assigneeId, status, followUpDate])
+  @@index([customerId])
+  @@index([followUpDate])
 }
 
 model TestDrive {

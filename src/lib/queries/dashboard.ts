@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { customerScopeWhere, leadScopeWhere, type Scope } from "@/lib/queries/scope";
 import { startOfDay, endOfDay, startOfTomorrow, endOfTomorrow } from "date-fns";
+import { getCalendarEvents, type CalendarEvent } from "@/lib/queries/calendar";
 
 function today() {
   return { gte: startOfDay(new Date()), lte: endOfDay(new Date()) };
@@ -27,6 +28,10 @@ export async function getDashboardMetrics(scope: Scope) {
     creditApplications,
     sold,
     lost,
+    totalCustomers,
+    followUpCallsDueToday,
+    salesThisMonth,
+    totalLeads,
   ] = await Promise.all([
     prisma.lead.count({ where: { ...leadWhere, dateReceived: todayRange } }),
     prisma.lead.count({ where: { ...leadWhere, status: "ACTIVE" } }),
@@ -40,6 +45,10 @@ export async function getDashboardMetrics(scope: Scope) {
     prisma.lead.count({ where: { ...leadWhere, status: "ACTIVE", OR: [{ stage: { name: "Credit Application" } }, { creditAppStatus: { in: ["SUBMITTED", "PENDING"] } }] } }),
     prisma.lead.count({ where: { ...leadWhere, status: "SOLD" } }),
     prisma.lead.count({ where: { ...leadWhere, status: "LOST" } }),
+    prisma.customer.count({ where: customerScopeWhere(scope) }),
+    prisma.followUp.count({ where: { assigneeId: scope.viewAll ? undefined : scope.userId, status: "SCHEDULED", followUpDate: todayRange } }),
+    prisma.sale.count({ where: { salespersonId: scope.viewAll ? undefined : scope.userId, saleDate: { gte: new Date(now.getFullYear(), now.getMonth(), 1) } } }),
+    prisma.lead.count({ where: leadWhere }),
   ]);
 
   return {
@@ -55,6 +64,10 @@ export async function getDashboardMetrics(scope: Scope) {
     creditApplications,
     sold,
     lost,
+    totalCustomers,
+    followUpCallsDueToday,
+    salesThisMonth,
+    totalLeads,
   };
 }
 
@@ -221,6 +234,18 @@ export async function getUpcomingAppointmentsToday(scope: Scope) {
     include: { customer: true, vehicle: true },
     orderBy: { time: "asc" },
   });
+}
+
+/** Powers the dashboard's "Upcoming Activities" card — every follow-up
+ * call and calendar appointment happening today and tomorrow, in one
+ * merged, time-sorted list. */
+export async function getUpcomingActivities(scope: Scope): Promise<{ today: CalendarEvent[]; tomorrow: CalendarEvent[] }> {
+  const events = await getCalendarEvents(scope, { start: startOfDay(new Date()), end: endOfTomorrow() });
+  const todayEnd = endOfDay(new Date());
+  return {
+    today: events.filter((e) => e.date <= todayEnd),
+    tomorrow: events.filter((e) => e.date > todayEnd),
+  };
 }
 
 export async function getCustomerCountForOwner(scope: Scope) {

@@ -114,14 +114,20 @@ export const APPRAISAL_STATUSES: Option[] = [
   { value: "DECLINED", label: "Declined", color: "#dc2626" },
 ];
 
-// ── Appointments ───────────────────────────────────────────────────────
+// ── Appointments / Calendar events ────────────────────────────────────
+// This list also drives the Calendar tab's event-type badges/icons (see
+// src/components/calendar/eventMeta.ts for the icon+color mapping).
 export const APPOINTMENT_TYPES: Option[] = [
-  { value: "SHOWROOM_VISIT", label: "Showroom Visit" },
-  { value: "TEST_DRIVE", label: "Test Drive" },
-  { value: "TRADE_APPRAISAL", label: "Trade Appraisal" },
-  { value: "CREDIT_APPLICATION", label: "Credit Application" },
-  { value: "VEHICLE_DELIVERY", label: "Vehicle Delivery" },
-  { value: "FOLLOW_UP", label: "Follow-Up" },
+  { value: "CUSTOMER_CALL", label: "Customer Call", color: "#2563eb" },
+  { value: "FOLLOW_UP_CALL", label: "Follow-Up Call", color: "#0891b2" },
+  { value: "TEST_DRIVE", label: "Test Drive", color: "#ea580c" },
+  { value: "DEALERSHIP_APPOINTMENT", label: "Dealership Appointment", color: "#7c3aed" },
+  { value: "VEHICLE_WALKAROUND", label: "Vehicle Walkaround", color: "#0d9488" },
+  { value: "FINANCING_DISCUSSION", label: "Financing Discussion", color: "#a16207" },
+  { value: "TRADE_IN_EVALUATION", label: "Trade-In Evaluation", color: "#16a34a" },
+  { value: "SALES_APPOINTMENT", label: "Sales Appointment", color: "#db2777" },
+  { value: "DELIVERY", label: "Delivery", color: "#4f46e5" },
+  { value: "OTHER", label: "Other", color: "#64748b" },
 ];
 
 export const APPOINTMENT_STATUSES: Option[] = [
@@ -131,6 +137,36 @@ export const APPOINTMENT_STATUSES: Option[] = [
   { value: "NO_SHOW", label: "No-Show", color: "#dc2626" },
   { value: "CANCELLED", label: "Cancelled", color: "#64748b" },
   { value: "COMPLETED", label: "Completed", color: "#7c3aed" },
+];
+
+// ── Follow-ups ─────────────────────────────────────────────────────────
+export const FOLLOWUP_STATUSES: Option[] = [
+  { value: "SCHEDULED", label: "Scheduled", color: "#2563eb" },
+  { value: "COMPLETED", label: "Completed", color: "#16a34a" },
+  { value: "RESCHEDULED", label: "Rescheduled", color: "#a16207" },
+  { value: "CANCELLED", label: "Cancelled", color: "#64748b" },
+  { value: "MISSED", label: "Missed", color: "#dc2626" },
+];
+
+// Not a stored status — SCHEDULED + followUpDate == today. Included here
+// only so status filter dropdowns can offer it as a value.
+export const FOLLOWUP_STATUS_FILTERS: Option[] = [
+  { value: "ALL", label: "All" },
+  ...FOLLOWUP_STATUSES,
+  { value: "DUE_TODAY", label: "Due Today", color: "#ea580c" },
+];
+
+// Stored as reminderOffsetMinutes (minutes before the follow-up time).
+// "CUSTOM" isn't a stored value — the UI swaps in a number input when
+// selected and stores whatever minute count the user enters.
+export const FOLLOWUP_REMINDER_OPTIONS: Option[] = [
+  { value: "NONE", label: "No reminder" },
+  { value: "0", label: "At the scheduled time" },
+  { value: "15", label: "15 minutes before" },
+  { value: "30", label: "30 minutes before" },
+  { value: "60", label: "1 hour before" },
+  { value: "1440", label: "1 day before" },
+  { value: "CUSTOM", label: "Custom…" },
 ];
 
 // ── Tasks ──────────────────────────────────────────────────────────────
@@ -236,6 +272,7 @@ export const NOTIFICATION_TYPES: Option[] = [
   { value: "NEW_LEAD", label: "New Lead" },
   { value: "HOT_LEAD", label: "Hot Lead" },
   { value: "OVERDUE_FOLLOW_UP", label: "Overdue Follow-Up" },
+  { value: "FOLLOW_UP_REMINDER", label: "Follow-Up Reminder" },
   { value: "APPOINTMENT", label: "Appointment" },
   { value: "APPOINTMENT_TOMORROW", label: "Appointment Tomorrow" },
   { value: "NO_SHOW", label: "No-Show" },

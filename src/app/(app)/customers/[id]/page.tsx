@@ -3,12 +3,14 @@ import Link from "next/link";
 import { Mail, Phone, MapPin, Clock } from "lucide-react";
 import { requireScope } from "@/lib/queries/scope";
 import { getCustomerProfile } from "@/lib/queries/customers";
+import { ensureFollowUpsFresh } from "@/lib/queries/followups";
 import { prisma } from "@/lib/prisma";
 import { Avatar } from "@/components/ui/Avatar";
 import { TemperatureBadge, Badge, ColorPill } from "@/components/ui/Badge";
 import { SectionCard, EmptyRow } from "@/components/ui/SectionCard";
 import { ActivityTimeline } from "@/components/customers/ActivityTimeline";
 import { ProfileActions } from "@/components/customers/ProfileActions";
+import { FollowUpsSection } from "@/components/customers/FollowUpsSection";
 import { formatCurrency, formatDate, formatRelativeDay, formatTime12h, formatTimeAgo } from "@/lib/format";
 import {
   optionLabel, CONTACT_METHODS, CONTACT_TIMES, PURCHASE_TIMEFRAMES, FINANCE_TYPES,
@@ -19,6 +21,7 @@ import {
 export default async function CustomerProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   await requireScope();
+  await ensureFollowUpsFresh();
   const customer = await getCustomerProfile(id);
   if (!customer) notFound();
 
@@ -65,6 +68,8 @@ export default async function CustomerProfilePage({ params }: { params: Promise<
         <div className="mt-4 border-t border-[var(--border)] pt-4">
           <ProfileActions
             customerId={customer.id}
+            customerName={`${customer.firstName} ${customer.lastName}`}
+            customerPhone={customer.phone}
             leadId={activeLead?.id ?? null}
             stages={stages}
             lostReasons={lostReasons}
@@ -158,6 +163,11 @@ export default async function CustomerProfilePage({ params }: { params: Promise<
                 })}
               </ul>
             )}
+          </SectionCard>
+
+          {/* Follow-ups */}
+          <SectionCard title="Follow-Ups">
+            <FollowUpsSection followUps={customer.followUps} />
           </SectionCard>
 
           {/* Appointments */}

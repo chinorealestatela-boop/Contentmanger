@@ -63,6 +63,7 @@ export async function getCustomerProfile(customerId: string) {
       sales: { orderBy: { saleDate: "desc" }, include: { vehicle: true, salesperson: true } },
       activities: { orderBy: { createdAt: "desc" }, include: { actor: true }, take: 100 },
       followUpEnrollments: { orderBy: { startedAt: "desc" }, include: { sequence: true } },
+      followUps: { orderBy: [{ followUpDate: "desc" }, { followUpTime: "desc" }], include: { assignee: true } },
     },
   });
 }

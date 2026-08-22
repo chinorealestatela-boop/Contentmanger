@@ -8,27 +8,30 @@ import {
   CalendarDays,
   Car,
   Handshake,
-  FileCheck2,
   Trophy,
   XCircle,
   Users,
   Sparkles,
 } from "lucide-react";
 import { requireScope } from "@/lib/queries/scope";
-import { getDashboardMetrics, getActionCenter, getHotLeads, getUpcomingAppointmentsToday } from "@/lib/queries/dashboard";
+import { getDashboardMetrics, getActionCenter, getHotLeads, getUpcomingActivities } from "@/lib/queries/dashboard";
+import { ensureFollowUpsFresh, getFollowUpsDueToday } from "@/lib/queries/followups";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { ActionCard } from "@/components/dashboard/ActionCard";
 import { HotLeadRow } from "@/components/dashboard/HotLeadRow";
+import { EventRow } from "@/components/calendar/EventRow";
 import { formatTime12h } from "@/lib/format";
 import { prisma } from "@/lib/prisma";
 
 export default async function DashboardPage() {
   const scope = await requireScope();
-  const [metrics, actionItems, hotLeads, apptsToday, user] = await Promise.all([
+  await ensureFollowUpsFresh();
+  const [metrics, actionItems, hotLeads, upcoming, followUpsDueToday, user] = await Promise.all([
     getDashboardMetrics(scope),
     getActionCenter(scope, 12),
     getHotLeads(scope, 8),
-    getUpcomingAppointmentsToday(scope),
+    getUpcomingActivities(scope),
+    getFollowUpsDueToday(scope, 5),
     prisma.user.findUnique({ where: { id: scope.userId } }),
   ]);
 
@@ -36,17 +39,17 @@ export default async function DashboardPage() {
   const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
 
   const stats = [
-    { label: "New Leads", value: metrics.newLeads, icon: UserPlus, href: "/leads?filter=new", tone: "default" as const },
+    { label: "Total Leads", value: metrics.totalLeads, icon: UserPlus, href: "/leads", tone: "default" as const },
     { label: "Active Leads", value: metrics.activeLeads, icon: Users, href: "/leads", tone: "default" as const },
+    { label: "Customers", value: metrics.totalCustomers, icon: Users, href: "/customers", tone: "default" as const },
     { label: "Hot Leads", value: metrics.hotLeads, icon: Flame, href: "/leads?temperature=HOT", tone: "hot" as const },
-    { label: "Follow-Ups Due", value: metrics.followUpsDue, icon: Clock, href: "/tasks?view=today", tone: "warm" as const },
+    { label: "Follow-Ups Due Today", value: metrics.followUpCallsDueToday, icon: Clock, href: "/calendar?view=today", tone: "warm" as const },
     { label: "Overdue Follow-Ups", value: metrics.overdueFollowUps, icon: AlertTriangle, href: "/tasks?view=overdue", tone: "overdue" as const },
-    { label: "Appointments Today", value: metrics.appointmentsToday, icon: CalendarClock, href: "/appointments", tone: "appointment" as const },
-    { label: "Appointments Tomorrow", value: metrics.appointmentsTomorrow, icon: CalendarDays, href: "/appointments", tone: "appointment" as const },
+    { label: "Appointments Today", value: metrics.appointmentsToday, icon: CalendarClock, href: "/calendar?view=today", tone: "appointment" as const },
+    { label: "Appointments Tomorrow", value: metrics.appointmentsTomorrow, icon: CalendarDays, href: "/calendar", tone: "appointment" as const },
     { label: "Test Drives", value: metrics.testDrives, icon: Car, href: "/pipeline", tone: "default" as const },
     { label: "Negotiations", value: metrics.negotiations, icon: Handshake, href: "/pipeline", tone: "warm" as const },
-    { label: "Credit Applications", value: metrics.creditApplications, icon: FileCheck2, href: "/pipeline", tone: "default" as const },
-    { label: "Sold", value: metrics.sold, icon: Trophy, href: "/reports", tone: "sold" as const },
+    { label: "Sales This Month", value: metrics.salesThisMonth, icon: Trophy, href: "/reports", tone: "sold" as const },
     { label: "Lost", value: metrics.lost, icon: XCircle, href: "/lost-leads", tone: "lost" as const },
   ];
 
@@ -109,23 +112,53 @@ export default async function DashboardPage() {
             <div className="flex items-center justify-between border-b border-[var(--border)] px-5 py-4">
               <div className="flex items-center gap-1.5">
                 <CalendarClock size={16} className="text-[var(--appointment)]" />
-                <h2 className="text-[15px] font-semibold text-[var(--text)]">Today&rsquo;s Appointments</h2>
+                <h2 className="text-[15px] font-semibold text-[var(--text)]">Upcoming Activities</h2>
               </div>
-              <Link href="/appointments" className="text-xs font-semibold text-[var(--brand)] hover:underline">Calendar</Link>
+              <Link href="/calendar" className="text-xs font-semibold text-[var(--brand)] hover:underline">Full Calendar</Link>
             </div>
-            <div className="divide-y divide-[var(--border)]">
-              {apptsToday.length === 0 && <p className="px-5 py-8 text-center text-sm text-[var(--text-muted)]">No appointments today.</p>}
-              {apptsToday.map((a) => (
-                <Link key={a.id} href={`/customers/${a.customerId}`} className="flex items-center justify-between px-5 py-3 hover:bg-[var(--bg-subtle)]">
-                  <div className="min-w-0">
-                    <p className="truncate text-[13px] font-semibold text-[var(--text)]">{a.customer.firstName} {a.customer.lastName}</p>
-                    <p className="truncate text-[11.5px] text-[var(--text-muted)]">{a.type.replace(/_/g, " ")}{a.vehicle ? ` · ${a.vehicle.year} ${a.vehicle.make} ${a.vehicle.model}` : ""}</p>
-                  </div>
-                  <span className="shrink-0 text-[12px] font-semibold text-[var(--text)]">{formatTime12h(a.time)}</span>
-                </Link>
-              ))}
-            </div>
+            {upcoming.today.length === 0 && upcoming.tomorrow.length === 0 && (
+              <p className="px-5 py-8 text-center text-sm text-[var(--text-muted)]">Nothing on the calendar today or tomorrow.</p>
+            )}
+            {upcoming.today.length > 0 && (
+              <div>
+                <p className="border-b border-[var(--border)] bg-[var(--bg-subtle)] px-5 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-faint)]">Today</p>
+                <div className="divide-y divide-[var(--border)]">
+                  {upcoming.today.map((e) => <EventRow key={e.id} event={e} />)}
+                </div>
+              </div>
+            )}
+            {upcoming.tomorrow.length > 0 && (
+              <div>
+                <p className="border-b border-[var(--border)] bg-[var(--bg-subtle)] px-5 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-faint)]">Tomorrow</p>
+                <div className="divide-y divide-[var(--border)]">
+                  {upcoming.tomorrow.map((e) => <EventRow key={e.id} event={e} />)}
+                </div>
+              </div>
+            )}
           </section>
+
+          {followUpsDueToday.length > 0 && (
+            <section className="card border-amber-200">
+              <div className="flex items-center justify-between border-b border-amber-200 bg-amber-50 px-5 py-4">
+                <div className="flex items-center gap-1.5">
+                  <Clock size={16} className="text-amber-600" />
+                  <h2 className="text-[15px] font-semibold text-amber-900">Follow-Ups Due Today</h2>
+                </div>
+                <span className="badge bg-amber-100 text-amber-800">{followUpsDueToday.length}</span>
+              </div>
+              <div className="divide-y divide-[var(--border)]">
+                {followUpsDueToday.map((f) => (
+                  <Link key={f.id} href={`/customers/${f.customerId}`} className="flex items-center justify-between px-5 py-3 hover:bg-[var(--bg-subtle)]">
+                    <div className="min-w-0">
+                      <p className="truncate text-[13px] font-semibold text-[var(--text)]">{f.customer.firstName} {f.customer.lastName}</p>
+                      <p className="truncate text-[11.5px] text-[var(--text-muted)]">{f.topic}</p>
+                    </div>
+                    <span className="shrink-0 text-[12px] font-semibold text-[var(--text)]">{formatTime12h(f.followUpTime)}</span>
+                  </Link>
+                ))}
+              </div>
+            </section>
+          )}
         </div>
       </div>
     </div>

@@ -1,7 +1,8 @@
 import { formatDateTime } from "@/lib/format";
 import {
   Phone, StickyNote, Workflow, CalendarClock, Car, ArrowLeftRight, CheckSquare,
-  Trophy, XCircle, RefreshCcw, Zap, UserPlus, Repeat, Gauge, type LucideIcon,
+  Trophy, XCircle, RefreshCcw, Zap, UserPlus, Repeat, Gauge, PhoneCall, CalendarX, CalendarCheck2,
+  type LucideIcon,
 } from "lucide-react";
 
 const ICONS: Record<string, LucideIcon> = {
@@ -11,6 +12,7 @@ const ICONS: Record<string, LucideIcon> = {
   STAGE_CHANGE: Workflow,
   TEMPERATURE_CHANGE: Zap,
   APPOINTMENT: CalendarClock,
+  CALENDAR_EVENT: CalendarClock,
   VEHICLE_INTEREST_ADDED: Car,
   TRADE_ADDED: ArrowLeftRight,
   TASK_CREATED: CheckSquare,
@@ -26,6 +28,11 @@ const ICONS: Record<string, LucideIcon> = {
   REASSIGNED: UserPlus,
   TEST_DRIVE_COMPLETED: Gauge,
   TEMPERATURE_CHANGE_HOT: Zap,
+  FOLLOWUP_SCHEDULED: PhoneCall,
+  FOLLOWUP_COMPLETED: CalendarCheck2,
+  FOLLOWUP_RESCHEDULED: RefreshCcw,
+  FOLLOWUP_CANCELLED: CalendarX,
+  FOLLOWUP_MISSED: CalendarX,
 };
 
 export function ActivityTimeline({ activities }: { activities: { id: string; type: string; description: string; createdAt: Date; actor: { firstName: string; lastName: string } | null }[] }) {

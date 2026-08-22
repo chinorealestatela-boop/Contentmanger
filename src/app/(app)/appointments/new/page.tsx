@@ -14,8 +14,8 @@ export default async function NewAppointmentPage({ searchParams }: { searchParam
   return (
     <div className="mx-auto max-w-lg space-y-5 p-4 sm:p-6">
       <div>
-        <h1 className="text-2xl font-semibold text-[var(--text)]">New Appointment</h1>
-        <p className="text-[13px] text-[var(--text-muted)]">Schedule a showroom visit, test drive, or delivery.</p>
+        <h1 className="text-2xl font-semibold text-[var(--text)]">Add to Calendar</h1>
+        <p className="text-[13px] text-[var(--text-muted)]">Schedule a test drive, sales appointment, delivery, or other calendar event.</p>
       </div>
       <div className="card p-5">
         <NewAppointmentForm customers={customers} vehicles={vehicles} />

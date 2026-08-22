@@ -27,7 +27,7 @@ export default function LoginPage() {
         )}
         <div>
           <label className="label" htmlFor="email">Email</label>
-          <input id="email" name="email" type="email" required autoComplete="email" className="input" placeholder="you@dealership.com" defaultValue="sam.carter@driveline-motors.com" />
+          <input id="email" name="email" type="email" required autoComplete="email" className="input" placeholder="you@dealership.com" defaultValue="alex.rivera@driveline-motors.com" />
         </div>
         <div>
           <div className="flex items-center justify-between">
@@ -43,11 +43,9 @@ export default function LoginPage() {
         </button>
       </form>
       <div className="mt-6 rounded-lg border border-dashed border-[var(--border)] bg-[var(--bg-subtle)] p-3 text-xs text-[var(--text-muted)]">
-        <p className="font-semibold text-[var(--text)]">Demo credentials pre-filled</p>
-        <p className="mt-1">Salesperson: sam.carter@driveline-motors.com</p>
-        <p>Manager: jordan.blake@driveline-motors.com</p>
-        <p>Admin: alex.rivera@driveline-motors.com</p>
-        <p className="mt-1">Password for all: Password123!</p>
+        <p className="font-semibold text-[var(--text)]">Credentials pre-filled</p>
+        <p className="mt-1">alex.rivera@driveline-motors.com — Password123!</p>
+        <p className="mt-1 text-[var(--text-faint)]">Note: this page auto-redirects straight to the dashboard for the current solo user. It only shows up if that auto-login can&rsquo;t find its account.</p>
       </div>
     </AuthShell>
   );

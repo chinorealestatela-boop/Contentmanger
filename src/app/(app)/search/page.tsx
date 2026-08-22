@@ -1,19 +1,19 @@
 import Link from "next/link";
-import { Car, CalendarClock, Users } from "lucide-react";
+import { Car, CalendarClock, Users, PhoneCall } from "lucide-react";
 import { requireScope } from "@/lib/queries/scope";
 import { globalSearch } from "@/lib/queries/search";
 import { CustomerRow } from "@/components/customers/CustomerRow";
 import { SearchInput } from "@/components/ui/SearchInput";
 import { formatCurrency, formatDate, formatTime12h } from "@/lib/format";
 import { Badge } from "@/components/ui/Badge";
-import { VEHICLE_STATUSES, optionLabel } from "@/lib/constants";
+import { VEHICLE_STATUSES, optionLabel, FOLLOWUP_STATUSES } from "@/lib/constants";
 
 export default async function SearchPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
   const sp = await searchParams;
   const q = sp.q ?? "";
   const scope = await requireScope();
-  const results = q ? await globalSearch(scope, q) : { customers: [], vehicles: [], appointments: [] };
-  const totalResults = results.customers.length + results.vehicles.length + results.appointments.length;
+  const results = q ? await globalSearch(scope, q) : { customers: [], vehicles: [], appointments: [], followUps: [] };
+  const totalResults = results.customers.length + results.vehicles.length + results.appointments.length + results.followUps.length;
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 p-4 sm:p-6">
@@ -66,6 +66,21 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
                 <p className="text-[12px] text-[var(--text-muted)]">{a.type.replace(/_/g, " ")} — {formatDate(a.date)} at {formatTime12h(a.time)}</p>
               </div>
               <Badge variant="appointment">{a.status}</Badge>
+            </Link>
+          ))}
+        </section>
+      )}
+
+      {results.followUps.length > 0 && (
+        <section className="space-y-2.5">
+          <h2 className="flex items-center gap-1.5 text-[13px] font-semibold text-[var(--text-muted)]"><PhoneCall size={14} /> Follow-Ups</h2>
+          {results.followUps.map((f) => (
+            <Link key={f.id} href={`/customers/${f.customerId}`} className="card flex items-center justify-between p-4 hover:shadow-md">
+              <div>
+                <p className="text-[13.5px] font-semibold text-[var(--text)]">{f.customer.firstName} {f.customer.lastName} — {f.topic}</p>
+                <p className="text-[12px] text-[var(--text-muted)]">{formatDate(f.followUpDate)} at {formatTime12h(f.followUpTime)}</p>
+              </div>
+              <Badge variant="appointment">{optionLabel(FOLLOWUP_STATUSES, f.status)}</Badge>
             </Link>
           ))}
         </section>

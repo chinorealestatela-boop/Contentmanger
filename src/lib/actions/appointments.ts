@@ -15,10 +15,18 @@ const schema = z.object({
   vehicleId: z.string().optional(),
   date: z.string().min(1, "Date is required."),
   time: z.string().min(1, "Time is required."),
-  type: z.string().default("SHOWROOM_VISIT"),
+  endTime: z.string().optional(),
+  location: z.string().optional(),
+  type: z.string().default("SALES_APPOINTMENT"),
   notes: z.string().optional(),
   salespersonId: z.string().optional(),
 });
+
+function parseReminderField(raw: FormDataEntryValue | null): number | null {
+  if (!raw || raw === "NONE") return null;
+  const n = Number(raw);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
 
 export async function createAppointment(_prev: SimpleActionState, formData: FormData): Promise<SimpleActionState> {
   const scope = await requireScope();
@@ -28,23 +36,30 @@ export async function createAppointment(_prev: SimpleActionState, formData: Form
     vehicleId: formData.get("vehicleId") || undefined,
     date: formData.get("date"),
     time: formData.get("time"),
-    type: formData.get("type") || "SHOWROOM_VISIT",
+    endTime: formData.get("endTime") || undefined,
+    location: formData.get("location") || undefined,
+    type: formData.get("type") || "SALES_APPOINTMENT",
     notes: formData.get("notes") || undefined,
     salespersonId: formData.get("salespersonId") || undefined,
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input." };
 
   const salespersonId = parsed.data.salespersonId || scope.userId;
+  const reminderOffsetMinutes = parseReminderField(formData.get("reminderOffsetMinutes"));
 
   await prisma.appointment.create({
     data: {
       customerId: parsed.data.customerId,
+      leadId: parsed.data.leadId,
       vehicleId: parsed.data.vehicleId,
       date: new Date(parsed.data.date),
       time: parsed.data.time,
+      endTime: parsed.data.endTime,
+      location: parsed.data.location,
       type: parsed.data.type,
       notes: parsed.data.notes,
       salespersonId,
+      reminderOffsetMinutes,
     },
   });
 
@@ -62,6 +77,7 @@ export async function createAppointment(_prev: SimpleActionState, formData: Form
   if (activeLead) await recomputeLeadScore(activeLead.id, scope.userId);
 
   revalidatePath("/appointments");
+  revalidatePath("/calendar");
   revalidatePath("/dashboard");
   revalidatePath(`/customers/${parsed.data.customerId}`);
   return { success: "Appointment scheduled." };
@@ -94,6 +110,7 @@ export async function updateAppointmentStatus(appointmentId: string, status: str
   if (lead) await recomputeLeadScore(lead.id, scope.userId);
 
   revalidatePath("/appointments");
+  revalidatePath("/calendar");
   revalidatePath("/dashboard");
   revalidatePath(`/customers/${appt.customerId}`);
 }
@@ -105,5 +122,6 @@ export async function rescheduleAppointment(appointmentId: string, date: string,
     data: { date: new Date(date), time, status: "SCHEDULED" },
   });
   revalidatePath("/appointments");
+  revalidatePath("/calendar");
   revalidatePath(`/customers/${appt.customerId}`);
 }
