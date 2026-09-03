@@ -1,17 +1,22 @@
-# Driveline CRM
+# AutoMax LV — Test-Drive Booking Platform
 
-A complete, modern automotive sales CRM built for a single car-dealership salesperson's daily workflow — capture leads, respond fast, follow up consistently, book appointments, track deals, and never let a customer go cold.
+A complete, mobile-first test-drive appointment booking website for a car salesperson, plus the full CRM/admin dashboard behind it (Driveline CRM). Customers land on a marketing page, book a test drive in a 5-step wizard (vehicle → contact info → buying questions → date/time → confirm), get an instant SMS/email confirmation with automated 24h/2h reminders, and can reschedule or cancel from a link — no login required. Every booking becomes a lead in the CRM automatically.
 
-**Works fully offline from external services.** No API keys are required to run, demo, or use every feature in this app. External integrations (AI, SMS, email, calendar, inventory feeds, DMS) are modeled and ready to wire up later, but nothing is required for v1.
+**Works fully offline from external services.** No API keys are required to run, demo, or use every feature — including SMS and email. Without Twilio/Resend connected, messages are "simulated": logged to the database (status `SIMULATED`) and printed to the server console, so the whole flow is testable end-to-end with zero accounts. Connect real providers whenever you're ready (see **Connecting real integrations** below).
 
 ## Quick Start
 
 ```bash
 npm install
 npm run db:push    # create the SQLite database from the Prisma schema
-npm run db:seed    # populate realistic sample dealership data
+npm run db:seed    # populate realistic sample dealership + inventory data
 npm run dev         # http://localhost:3000
 ```
+
+Copy `.env.example` to `.env` first (already done if you're working from this repo) — it works as-is for local dev with everything in simulated mode.
+
+- **Public booking site:** `http://localhost:3000/` → `/book` → `/manage/[token]`
+- **Admin dashboard (leads, appointments, message log, settings):** `http://localhost:3000/login`
 
 Log in with any of the seeded demo accounts (password for all: `Password123!`):
 
@@ -28,6 +33,20 @@ To reset the database back to its seeded state at any time:
 npm run db:reset
 ```
 
+Going live as a single real salesperson instead of the demo team? Run `npx tsx scripts/cleanup-and-rename.ts` — it wipes the demo leads/customers, removes the extra demo accounts, and keeps `alex.rivera@driveline-motors.com` as the one real login (rename the account's display name to your own from **Settings → My Profile** afterward, and set your own password from **Settings → Password**).
+
+## The booking site
+
+| Route | What it is |
+|---|---|
+| `/` | Landing page — headline, "every buyer welcome" section, featured inventory, CTA |
+| `/book` | The 5-step booking wizard (vehicle, contact info, buying questions, schedule, confirm) |
+| `/manage/[token]` | Reschedule/cancel page, linked from every confirmation SMS/email (no login — the token itself is the capability) |
+| `/api/appointments/[token]/ics` | Downloads a calendar invite for one appointment |
+| `/privacy` | Privacy & SMS consent terms, linked from the site footer |
+
+Admin controls for the booking site live under **Settings → Booking & Hours**: working days/hours, appointment length, buffer between appointments, daily breaks, holidays/blackout dates, max appointments per day, how far out customers can book, minimum notice required, which salesperson online bookings assign to, and which reminders are on. **Message Log** (left nav) shows every SMS/email actually sent (or simulated) with delivery status.
+
 ## Tech Stack
 
 - **Next.js 16** (App Router, Server Components, Server Actions) — one deployable app, no separate API server needed
@@ -37,18 +56,29 @@ npm run db:reset
 - **Tailwind CSS v4** — custom design system (see `src/app/globals.css`)
 - **Recharts** — reporting charts
 - **@dnd-kit** — drag-and-drop pipeline Kanban
+- **Twilio REST API** (SMS) and **Resend REST API** (email) via plain `fetch` — no SDK dependency, simulated until connected (see below)
 
 ## Architecture
 
 ```
 src/
-  app/                    Routes (App Router). (app)/ is the authenticated shell;
-                           auth pages (login, register, forgot/reset password) live outside it.
-  components/              UI, grouped by feature (customers, leads, pipeline, tasks,
-                           appointments, vehicles, reports, settings, ai, actions, layout, ui)
+  app/                    Routes (App Router). (site)/ is the public booking site (no
+                           auth); (app)/ is the authenticated CRM/admin shell; auth pages
+                           (login, register, forgot/reset password) live outside both.
+  components/              UI, grouped by feature (booking, customers, leads, pipeline,
+                           tasks, appointments, vehicles, reports, settings, ai, layout, ui)
   lib/
     actions/                Server Actions — the "backend": every mutation in the app
-                           (create lead, log a call, change stage, mark sold, etc.)
+                           (create lead, log a call, change stage, mark sold, book/
+                           reschedule/cancel a test drive, etc.). booking.ts and
+                           reminders.ts are unauthenticated by design — the public site
+                           calls them directly.
+    availability.ts         Test-drive slot engine: working hours/breaks/blackout dates
+                           → available "HH:mm" slots for a date, double-booking-safe
+    sms/, email/            Provider abstractions (Twilio / Resend via plain fetch) —
+                           simulated (logged, not sent) until the relevant env vars are set
+    messaging/              SMS/email copy (templates.ts) + the single entry point that
+                           decides what to send for a given appointment event (notify.ts)
     queries/                Read-side data access, scoped by role (salesperson sees their
                            own book; manager/admin see the whole team)
     automation/engine.ts   The automation engine: event-driven rules (new lead, stage
@@ -102,15 +132,18 @@ For the automation engine's time-based sweep to run without a human clicking "Ru
 
 ## Connecting real integrations later
 
-Nothing below is required to use the app. Each is a placeholder row in the `Integration` table (see **Settings → Integrations**) and a seam in the code where a real provider slots in without touching UI:
+Nothing below is required to use the app — everything works today with SMS/email simulated (logged, not sent). Each is a placeholder row in the `Integration` table (see **Settings → Integrations**, which shows live "Connected"/"Simulated" status) and a seam in the code where a real provider slots in without touching UI:
 
-| Integration | Where it plugs in |
-|---|---|
+| Integration | Where it plugs in | Setup |
+|---|---|---|
+| **SMS (Twilio)** — booking confirmations & 24h/2h test-drive reminders | `src/lib/sms/provider.ts` — sends via Twilio's REST API (plain `fetch`, no SDK) | Create a Twilio account, buy/verify a phone number, set `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / `TWILIO_FROM_NUMBER`. For real US SMS volume you'll also want an [A2P 10DLC campaign](https://www.twilio.com/en-us/a2p) registered — required by carriers. |
+| **Email (Resend)** — same events as SMS | `src/lib/email/provider.ts` — sends via Resend's REST API | Create a Resend account, verify a sending domain, set `RESEND_API_KEY` / `RESEND_FROM_EMAIL`. |
+| **Reminder scheduler** — fires the 24h/2h sweep automatically | `src/app/api/cron/reminders/route.ts` (`GET`, header `x-cron-secret: $CRON_SECRET`) calling `sendPendingReminders()` (`src/lib/actions/reminders.ts`) | Point any external scheduler at it every ~15 min — [Vercel Cron](https://vercel.com/docs/cron-jobs), [cron-job.org](https://cron-job.org), or a scheduled GitHub Action. Until this is wired up, use **Run Reminder Checks Now** on Settings → Booking & Hours to fire it manually. |
 | AI (OpenAI, etc.) | Implement `AssistantProvider` (`src/lib/ai/provider.ts`) and return it from `getActiveProvider()` when configured |
-| SMS (Twilio) | Extend `logCommunication`/Quick Actions to send instead of just log |
-| Email | Same shape as SMS |
 | Google/Outlook Calendar | Sync layer on top of the `Appointment` model |
 | Inventory feed / DMS | Batch importer writing into the `Vehicle` / `Customer` models |
+
+Reminders are idempotent and safe to run as often as you like — each is only ever sent once per appointment, tracked by the presence of a matching `SmsMessage`/`EmailMessage` row (visible on the **Message Log** page).
 
 ## Scripts
 

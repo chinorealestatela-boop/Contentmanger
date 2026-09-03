@@ -8,6 +8,9 @@ import { requireScope } from "@/lib/queries/scope";
 import { revalidatePath } from "next/cache";
 import type { SimpleActionState } from "@/lib/actions/communications";
 import { DEFAULT_PERMISSIONS, type Permissions } from "@/lib/permissions";
+import { headers } from "next/headers";
+import { saveBookingSettings, type BookingSettings } from "@/lib/availability";
+import { sendPendingReminders } from "@/lib/actions/reminders";
 
 // ── Profile ──────────────────────────────────────────────────────────
 const profileSchema = z.object({
@@ -226,4 +229,80 @@ export async function updateDealershipSettings(_prev: SimpleActionState, formDat
   });
   revalidatePath("/settings/dealership");
   return { success: "Saved." };
+}
+
+// ── Booking & availability settings ─────────────────────────────────
+const dayHoursSchema = z.object({ enabled: z.boolean(), start: z.string(), end: z.string() });
+const bookingSettingsSchema = z.object({
+  timezone: z.string().min(1),
+  agentName: z.string().min(1),
+  location: z.string().min(1),
+  hours: z.record(z.string(), dayHoursSchema),
+  appointmentDurationMinutes: z.coerce.number().int().min(5).max(240),
+  bufferMinutes: z.coerce.number().int().min(0).max(120),
+  breaks: z.array(z.object({ start: z.string(), end: z.string() })),
+  blackoutDates: z.array(z.string()),
+  maxAppointmentsPerDay: z.coerce.number().int().min(1).nullable(),
+  minLeadTimeHours: z.coerce.number().min(0).max(72),
+  maxBookingWindowDays: z.coerce.number().int().min(1).max(365),
+  reminders: z.object({
+    sendImmediateConfirmation: z.boolean(),
+    send24HourReminder: z.boolean(),
+    send2HourReminder: z.boolean(),
+  }),
+  primarySalespersonId: z.string().optional(),
+});
+
+export type BookingSettingsActionState = SimpleActionState;
+
+/** Called with a JSON-serialized BookingSettings blob (built client-side by
+ * BookingSettingsForm) since the shape is too nested for plain FormData
+ * fields. Still a form-backed Server Action so useActionState works the
+ * same way as every other settings form in the app. */
+export async function updateBookingSettings(_prev: BookingSettingsActionState, formData: FormData): Promise<BookingSettingsActionState> {
+  const scope = await requireScope();
+  if (scope.role !== "ADMIN" && scope.role !== "MANAGER") return { error: "You don't have permission to change this." };
+
+  let payload: unknown;
+  try {
+    payload = JSON.parse(String(formData.get("payload") ?? "{}"));
+  } catch {
+    return { error: "Invalid settings payload." };
+  }
+
+  const parsed = bookingSettingsSchema.safeParse(payload);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input." };
+  const { primarySalespersonId, ...settings } = parsed.data;
+
+  await saveBookingSettings(settings as BookingSettings);
+  if (primarySalespersonId) {
+    await prisma.setting.upsert({
+      where: { key: "primarySalesperson" },
+      update: { value: JSON.stringify({ userId: primarySalespersonId }) },
+      create: { key: "primarySalesperson", value: JSON.stringify({ userId: primarySalespersonId }) },
+    });
+  }
+
+  revalidatePath("/settings/booking");
+  return { success: "Booking settings saved." };
+}
+
+export async function getPrimarySalespersonIdSetting(): Promise<string | null> {
+  const row = await prisma.setting.findUnique({ where: { key: "primarySalesperson" } });
+  if (!row) return null;
+  try {
+    return (JSON.parse(row.value) as { userId?: string }).userId ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function runReminderChecksNow(): Promise<{ sent24h: number; sent2h: number; checked: number }> {
+  await requireScope();
+  const h = await headers();
+  const host = h.get("x-forwarded-host") ?? h.get("host") ?? "localhost:3000";
+  const proto = h.get("x-forwarded-proto") ?? (host.includes("localhost") ? "http" : "https");
+  const result = await sendPendingReminders(`${proto}://${host}`);
+  revalidatePath("/messages");
+  return result;
 }

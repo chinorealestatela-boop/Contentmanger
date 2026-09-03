@@ -14,6 +14,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Vehicles", href: "/vehicles", icon: "Car" },
   { label: "Trade-Ins", href: "/trade-ins", icon: "ArrowLeftRight" },
   { label: "Communications", href: "/communications", icon: "MessageSquare" },
+  { label: "Message Log", href: "/messages", icon: "Inbox" },
   { label: "Follow-Up Sequences", href: "/follow-up-sequences", icon: "Workflow" },
   { label: "Lost Leads", href: "/lost-leads", icon: "XCircle" },
   { label: "Reactivation", href: "/reactivation", icon: "RefreshCcw" },

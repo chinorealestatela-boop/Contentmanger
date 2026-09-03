@@ -95,6 +95,11 @@ model Customer {
   preferredContactMethod String  @default("PHONE") // PHONE | TEXT | EMAIL
   bestContactTime        String? // MORNING | AFTERNOON | EVENING | ANYTIME
 
+  // SMS/TCPA opt-in — captured at public booking time (see src/app/(site)/book).
+  // Reminders are only ever sent to customers who have consented.
+  smsConsent   Boolean   @default(false)
+  smsConsentAt DateTime?
+
   ownerId String
   owner   User   @relation("CustomerOwner", fields: [ownerId], references: [id])
 
@@ -114,6 +119,8 @@ model Customer {
   activities          Activity[]
   followUpEnrollments FollowUpEnrollment[]
   followUps           FollowUp[]
+  smsMessages         SmsMessage[]
+  emailMessages       EmailMessage[]
 
   @@index([lastName, firstName])
 }
@@ -175,6 +182,14 @@ model Lead {
   creditAppStatus String  @default("NOT_STARTED") // NOT_STARTED | SUBMITTED | APPROVED | DECLINED | PENDING
   hasCoBuyer      Boolean @default(false)
   coBuyerName     String?
+
+  // Bucketed buying-power answers captured on the public booking form (see
+  // src/lib/constants.ts DOWN_PAYMENT_RANGES / MONTHLY_PAYMENT_RANGES /
+  // CREDIT_RANGES). Kept separate from the free-numeric desiredPayment /
+  // downPayment fields above, which the CRM's own lead-intake form uses.
+  downPaymentRange    String?
+  monthlyPaymentRange String?
+  creditRange         String?
 
   // Vehicle matching preferences (used for inventory search)
   prefBodyStyle  String?
@@ -306,6 +321,7 @@ model TradeIn {
   estimatedValue  Float    @default(0)
   desiredValue    Float?
   appraisalStatus String   @default("PENDING") // PENDING | APPRAISED | ACCEPTED | DECLINED
+  owesMoney       Boolean? // asked on the public booking form's "currently driving" question
   photos          String? // JSON array
   notes           String?
   createdAt       DateTime @default(now())
@@ -337,8 +353,8 @@ model Appointment {
   time     String // start time, "HH:mm"
   endTime  String? // "HH:mm"
   location String?
-  type     String @default("SALES_APPOINTMENT") // CUSTOMER_CALL | FOLLOW_UP_CALL | TEST_DRIVE | DEALERSHIP_APPOINTMENT | VEHICLE_WALKAROUND | FINANCING_DISCUSSION | TRADE_IN_EVALUATION | SALES_APPOINTMENT | DELIVERY | OTHER
-  status   String @default("SCHEDULED") // SCHEDULED | CONFIRMED | SHOWED | NO_SHOW | CANCELLED | COMPLETED
+  type     String   @default("SALES_APPOINTMENT") // CUSTOMER_CALL | FOLLOW_UP_CALL | TEST_DRIVE | DEALERSHIP_APPOINTMENT | VEHICLE_WALKAROUND | FINANCING_DISCUSSION | TRADE_IN_EVALUATION | SALES_APPOINTMENT | DELIVERY | OTHER
+  status   String   @default("SCHEDULED") // SCHEDULED | CONFIRMED | SHOWED | NO_SHOW | CANCELLED | COMPLETED
   notes    String?
 
   // Reminder: minutes before start to surface an in-app reminder
@@ -346,14 +362,27 @@ model Appointment {
   reminderOffsetMinutes Int?
   reminderSentAt        DateTime?
 
+  // Public test-drive booking site (see src/app/(site)/book). source
+  // distinguishes a self-service customer booking from one a salesperson
+  // created directly in the CRM. confirmationCode is the short code shown
+  // to the customer; manageToken is the unauthenticated capability token
+  // that lets them reschedule/cancel from the link in their confirmation
+  // SMS/email without logging in.
+  source           String  @default("CRM") // CRM | BOOKING
+  confirmationCode String? @unique
+  manageToken      String? @unique
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  testDrives TestDrive[]
+  testDrives    TestDrive[]
+  smsMessages   SmsMessage[]
+  emailMessages EmailMessage[]
 
   @@index([date])
   @@index([status])
   @@index([leadId])
+  @@index([manageToken])
 }
 
 // A manually-scheduled follow-up call/touch on a specific customer (and
@@ -493,6 +522,57 @@ model Communication {
   createdAt  DateTime @default(now())
 
   @@index([customerId, occurredAt])
+}
+
+// Every SMS the system sends (booking confirmation, 24h/2h reminders,
+// reschedule/cancellation notices) is logged here, whether it actually went
+// out through a real provider or was only simulated because no SMS
+// integration is connected yet (see src/lib/sms/provider.ts). This is what
+// "track whether the SMS was sent successfully" is built on.
+model SmsMessage {
+  id            String       @id @default(cuid())
+  customerId    String
+  customer      Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  appointmentId String?
+  appointment   Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+
+  toPhone String
+  type    String // BOOKING_CONFIRMATION | REMINDER_24H | REMINDER_2H | RESCHEDULED | CANCELLED | CUSTOM
+  body    String
+
+  status       String  @default("PENDING") // PENDING | SENT | FAILED | SIMULATED
+  errorMessage String?
+  providerId   String? // provider's message SID/id, once a real SMS provider is connected
+
+  sentAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([appointmentId])
+  @@index([customerId, createdAt])
+}
+
+// Same idea as SmsMessage, for email confirmations/reminders/notices.
+model EmailMessage {
+  id            String       @id @default(cuid())
+  customerId    String
+  customer      Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  appointmentId String?
+  appointment   Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+
+  toEmail String
+  type    String // BOOKING_CONFIRMATION | REMINDER | RESCHEDULED | CANCELLED
+  subject String
+  body    String
+
+  status       String  @default("PENDING") // PENDING | SENT | FAILED | SIMULATED
+  errorMessage String?
+  providerId   String?
+
+  sentAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([appointmentId])
+  @@index([customerId, createdAt])
 }
 
 model Note {
@@ -659,7 +739,7 @@ model Setting {
 // for v1 functionality.
 model Integration {
   id        String   @id @default(cuid())
-  provider  String   @unique // OPENAI | TWILIO | GMAIL | OUTLOOK | GOOGLE_CALENDAR | DMS | INVENTORY_FEED
+  provider  String   @unique // OPENAI | TWILIO | RESEND | GMAIL | OUTLOOK | GOOGLE_CALENDAR | DMS | INVENTORY_FEED
   category  String // AI | SMS | EMAIL | CALENDAR | INVENTORY | LEADS | DMS
   enabled   Boolean  @default(false)
   config    String? // JSON-encoded, non-secret config only

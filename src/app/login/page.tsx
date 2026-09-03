@@ -11,14 +11,11 @@ export default function LoginPage() {
   return (
     <AuthShell
       title="Welcome back"
-      subtitle="Log in to your Driveline CRM workspace."
+      subtitle="Log in to your booking &amp; leads dashboard."
       footer={
-        <>
-          Don&rsquo;t have an account?{" "}
-          <Link href="/register" className="font-semibold text-[var(--brand)] hover:underline">
-            Create one
-          </Link>
-        </>
+        <Link href="/" className="font-semibold text-[var(--brand)] hover:underline">
+          ← Back to the booking site
+        </Link>
       }
     >
       <form action={formAction} className="space-y-4">
@@ -27,7 +24,7 @@ export default function LoginPage() {
         )}
         <div>
           <label className="label" htmlFor="email">Email</label>
-          <input id="email" name="email" type="email" required autoComplete="email" className="input" placeholder="you@dealership.com" defaultValue="alex.rivera@driveline-motors.com" />
+          <input id="email" name="email" type="email" required autoComplete="email" className="input" placeholder="you@dealership.com" />
         </div>
         <div>
           <div className="flex items-center justify-between">
@@ -36,17 +33,12 @@ export default function LoginPage() {
               Forgot password?
             </Link>
           </div>
-          <input id="password" name="password" type="password" required autoComplete="current-password" className="input" placeholder="••••••••" defaultValue="Password123!" />
+          <input id="password" name="password" type="password" required autoComplete="current-password" className="input" placeholder="••••••••" />
         </div>
         <button type="submit" disabled={pending} className="btn btn-primary w-full py-2.5">
           {pending ? "Logging in…" : "Log In"}
         </button>
       </form>
-      <div className="mt-6 rounded-lg border border-dashed border-[var(--border)] bg-[var(--bg-subtle)] p-3 text-xs text-[var(--text-muted)]">
-        <p className="font-semibold text-[var(--text)]">Credentials pre-filled</p>
-        <p className="mt-1">alex.rivera@driveline-motors.com — Password123!</p>
-        <p className="mt-1 text-[var(--text-faint)]">Note: this page auto-redirects straight to the dashboard for the current solo user. It only shows up if that auto-login can&rsquo;t find its account.</p>
-      </div>
     </AuthShell>
   );
 }

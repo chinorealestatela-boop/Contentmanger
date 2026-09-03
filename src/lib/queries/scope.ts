@@ -24,7 +24,7 @@ export function leadScopeWhere(scope: Scope) {
  * resolves the current user's visibility scope from their role. */
 export async function requireScope(): Promise<Scope & { userName: string; roleId: string }> {
   const session = await auth();
-  if (!session?.user) redirect("/api/auto-login");
+  if (!session?.user) redirect("/login");
 
   const role = await prisma.role.findUnique({ where: { id: session.user.roleId } });
   const perms = role ? parsePermissions(role.permissions) : null;

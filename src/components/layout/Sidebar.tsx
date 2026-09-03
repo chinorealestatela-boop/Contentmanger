@@ -19,6 +19,7 @@ import {
   Zap,
   Settings as SettingsIcon,
   Sparkles,
+  Inbox,
   type LucideIcon,
 } from "lucide-react";
 import { NAV_ITEMS } from "@/lib/nav";
@@ -40,6 +41,7 @@ const ICONS: Record<string, LucideIcon> = {
   BarChart3,
   Zap,
   Settings: SettingsIcon,
+  Inbox,
 };
 
 export function Sidebar({ onNavigate, onOpenAssistant }: { onNavigate?: () => void; onOpenAssistant?: () => void }) {

@@ -7,6 +7,7 @@ import {
   DEFAULT_PIPELINE_STAGES,
 } from "../src/lib/constants";
 import { DEFAULT_PERMISSIONS } from "../src/lib/permissions";
+import { DEFAULT_BOOKING_SETTINGS } from "../src/lib/availability";
 
 const prisma = new PrismaClient();
 
@@ -136,6 +137,7 @@ async function main() {
   const integrationDefs = [
     { provider: "OPENAI", category: "AI" },
     { provider: "TWILIO", category: "SMS" },
+    { provider: "RESEND", category: "EMAIL" },
     { provider: "GMAIL", category: "EMAIL" },
     { provider: "OUTLOOK", category: "EMAIL" },
     { provider: "GOOGLE_CALENDAR", category: "CALENDAR" },
@@ -157,12 +159,22 @@ async function main() {
     create: {
       key: "dealership",
       value: JSON.stringify({
-        name: "Driveline Motors",
-        address: "4820 Commerce Pkwy, Riverbend, TX 75001",
-        phone: "(555) 442-0199",
-        timezone: "America/Chicago",
+        name: "AutoMax LV",
+        address: "4820 Boulder Hwy, Las Vegas, NV 89121",
+        phone: "(702) 555-0199",
+        timezone: "America/Los_Angeles",
       }),
     },
+  });
+
+  // Public test-drive booking site defaults (working hours, appointment
+  // length, reminders, etc.) — see src/lib/availability.ts. Left unseeded
+  // deliberately falls back to the same defaults, but seeding it here means
+  // Settings → Booking & Hours shows real values immediately in the demo.
+  await prisma.setting.upsert({
+    where: { key: "booking" },
+    update: {},
+    create: { key: "booking", value: JSON.stringify(DEFAULT_BOOKING_SETTINGS) },
   });
 
   // ── Follow-up sequences ──────────────────────────────────────────────

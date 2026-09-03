@@ -39,7 +39,7 @@ export function AuthShell({
             ))}
           </ul>
         </div>
-        <p className="text-xs text-slate-500">© {new Date().getFullYear()} Driveline Motors. Internal use only.</p>
+        <p className="text-xs text-slate-500">© {new Date().getFullYear()} AutoMax LV. Internal use only.</p>
       </div>
 
       <div className="flex flex-1 items-center justify-center bg-[var(--bg)] px-6 py-12">

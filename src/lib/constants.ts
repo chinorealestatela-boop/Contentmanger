@@ -251,6 +251,80 @@ export const DEFAULT_LEAD_SOURCES = [
   "Repeat Customer",
   "Third-Party Lead Provider",
   "Trade Show / Event",
+  "TikTok",
+  "Instagram",
+  "Facebook",
+  "Direct Link",
+  "Other",
+];
+
+// Where a public booking-site visitor came from. Read from a `?ref=` query
+// param on the booking link (e.g. a TikTok bio link vs. an Instagram story
+// link vs. a plain text message) and mapped to one of these LeadSource
+// names — see resolveBookingSource() in src/lib/actions/booking.ts. Keys
+// are lowercase so `?ref=tiktok`, `?ref=TikTok`, etc. all match.
+export const BOOKING_SOURCE_MAP: Record<string, string> = {
+  tiktok: "TikTok",
+  instagram: "Instagram",
+  ig: "Instagram",
+  facebook: "Facebook",
+  fb: "Facebook",
+  website: "Website",
+  direct: "Direct Link",
+};
+export const DEFAULT_BOOKING_SOURCE = "Direct Link";
+
+// ── Booking site: buying-power quiz ─────────────────────────────────────
+export const DOWN_PAYMENT_RANGES: Option[] = [
+  { value: "0_500", label: "$0 – $500" },
+  { value: "500_1000", label: "$500 – $1,000" },
+  { value: "1000_2000", label: "$1,000 – $2,000" },
+  { value: "2000_3000", label: "$2,000 – $3,000" },
+  { value: "3000_PLUS", label: "$3,000+" },
+  { value: "NOT_SURE", label: "Not sure yet" },
+];
+
+export const MONTHLY_PAYMENT_RANGES: Option[] = [
+  { value: "UNDER_300", label: "Under $300" },
+  { value: "300_400", label: "$300 – $400" },
+  { value: "400_500", label: "$400 – $500" },
+  { value: "500_600", label: "$500 – $600" },
+  { value: "600_PLUS", label: "$600+" },
+  { value: "NOT_SURE", label: "Not sure yet" },
+];
+
+export const CREDIT_RANGES: Option[] = [
+  { value: "EXCELLENT", label: "Excellent" },
+  { value: "GOOD", label: "Good" },
+  { value: "FAIR", label: "Fair" },
+  { value: "BAD", label: "Bad" },
+  { value: "POOR", label: "Poor" },
+  { value: "NO_CREDIT", label: "No Credit" },
+  { value: "NOT_SURE", label: "Not Sure" },
+];
+
+// ── SMS / Email message log ─────────────────────────────────────────────
+export const SMS_MESSAGE_TYPES: Option[] = [
+  { value: "BOOKING_CONFIRMATION", label: "Booking Confirmation" },
+  { value: "REMINDER_24H", label: "24-Hour Reminder" },
+  { value: "REMINDER_2H", label: "2-Hour Reminder" },
+  { value: "RESCHEDULED", label: "Rescheduled" },
+  { value: "CANCELLED", label: "Cancelled" },
+  { value: "CUSTOM", label: "Custom" },
+];
+
+export const EMAIL_MESSAGE_TYPES: Option[] = [
+  { value: "BOOKING_CONFIRMATION", label: "Booking Confirmation" },
+  { value: "REMINDER", label: "Reminder" },
+  { value: "RESCHEDULED", label: "Rescheduled" },
+  { value: "CANCELLED", label: "Cancelled" },
+];
+
+export const MESSAGE_STATUSES: Option[] = [
+  { value: "PENDING", label: "Pending", color: "#a16207" },
+  { value: "SENT", label: "Sent", color: "#16a34a" },
+  { value: "SIMULATED", label: "Simulated", color: "#2563eb" },
+  { value: "FAILED", label: "Failed", color: "#dc2626" },
 ];
 
 // ── Default lost reasons ────────────────────────────────────────────────
