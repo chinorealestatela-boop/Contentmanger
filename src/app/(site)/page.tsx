@@ -23,14 +23,14 @@ export default async function LandingPage() {
   return (
     <div>
       {/* Hero */}
-      <section className="relative overflow-hidden bg-[var(--brand)] px-4 py-16 text-white sm:px-6 sm:py-24">
+      <section className="relative overflow-hidden bg-[var(--brand)] px-4 py-16 text-black sm:px-6 sm:py-24">
         <div className="pointer-events-none absolute inset-0 opacity-20" style={{ background: "radial-gradient(circle at 20% 20%, #ffffff 0%, transparent 55%)" }} />
         <div className="relative mx-auto max-w-3xl text-center">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-[12px] font-semibold text-white/90">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-black/10 px-3 py-1 text-[12px] font-semibold text-black">
             <Car size={13} /> Las Vegas, NV
           </span>
-          <h1 className="mt-4 text-3xl font-extrabold leading-tight sm:text-5xl">Ready to Find Your Next Ride?</h1>
-          <p className="mx-auto mt-4 max-w-xl text-[15px] text-white/75 sm:text-lg">
+          <h1 className="mt-4 text-3xl font-extrabold leading-tight text-black sm:text-5xl">Ready to Find Your Next Ride?</h1>
+          <p className="mx-auto mt-4 max-w-xl text-[15px] text-black/80 sm:text-lg">
             Schedule your test drive and let&rsquo;s find the right vehicle and payment for you.
           </p>
           <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
@@ -41,7 +41,7 @@ export default async function LandingPage() {
               Check Availability
             </Link>
           </div>
-          <p className="mt-4 text-[12px] text-white/50">Takes about 2 minutes · No obligation</p>
+          <p className="mt-4 text-[12px] text-black/60">Takes about 2 minutes · No obligation</p>
         </div>
       </section>
 
