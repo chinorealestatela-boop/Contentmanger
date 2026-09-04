@@ -34,10 +34,10 @@ export default async function LandingPage() {
             Schedule your test drive and let&rsquo;s find the right vehicle and payment for you.
           </p>
           <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-            <Link href="/book" className="btn btn-primary w-full px-6 py-3 text-[15px] sm:w-auto">
+            <Link href="/book" className="btn w-full bg-black px-6 py-3 text-[15px] text-white hover:bg-neutral-900 sm:w-auto">
               Schedule My Test Drive
             </Link>
-            <Link href="/book" className="btn w-full border border-white/25 bg-white/5 px-6 py-3 text-[15px] text-white hover:bg-white/10 sm:w-auto">
+            <Link href="/book" className="btn w-full border border-black bg-black/80 px-6 py-3 text-[15px] text-white hover:bg-black sm:w-auto">
               Check Availability
             </Link>
           </div>
