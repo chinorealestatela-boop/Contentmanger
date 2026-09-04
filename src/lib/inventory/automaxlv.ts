@@ -492,6 +492,18 @@ function extractVdpLinks(html: string): string[] {
   return Array.from(matches, (m) => new URL(m[1], BASE_URL).toString().replace(/\/?$/, "/"));
 }
 
+// Always-on, low-volume diagnostic logging (a handful of lines per sync
+// run, not per-vehicle) — separate from the opt-in DEBUG_LOG_REQUESTS
+// network dump above. This is what actually lets a "zero vehicles found"
+// failure be root-caused from Vercel's runtime logs after the fact,
+// without needing to reproduce it locally (this repo has been developed
+// from a sandbox with no direct network access to automaxlv.com — see the
+// file header — so production logs are the only real diagnostic channel
+// available).
+function logDiag(msg: string) {
+  console.log(`[inventory-sync][diag] ${msg}`);
+}
+
 async function discoverVehicleUrls(context: BrowserContext): Promise<string[]> {
   const urls = new Set<string>();
 
@@ -501,10 +513,18 @@ async function discoverVehicleUrls(context: BrowserContext): Promise<string[]> {
   // N" links tell us how many pages actually exist instead of guessing.
   try {
     const firstPageHtml = await renderPage(context, INVENTORY_URL);
-    for (const url of extractVdpLinks(firstPageHtml)) urls.add(url);
+    const firstPageLinks = extractVdpLinks(firstPageHtml);
+    for (const url of firstPageLinks) urls.add(url);
 
     const pageNumbers = Array.from(firstPageHtml.matchAll(/[?&]page_no=(\d+)["']/gi)).map((m) => Number(m[1]));
     const lastPage = pageNumbers.length > 0 ? Math.max(...pageNumbers) : 1;
+
+    logDiag(
+      `listing page 1: fetched ${firstPageHtml.length} chars of HTML, found ${firstPageLinks.length} VDP link(s), ` +
+        `${pageNumbers.length} page_no reference(s) (last page inferred: ${lastPage}). ` +
+        `Contains "dws-": ${firstPageHtml.includes("dws-")}. Contains "could not be found": ${firstPageHtml.toLowerCase().includes("could not be found")}. ` +
+        `First 600 chars after <body>: ${(firstPageHtml.match(/<body[^>]*>([\s\S]*)/i)?.[1] ?? firstPageHtml).slice(0, 600).replace(/\s+/g, " ")}`
+    );
 
     const remainingPages = Array.from({ length: Math.max(0, lastPage - 1) }, (_, i) => i + 2);
     const htmls = await mapWithConcurrency(remainingPages, RENDER_CONCURRENCY, async (page) => {
@@ -518,7 +538,8 @@ async function discoverVehicleUrls(context: BrowserContext): Promise<string[]> {
       if (!html) continue;
       for (const url of extractVdpLinks(html)) urls.add(url);
     }
-  } catch {
+  } catch (err) {
+    logDiag(`listing page discovery threw: ${err instanceof Error ? err.message : String(err)}`);
     // fall through to the sitemap below
   }
 
@@ -528,13 +549,17 @@ async function discoverVehicleUrls(context: BrowserContext): Promise<string[]> {
   // check in case it catches something pagination missed.
   try {
     const xml = await fetchText(SITEMAP_URL);
+    const before = urls.size;
     for (const m of xml.matchAll(/<loc>(https?:\/\/[^<]*\/inventory\/[a-z0-9-]+\/[a-z0-9-]+\/[a-z0-9]+\/?)<\/loc>/gi)) {
       urls.add(m[1].replace(/\/?$/, "/"));
     }
-  } catch {
+    logDiag(`sitemap: fetched ${xml.length} chars, added ${urls.size - before} new URL(s) (total <loc> tags: ${(xml.match(/<loc>/g) ?? []).length}).`);
+  } catch (err) {
+    logDiag(`sitemap fetch failed: ${err instanceof Error ? err.message : String(err)}`);
     // sitemap missing/unreachable isn't fatal — pagination above is primary
   }
 
+  logDiag(`discoverVehicleUrls finished with ${urls.size} total URL(s).`);
   return Array.from(urls);
 }
 
