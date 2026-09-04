@@ -37,6 +37,16 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const result = await syncAutoMaxInventoryWithRetry("CRON");
+  // "trigger=MANUAL" is how the admin's "Sync Now" button (see
+  // src/lib/actions/inventory.ts) reaches this route: that server action
+  // no longer imports syncAutoMaxInventoryWithRetry directly (that pulled
+  // playwright-core into /settings/inventory-sync's own serverless bundle,
+  // which has no outputFileTracingIncludes entry below and so failed with
+  // "Cannot find module .../playwright-core/browsers.json" — the same bug
+  // this route itself used to hit before it got that entry). Routing the
+  // manual trigger through this one route means playwright-core is only
+  // ever bundled here, where it's already correctly traced.
+  const trigger = req.nextUrl.searchParams.get("trigger") === "MANUAL" ? "MANUAL" : "CRON";
+  const result = await syncAutoMaxInventoryWithRetry(trigger);
   return NextResponse.json(result, { status: result.status === "SUCCESS" ? 200 : 502 });
 }
