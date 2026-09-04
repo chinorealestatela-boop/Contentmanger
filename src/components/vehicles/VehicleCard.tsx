@@ -19,6 +19,8 @@ type VehicleData = {
   sellingPrice: number | null;
   internetPrice: number | null;
   status: string;
+  source: string;
+  syncStatus: string;
   _count: { customerInterests: number };
 };
 
@@ -34,7 +36,11 @@ export function VehicleCard({ vehicle }: { vehicle: VehicleData }) {
           <Badge variant={vehicle.status === "AVAILABLE" ? "sold" : vehicle.status === "SOLD" ? "lost" : "neutral"}>{optionLabel(VEHICLE_STATUSES, vehicle.status)}</Badge>
         </div>
         <p className="text-[12px] text-[var(--text-muted)]">{vehicle.trim} · {vehicle.condition === "NEW" ? "New" : `${vehicle.mileage.toLocaleString()} mi`} · {vehicle.exteriorColor}</p>
-        <p className="text-[11px] text-[var(--text-faint)]">#{vehicle.stockNumber}</p>
+        <div className="flex items-center gap-1.5">
+          <p className="text-[11px] text-[var(--text-faint)]">#{vehicle.stockNumber}</p>
+          {vehicle.source === "AUTOMAXLV" && <Badge variant="neutral">automaxlv.com</Badge>}
+          {vehicle.syncStatus === "NEEDS_REVIEW" && <Badge variant="warm">Needs Review</Badge>}
+        </div>
         <div className="mt-auto flex items-center justify-between pt-2">
           <span className="text-[15px] font-bold text-[var(--text)]">{formatCurrency(vehicle.internetPrice ?? vehicle.sellingPrice)}</span>
           {vehicle._count.customerInterests > 0 && (

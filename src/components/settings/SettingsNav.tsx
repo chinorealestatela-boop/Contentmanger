@@ -17,6 +17,7 @@ const ITEMS: Item[] = [
   { href: "/automations", label: "Automation Rules" },
   { href: "/settings/dealership", label: "Dealership", adminOnly: true },
   { href: "/settings/booking", label: "Booking & Hours", adminOnly: true },
+  { href: "/settings/inventory-sync", label: "Inventory Sync", adminOnly: true },
   { href: "/settings/users", label: "User Management", adminOnly: true },
   { href: "/settings/roles", label: "Roles & Permissions", adminOnly: true },
   { href: "/settings/integrations", label: "Integrations" },

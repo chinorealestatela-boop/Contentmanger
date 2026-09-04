@@ -16,6 +16,7 @@ import { logActivity } from "@/lib/activity";
 import { runAutomation } from "@/lib/automation/engine";
 import { recomputeLeadScore } from "@/lib/scoring-engine";
 import { getBookingSettings, isSlotAvailable, getAvailableSlots as getAvailableSlotsForDate } from "@/lib/availability";
+import { verifyVehicleStillListed } from "@/lib/inventory/sync";
 import { normalizePhone, isValidPhone } from "@/lib/phone";
 import { notifyAppointmentEvent } from "@/lib/messaging/notify";
 import { BOOKING_SOURCE_MAP, DEFAULT_BOOKING_SOURCE } from "@/lib/constants";
@@ -170,6 +171,16 @@ export async function submitBooking(_prev: BookingActionState, formData: FormDat
   // the time they hit submit.
   const stillOpen = await isSlotAvailable(d.date, d.time, settings);
   if (!stillOpen) return { error: "That time was just taken. Please pick another." };
+
+  // Live availability check — re-confirm against automaxlv.com right
+  // before booking so a customer can never schedule a test drive for a
+  // vehicle that's already sold or been pulled from the site.
+  if (d.vehicleId) {
+    const check = await verifyVehicleStillListed(d.vehicleId);
+    if (!check.available) {
+      return { error: check.reason ?? "This vehicle is no longer available. Please select another vehicle from our current inventory." };
+    }
+  }
 
   // Duplicate-submission guard: a resubmit (double-click, back button, retry
   // after a flaky connection) within a couple minutes for the same phone +

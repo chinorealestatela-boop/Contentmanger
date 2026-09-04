@@ -130,6 +130,26 @@ Set a strong `AUTH_SECRET` (`openssl rand -base64 32`) and a correct `NEXTAUTH_U
 
 For the automation engine's time-based sweep to run without a human clicking "Run Checks Now," call `runTimeBasedAutomationChecks()` (`src/lib/automation/engine.ts`) from a scheduled job (cron, a serverless scheduled function, etc.) — e.g. hourly.
 
+## Live inventory sync (automaxlv.com)
+
+Vehicle inventory in this CRM is meant to be pulled live from **automaxlv.com** rather than entered by hand — it's the single source of truth for what customers can book a test drive for. This reuses the existing `Vehicle` table (a few sync-tracking columns added: `source`, `sourceUrl`, `externalId`, `lastSyncedAt`, `syncStatus`, plus `engine`/`transmission`/`features`) rather than a separate inventory system.
+
+| Piece | Where |
+|---|---|
+| Fetch + parse automaxlv.com | `src/lib/inventory/automaxlv.ts` |
+| Sync orchestration (dedupe by VIN → stock # → site id, create/update/retire, error handling) | `src/lib/inventory/sync.ts` |
+| Live "is this vehicle still listed" check, called right before a booking is confirmed | `verifyVehicleStillListed()` in `sync.ts`, wired into `submitBooking()` |
+| Admin UI — status, manual "Sync Now", flagged listings, run history | Settings → Inventory Sync (`/settings/inventory-sync`) |
+| Scheduled background sync | `GET /api/cron/inventory-sync` (same `CRON_SECRET`/pattern as the reminder cron) |
+
+**Status: built and unit-tested against mocked site data, but never run against the real site** — automaxlv.com was unreachable from the sandbox this was built in (network policy), so `automaxlv.ts`'s parser is written against the general, well-documented `schema.org/Vehicle` JSON-LD pattern most dealer-site platforms embed for SEO/Google Vehicle Listings, not against automaxlv.com's actual markup. The dedupe/update/retire/error-handling logic in `sync.ts` is verified (mocked-fetch test covering create, update, retire-on-removal, flag-on-unparseable, total-failure-leaves-inventory-untouched, and the live pre-booking check).
+
+**First real run needs a human to check the result:** go to Settings → Inventory Sync and click **Sync Now**.
+- Vehicles show up correctly → done, schedule the cron and you're live.
+- Zero vehicles / a failed run → open `automaxlv.com/inventory/` in a browser, view source on a listing and a vehicle detail page, and adjust `automaxlv.ts` to match (it's written specifically so this is a contained fix, not a rewrite). If AutoMax's website platform vendor offers a proper inventory data feed instead of scraping HTML, that's the more robust option — swap it in without touching anything else.
+
+Once it's working, point a scheduler (same options as the reminder cron — Vercel Cron, cron-job.org, etc.) at `/api/cron/inventory-sync` every 1-4 hours for background sync; that also satisfies "at least once daily".
+
 ## Connecting real integrations later
 
 Nothing below is required to use the app — everything works today with SMS/email simulated (logged, not sent). Each is a placeholder row in the `Integration` table (see **Settings → Integrations**, which shows live "Connected"/"Simulated" status) and a seam in the code where a real provider slots in without touching UI:

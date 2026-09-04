@@ -249,29 +249,50 @@ model LeadScoreEvent {
 // ─────────────────────────────────────────────────────────────────────────
 
 model Vehicle {
-  id              String   @id @default(cuid())
-  stockNumber     String   @unique
-  vin             String   @unique
+  id              String  @id @default(cuid())
+  stockNumber     String  @unique
+  vin             String  @unique
   year            Int
   make            String
   model           String
   trim            String?
-  condition       String   @default("USED") // NEW | USED | CERTIFIED
+  condition       String  @default("USED") // NEW | USED | CERTIFIED
   bodyStyle       String? // SEDAN | SUV | TRUCK | COUPE | VAN | CONVERTIBLE
   drivetrain      String? // FWD | RWD | AWD | 4WD
-  mileage         Int      @default(0)
+  mileage         Int     @default(0)
   exteriorColor   String?
   interiorColor   String?
   msrp            Float?
   sellingPrice    Float?
   internetPrice   Float?
-  status          String   @default("AVAILABLE") // AVAILABLE | HOLD | SOLD | IN_TRANSIT | UNAVAILABLE
+  status          String  @default("AVAILABLE") // AVAILABLE | HOLD | SOLD | IN_TRANSIT | UNAVAILABLE
   location        String?
   photos          String? // JSON-encoded array of photo URLs
   description     String?
   seatingCapacity Int?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+
+  // Engine/transmission and a free-text feature list — not filled by the
+  // CRM's own manual Vehicle form (kept optional there), but populated by
+  // the AutoMax LV inventory sync (see src/lib/inventory/).
+  engine       String?
+  transmission String?
+  features     String? // JSON-encoded array of feature strings
+
+  // ── Inventory sync bookkeeping (src/lib/inventory/) ───────────────────
+  // source distinguishes vehicles pulled from automaxlv.com from ones a
+  // salesperson entered by hand in this CRM — the sync job only ever
+  // creates/updates/retires AUTOMAXLV rows, never touches MANUAL ones.
+  // sourceUrl is the vehicle's detail page on automaxlv.com, re-checked
+  // live immediately before a test-drive booking is confirmed (see
+  // verifyVehicleStillListed in src/lib/inventory/sync.ts).
+  source       String    @default("MANUAL") // MANUAL | AUTOMAXLV
+  sourceUrl    String?
+  externalId   String? // the site's own listing id, when it differs from stockNumber
+  lastSyncedAt DateTime?
+  syncStatus   String    @default("OK") // OK | NEEDS_REVIEW — set NEEDS_REVIEW when a sync pass can't confidently read this vehicle's data (see error-handling rules in sync.ts); never auto-invented data, never auto-deleted
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   customerInterests CustomerVehicle[]
   appointments      Appointment[]
@@ -281,6 +302,32 @@ model Vehicle {
 
   @@index([status])
   @@index([make, model])
+  @@index([source])
+}
+
+// One row per inventory sync attempt (scheduled or manual). Purely for
+// observability — Settings → Inventory Sync reads this to show "last
+// synced 4 minutes ago, 42 vehicles, 0 errors" and surface failures
+// without ever touching the Vehicle table itself.
+model InventorySyncRun {
+  id     String @id @default(cuid())
+  source String @default("AUTOMAXLV")
+
+  status  String // RUNNING | SUCCESS | FAILED
+  trigger String @default("CRON") // CRON | MANUAL
+
+  vehiclesSeen    Int @default(0) // vehicles found on the site this run
+  vehiclesCreated Int @default(0)
+  vehiclesUpdated Int @default(0)
+  vehiclesRetired Int @default(0) // marked UNAVAILABLE because no longer listed
+  vehiclesFlagged Int @default(0) // couldn't be confidently read — see Vehicle.syncStatus
+
+  errorMessage String?
+
+  startedAt  DateTime  @default(now())
+  finishedAt DateTime?
+
+  @@index([source, startedAt])
 }
 
 model CustomerVehicle {
