@@ -1,55 +1,57 @@
 @import "tailwindcss";
 
-/* AutoMax LV brand — red & black. One deliberate, fixed dark identity
- * across the whole app (public booking site and admin CRM both), not a
- * light/dark toggle — see the design note in README's branding section. */
+/* AutoMax LV brand — clean white & red. One deliberate, fixed light
+ * identity across the whole app (public booking site and admin CRM both),
+ * not a light/dark toggle — see the design note in README's branding
+ * section. Previously a dark red/black theme; changed to this white+red
+ * professional-dealership look per explicit branding direction. */
 :root {
-  --bg: #0a0a0a;
-  --bg-elevated: #171717;
-  --bg-subtle: #232323;
-  --border: #2e2e2e;
-  --text: #f5f5f5;
-  --text-muted: #a8a8a8;
-  --text-faint: #6e6e6e;
+  --bg: #f7f7f8;
+  --bg-elevated: #ffffff;
+  --bg-subtle: #f1f1f3;
+  --border: #e4e4e7;
+  --text: #18181b;
+  --text-muted: #52525b;
+  --text-faint: #9a9aa2;
 
-  --brand: #e2141f;
-  --brand-dark: #b30f18;
-  --brand-soft: rgba(226, 20, 31, 0.16);
+  --brand: #d81324;
+  --brand-dark: #a80e1b;
+  --brand-soft: rgba(216, 19, 36, 0.08);
 
-  --sidebar-bg: #000000;
-  --sidebar-bg-hover: #1a1a1a;
-  --sidebar-text: #a8a8a8;
-  --sidebar-text-active: #ffffff;
-  --sidebar-border: #1f1f1f;
+  --sidebar-bg: #ffffff;
+  --sidebar-bg-hover: #f4f4f5;
+  --sidebar-text: #52525b;
+  --sidebar-text-active: #18181b;
+  --sidebar-border: #e4e4e7;
 
   /* Functional status colors (lead temperature, task priority, appointment
    * status, etc.) stay a distinguishable multi-color system rather than
-   * folding into red/black — that's what makes a dozen different pipeline
-   * stages/statuses scannable at a glance. Shifted a shade lighter than
-   * their old light-mode values so they hold contrast on the new dark
-   * surfaces instead of muddying into the background. */
-  --hot: #ff4d4d;
-  --hot-soft: rgba(255, 77, 77, 0.16);
-  --warm: #fb923c;
-  --warm-soft: rgba(251, 146, 60, 0.16);
-  --cold: #60a5fa;
-  --cold-soft: rgba(96, 165, 250, 0.16);
-  --overdue: #ff6161;
-  --overdue-soft: rgba(255, 97, 97, 0.18);
-  --appointment: #b794f6;
-  --appointment-soft: rgba(183, 148, 246, 0.16);
-  --sold: #34d399;
-  --sold-soft: rgba(52, 211, 153, 0.16);
-  --lost: #9ca3af;
-  --lost-soft: rgba(156, 163, 175, 0.14);
+   * folding into red/white — that's what makes a dozen different pipeline
+   * stages/statuses scannable at a glance. Back to light-mode-appropriate
+   * (darker ink on pastel background) values now that surfaces are light
+   * again. */
+  --hot: #dc2626;
+  --hot-soft: #fee2e2;
+  --warm: #ea580c;
+  --warm-soft: #ffedd5;
+  --cold: #2563eb;
+  --cold-soft: #dbeafe;
+  --overdue: #b91c1c;
+  --overdue-soft: #fee2e2;
+  --appointment: #7c3aed;
+  --appointment-soft: #ede9fe;
+  --sold: #16a34a;
+  --sold-soft: #dcfce7;
+  --lost: #64748b;
+  --lost-soft: #f1f5f9;
 
-  --success: #34d399;
-  --warning: #fbbf24;
-  --danger: #ff4d4d;
+  --success: #16a34a;
+  --warning: #d97706;
+  --danger: #dc2626;
 
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
-  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.55);
-  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.65);
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow-md: 0 4px 16px rgba(15, 23, 42, 0.08);
+  --shadow-lg: 0 12px 32px rgba(15, 23, 42, 0.12);
 }
 
 @theme inline {
@@ -90,7 +92,7 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #3a3a3a;
+  background: #cbd3e1;
   border-radius: 8px;
   border: 2px solid transparent;
   background-clip: content-box;

@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { Mail, Phone, MapPin, Clock } from "lucide-react";
+import { Mail, Phone, MessageSquare, MapPin, Clock } from "lucide-react";
 import { requireScope } from "@/lib/queries/scope";
 import { getCustomerProfile } from "@/lib/queries/customers";
 import { ensureFollowUpsFresh } from "@/lib/queries/followups";
@@ -49,8 +49,13 @@ export default async function CustomerProfilePage({ params }: { params: Promise<
                 {activeLead?.status === "LOST" && <Badge variant="lost">Lost</Badge>}
               </div>
               <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px] text-[var(--text-muted)]">
-                {customer.phone && <span className="flex items-center gap-1"><Phone size={13} /> {customer.phone}</span>}
-                {customer.email && <span className="flex items-center gap-1"><Mail size={13} /> {customer.email}</span>}
+                {customer.phone && (
+                  <>
+                    <a href={`tel:${customer.phone}`} className="flex items-center gap-1 hover:text-[var(--brand)]"><Phone size={13} /> {customer.phone}</a>
+                    <a href={`sms:${customer.phone}`} className="flex items-center gap-1 hover:text-[var(--brand)]" aria-label="Text customer"><MessageSquare size={13} /> Text</a>
+                  </>
+                )}
+                {customer.email && <a href={`mailto:${customer.email}`} className="flex items-center gap-1 hover:text-[var(--brand)]"><Mail size={13} /> {customer.email}</a>}
                 {customer.city && <span className="flex items-center gap-1"><MapPin size={13} /> {customer.city}, {customer.state}</span>}
               </div>
               <div className="mt-2 flex flex-wrap items-center gap-3 text-[12.5px]">

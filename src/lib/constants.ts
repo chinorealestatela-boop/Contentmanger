@@ -348,13 +348,29 @@ export const NOTIFICATION_TYPES: Option[] = [
   { value: "HOT_LEAD", label: "Hot Lead" },
   { value: "OVERDUE_FOLLOW_UP", label: "Overdue Follow-Up" },
   { value: "FOLLOW_UP_REMINDER", label: "Follow-Up Reminder" },
-  { value: "APPOINTMENT", label: "Appointment" },
+  { value: "APPOINTMENT", label: "New Appointment" },
+  { value: "APPOINTMENT_REMINDER", label: "Appointment Reminder" },
   { value: "APPOINTMENT_TOMORROW", label: "Appointment Tomorrow" },
+  { value: "APPOINTMENT_CANCELLED", label: "Appointment Cancellation" },
   { value: "NO_SHOW", label: "No-Show" },
   { value: "CUSTOMER_ACTIVITY", label: "Customer Activity" },
   { value: "VEHICLE_SOLD", label: "Vehicle Sold" },
   { value: "IMPORTANT_TASK", label: "Important Task" },
   { value: "AUTOMATION", label: "Automation" },
+];
+
+// The subset of NOTIFICATION_TYPES that get a Push/SMS/Email row in
+// Settings → Notifications — every one of these is dispatched through
+// notifyAdmin() (src/lib/notify/adminAlert.ts) somewhere in the app.
+// Everything else in NOTIFICATION_TYPES is in-app-bell-only (no external
+// channel exists for it yet) and shown read-only there instead.
+export const CHANNEL_NOTIFICATION_TYPES: Option[] = [
+  { value: "NEW_LEAD", label: "New Lead" },
+  { value: "APPOINTMENT", label: "New Appointment" },
+  { value: "APPOINTMENT_REMINDER", label: "Appointment Reminder" },
+  { value: "APPOINTMENT_CANCELLED", label: "Appointment Cancellation" },
+  { value: "HOT_LEAD", label: "Hot Lead" },
+  { value: "NO_SHOW", label: "No-Show" },
 ];
 
 // ── Helpers ───────────────────────────────────────────────────────────

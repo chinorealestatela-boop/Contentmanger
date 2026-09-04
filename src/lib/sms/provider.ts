@@ -46,6 +46,23 @@ async function sendViaTwilio(to: string, body: string, statusCallbackUrl?: strin
   }
 }
 
+/** Staff-facing alert (new lead / new appointment / reminder / cancellation
+ * — see src/lib/notify/adminAlert.ts), not tied to a Customer row the way
+ * customer-facing sendSms() is, so it's not logged to SmsMessage (that
+ * table is scoped to a specific customer's message history — an admin
+ * alert about a customer isn't a message *to* that customer, and would be
+ * confusing showing up in their thread). */
+export async function sendAdminSms(toPhone: string, body: string): Promise<{ sent: boolean; simulated: boolean; error?: string }> {
+  const normalized = normalizePhone(toPhone) ?? toPhone;
+  if (!isTwilioConfigured()) {
+    console.log(`[ADMIN SMS SIMULATED -> ${normalized}] ${body}`);
+    return { sent: false, simulated: true };
+  }
+  const result = await sendViaTwilio(normalized, body);
+  if (!result.ok) console.error(`[ADMIN SMS FAILED -> ${normalized}] ${result.error}`);
+  return { sent: result.ok, simulated: false, error: result.error };
+}
+
 export async function sendSms(params: {
   customerId: string;
   appointmentId?: string | null;

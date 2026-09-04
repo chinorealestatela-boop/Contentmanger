@@ -55,11 +55,34 @@ export async function changePassword(_prev: SimpleActionState, formData: FormDat
 }
 
 // ── Notification preferences ────────────────────────────────────────
-export async function updateNotificationPrefs(prefs: Record<string, boolean>) {
+// Shape: { [notifType]: { push?: boolean; sms?: boolean; email?: boolean } }
+// — see src/lib/notify/adminAlert.ts, the one place this is read.
+export async function updateNotificationPrefs(prefs: Record<string, { push?: boolean; sms?: boolean; email?: boolean }>) {
   const session = await auth();
   if (!session?.user) return;
   await prisma.user.update({ where: { id: session.user.id }, data: { notificationPrefs: JSON.stringify(prefs) } });
   revalidatePath("/settings/notifications");
+}
+
+const notifyContactSchema = z.object({
+  notifyPhone: z.string().trim().optional(),
+  notifyEmail: z.string().trim().email("Enter a valid email address.").optional().or(z.literal("")),
+});
+
+/** Where alerts are actually sent — separate from the login email/phone on
+ * the Profile page, so updating this can never change how the user signs
+ * in. Left blank, each falls back to the login value (see adminAlert.ts). */
+export async function updateNotifyContact(_prev: SimpleActionState, formData: FormData): Promise<SimpleActionState> {
+  const scope = await requireScope();
+  const parsed = notifyContactSchema.safeParse(Object.fromEntries(formData.entries()));
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input." };
+
+  await prisma.user.update({
+    where: { id: scope.userId },
+    data: { notifyPhone: parsed.data.notifyPhone || null, notifyEmail: parsed.data.notifyEmail || null },
+  });
+  revalidatePath("/settings/notifications");
+  return { success: "Saved." };
 }
 
 // ── Lead sources ─────────────────────────────────────────────────────

@@ -13,33 +13,33 @@ export function AuthShell({
 }) {
   return (
     <div className="flex min-h-screen w-full">
-      <div className="hidden lg:flex lg:w-[46%] flex-col justify-between bg-[var(--sidebar-bg)] p-12 text-white">
+      <div className="hidden lg:flex lg:w-[46%] flex-col justify-between bg-[var(--brand)] p-12 text-white">
         <Link href="/login" className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--brand)] font-bold">D</div>
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white font-bold text-[var(--brand)]">D</div>
           <span className="text-lg font-semibold">Driveline CRM</span>
         </Link>
         <div className="max-w-md">
           <h1 className="text-3xl font-semibold leading-tight text-white">
             Know exactly who to work, right now.
           </h1>
-          <p className="mt-4 text-[15px] leading-relaxed text-slate-400">
+          <p className="mt-4 text-[15px] leading-relaxed text-red-100">
             Hot leads, overdue follow-ups, today&rsquo;s appointments, and every customer conversation —
             organized into one action-first command center built for the sales floor.
           </p>
-          <ul className="mt-8 space-y-3 text-sm text-slate-300">
+          <ul className="mt-8 space-y-3 text-sm text-red-50">
             {[
               "Never let a lead go cold again",
               "Automated follow-up cadences, day 0 through 30",
               "Pipeline, tasks, and appointments in one view",
             ].map((t) => (
               <li key={t} className="flex items-center gap-2.5">
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 text-xs">✓</span>
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white/20 text-white text-xs">✓</span>
                 {t}
               </li>
             ))}
           </ul>
         </div>
-        <p className="text-xs text-slate-500">© {new Date().getFullYear()} AutoMax LV. Internal use only.</p>
+        <p className="text-xs text-red-100/70">© {new Date().getFullYear()} AutoMax LV. Internal use only.</p>
       </div>
 
       <div className="flex flex-1 items-center justify-center bg-[var(--bg)] px-6 py-12">

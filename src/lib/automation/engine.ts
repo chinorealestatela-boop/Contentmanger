@@ -10,6 +10,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { logActivity } from "@/lib/activity";
+import { notifyAdmin, type AdminAlertType } from "@/lib/notify/adminAlert";
 
 export type TriggerEvent =
   | "NEW_LEAD"
@@ -86,24 +87,17 @@ async function executeAction(action: ActionDef, rule: { id: string; name: string
       break;
     }
     case "NOTIFY": {
-      const recipient = await prisma.user.findUnique({ where: { id: assigneeId }, select: { notificationPrefs: true } });
-      if (recipient?.notificationPrefs) {
-        try {
-          const prefs = JSON.parse(recipient.notificationPrefs) as Record<string, boolean>;
-          if (prefs[action.notifType] === false) break; // recipient opted out of this category
-        } catch {
-          /* malformed prefs — fall through and notify */
-        }
-      }
       const customer = await prisma.customer.findUnique({ where: { id: payload.customerId } });
-      await prisma.notification.create({
-        data: {
-          userId: assigneeId,
-          type: action.notifType,
-          title: action.title,
-          body: customer ? `${customer.firstName} ${customer.lastName}` : undefined,
-          link: `/customers/${payload.customerId}`,
-        },
+      // Always creates the in-app bell entry, plus push/SMS/email for
+      // whichever channels the recipient has turned on for this event type
+      // in Settings → Notifications (see adminAlert.ts) — the bell itself
+      // is never gated by that preference, only the extra channels are.
+      await notifyAdmin({
+        userId: assigneeId,
+        type: action.notifType as AdminAlertType,
+        title: action.title,
+        body: customer ? `${customer.firstName} ${customer.lastName}` : undefined,
+        link: `/customers/${payload.customerId}`,
       });
       await prisma.automationRun.create({
         data: { ruleId: rule.id, customerId: payload.customerId, leadId: payload.leadId, status: "SUCCESS", detail: "Notification sent" },

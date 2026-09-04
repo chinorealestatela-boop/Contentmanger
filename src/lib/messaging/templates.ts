@@ -87,15 +87,16 @@ export function smsCancelled(ctx: MessageContext): string {
 }
 
 // ── Email ────────────────────────────────────────────────────────────────
-// Body stays light/white — many email clients render dark-mode HTML
-// unpredictably, so the red/black brand identity lives in the header band
-// and accent colors instead of the whole message background.
+// Clean white body with a red accent header band and red links/highlights —
+// matches the app's white+red branding while staying safely renderable
+// across email clients (no dark backgrounds to fight inconsistent
+// dark-mode HTML handling).
 
 function emailShell(ctx: MessageContext, heading: string, body: string) {
   return `
 <div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:520px;margin:0 auto;color:#171717">
-  <div style="background:#000000;padding:20px 24px;border-radius:12px 12px 0 0;border-bottom:3px solid #e2141f">
-    <p style="margin:0;color:#fff;font-size:18px;font-weight:700">${ctx.dealershipName}</p>
+  <div style="background:#ffffff;padding:20px 24px;border-radius:12px 12px 0 0;border:1px solid #e5e5e5;border-bottom:3px solid #d81324">
+    <p style="margin:0;color:#18181b;font-size:18px;font-weight:700">${ctx.dealershipName}</p>
   </div>
   <div style="border:1px solid #e5e5e5;border-top:none;padding:24px;border-radius:0 0 12px 12px">
     <h1 style="font-size:22px;margin:0 0 12px;color:#111">${heading}</h1>
@@ -103,7 +104,7 @@ function emailShell(ctx: MessageContext, heading: string, body: string) {
     <hr style="border:none;border-top:1px solid #e5e5e5;margin:24px 0" />
     <p style="font-size:12.5px;color:#6e6e6e;margin:0">
       ${ctx.settings.agentName} · ${ctx.dealershipName} · ${ctx.dealershipPhone}<br />
-      Manage this appointment: <a href="${ctx.manageUrl}" style="color:#e2141f">${ctx.manageUrl}</a>
+      Manage this appointment: <a href="${ctx.manageUrl}" style="color:#d81324">${ctx.manageUrl}</a>
     </p>
   </div>
 </div>`.trim();
@@ -122,7 +123,7 @@ function detailsTable(ctx: MessageContext) {
 
 function whatToBringBlock() {
   return `
-<div style="background:#faf6f6;border:1px solid #f2d5d6;border-left:4px solid #e2141f;border-radius:8px;padding:14px 16px;margin:16px 0">
+<div style="background:#faf6f6;border:1px solid #f2d5d6;border-left:4px solid #d81324;border-radius:8px;padding:14px 16px;margin:16px 0">
   <p style="margin:0 0 8px;font-weight:700;font-size:13.5px;color:#111">Please Bring</p>
   <ul style="margin:0;padding-left:18px;font-size:13.5px;line-height:1.6;color:#333">
     ${WHAT_TO_BRING.map((item) => `<li>${item}</li>`).join("")}
@@ -142,7 +143,7 @@ export function emailBookingConfirmation(ctx: MessageContext): { subject: string
        ${detailsTable(ctx)}
        ${whatToBringBlock()}
        <p style="font-weight:600">${arrivalInstruction(ctx)}</p>
-       <p>Questions? Call <a href="tel:${ctx.dealershipPhone.replace(/[^\d+]/g, "")}" style="color:#e2141f">${ctx.dealershipPhone}</a>.</p>`
+       <p>Questions? Call <a href="tel:${ctx.dealershipPhone.replace(/[^\d+]/g, "")}" style="color:#d81324">${ctx.dealershipPhone}</a>.</p>`
     ),
   };
 }

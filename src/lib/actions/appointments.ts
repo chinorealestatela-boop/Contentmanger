@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireScope } from "@/lib/queries/scope";
 import { logActivity } from "@/lib/activity";
 import { runAutomation } from "@/lib/automation/engine";
+import { notifyAdmin } from "@/lib/notify/adminAlert";
 import { recomputeLeadScore } from "@/lib/scoring-engine";
 import { revalidatePath } from "next/cache";
 import type { SimpleActionState } from "@/lib/actions/communications";
@@ -105,6 +106,14 @@ export async function updateAppointmentStatus(appointmentId: string, status: str
     await runAutomation("APPOINTMENT_NO_SHOW", { customerId: appt.customerId, leadId: lead?.id, actorId: scope.userId });
   } else if (status === "COMPLETED") {
     await runAutomation("APPOINTMENT_COMPLETED", { customerId: appt.customerId, leadId: lead?.id, actorId: scope.userId });
+  } else if (status === "CANCELLED") {
+    await notifyAdmin({
+      userId: appt.salespersonId,
+      type: "APPOINTMENT_CANCELLED",
+      title: "Appointment cancelled",
+      body: `${appt.customer.firstName} ${appt.customer.lastName}'s appointment was marked cancelled.`,
+      link: `/customers/${appt.customerId}`,
+    });
   }
 
   if (lead) await recomputeLeadScore(lead.id, scope.userId);

@@ -15,6 +15,8 @@
 
 import { prisma } from "@/lib/prisma";
 import { notifyAppointmentEvent } from "@/lib/messaging/notify";
+import { notifyAdmin } from "@/lib/notify/adminAlert";
+import { formatDate, formatTime12h } from "@/lib/format";
 
 const ACTIVE_STATUSES = ["SCHEDULED", "CONFIRMED"];
 
@@ -32,7 +34,11 @@ export async function sendPendingReminders(baseUrl: string): Promise<{ sent24h: 
       status: { in: ACTIVE_STATUSES },
       date: { gte: new Date(now.toDateString()), lte: windowEnd },
     },
-    include: { smsMessages: { select: { type: true } }, emailMessages: { select: { type: true } } },
+    include: {
+      smsMessages: { select: { type: true } },
+      emailMessages: { select: { type: true } },
+      customer: { select: { firstName: true, lastName: true } },
+    },
   });
 
   let sent24h = 0;
@@ -47,10 +53,12 @@ export async function sendPendingReminders(baseUrl: string): Promise<{ sent24h: 
 
     if (!already24h && startsAt <= in24h) {
       await notifyAppointmentEvent(appt.id, "REMINDER_24H", baseUrl);
+      await notifyStaffOfReminder(appt, "tomorrow");
       sent24h++;
     }
     if (!already2h && startsAt <= in2h) {
       await notifyAppointmentEvent(appt.id, "REMINDER_2H", baseUrl);
+      await notifyStaffOfReminder(appt, "in about 2 hours");
       sent2h++;
     }
   }
@@ -63,4 +71,19 @@ function appointmentDateTime(date: Date, time: string): Date {
   const d = new Date(date);
   d.setHours(h, m, 0, 0);
   return d;
+}
+
+type ReminderCandidate = { id: string; salespersonId: string; date: Date; time: string; customer: { firstName: string; lastName: string } };
+
+/** Reminds the assigned salesperson too, not just the customer — the same
+ * "Appointment Reminder" category shown in Settings → Notifications, with
+ * its own independent Push/SMS/Email toggles. */
+async function notifyStaffOfReminder(appt: ReminderCandidate, when: string) {
+  await notifyAdmin({
+    userId: appt.salespersonId,
+    type: "APPOINTMENT_REMINDER",
+    title: `Upcoming test drive ${when}`,
+    body: `${appt.customer.firstName} ${appt.customer.lastName} — ${formatDate(appt.date, "EEE, MMM d")} at ${formatTime12h(appt.time)}`,
+    link: `/appointments`,
+  });
 }

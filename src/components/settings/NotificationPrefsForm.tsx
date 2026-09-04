@@ -1,17 +1,25 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { Smartphone, MessageSquare, Mail } from "lucide-react";
 import { updateNotificationPrefs } from "@/lib/actions/settings";
-import { NOTIFICATION_TYPES } from "@/lib/constants";
+import { CHANNEL_NOTIFICATION_TYPES } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
-export function NotificationPrefsForm({ initial }: { initial: Record<string, boolean> }) {
-  const [prefs, setPrefs] = useState<Record<string, boolean>>(initial);
+type ChannelPrefs = { push?: boolean; sms?: boolean; email?: boolean };
+type Prefs = Record<string, ChannelPrefs>;
+
+// Real per-channel toggles (Push / SMS / Email) per event type — this is
+// exactly what notifyAdmin() reads (src/lib/notify/adminAlert.ts) before
+// deciding to actually call Twilio/Resend/web-push for a given alert, not
+// a cosmetic settings screen with nothing behind it.
+export function NotificationPrefsForm({ initial }: { initial: Prefs }) {
+  const [prefs, setPrefs] = useState<Prefs>(initial);
   const [pending, startTransition] = useTransition();
   const [saved, setSaved] = useState(false);
 
-  function toggle(key: string) {
-    const next = { ...prefs, [key]: !prefs[key] };
+  function toggle(type: string, channel: keyof ChannelPrefs) {
+    const next: Prefs = { ...prefs, [type]: { ...prefs[type], [channel]: !prefs[type]?.[channel] } };
     setPrefs(next);
     setSaved(false);
     startTransition(async () => {
@@ -21,22 +29,31 @@ export function NotificationPrefsForm({ initial }: { initial: Record<string, boo
   }
 
   return (
-    <div className="space-y-1">
-      {NOTIFICATION_TYPES.map((t) => {
-        const active = prefs[t.value] !== false;
-        return (
-          <div key={t.value} className="flex items-center justify-between border-b border-[var(--border)] py-3 last:border-0">
-            <span className="text-[13.5px] text-[var(--text)]">{t.label}</span>
-            <button
-              disabled={pending}
-              onClick={() => toggle(t.value)}
-              className={cn("relative h-6 w-11 shrink-0 rounded-full transition-colors", active ? "bg-emerald-500" : "bg-[var(--border)]")}
-            >
-              <span className={cn("absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform", active ? "translate-x-5" : "translate-x-0.5")} />
-            </button>
+    <div>
+      <div className="grid grid-cols-[1fr_repeat(3,44px)] items-center gap-x-2 gap-y-1 pb-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-faint)]">
+        <span />
+        <span className="flex justify-center" title="Push"><Smartphone size={13} /></span>
+        <span className="flex justify-center" title="SMS"><MessageSquare size={13} /></span>
+        <span className="flex justify-center" title="Email"><Mail size={13} /></span>
+      </div>
+      <div className="space-y-0.5">
+        {CHANNEL_NOTIFICATION_TYPES.map((t) => (
+          <div key={t.value} className="grid grid-cols-[1fr_repeat(3,44px)] items-center gap-x-2 border-b border-[var(--border)] py-2.5 last:border-0">
+            <span className="text-[13px] text-[var(--text)]">{t.label}</span>
+            {(["push", "sms", "email"] as const).map((channel) => (
+              <label key={channel} className="flex justify-center">
+                <input
+                  type="checkbox"
+                  disabled={pending}
+                  checked={!!prefs[t.value]?.[channel]}
+                  onChange={() => toggle(t.value, channel)}
+                  className={cn("h-4 w-4 cursor-pointer accent-[var(--brand)]")}
+                />
+              </label>
+            ))}
           </div>
-        );
-      })}
+        ))}
+      </div>
       {saved && <p className="pt-2 text-xs text-emerald-600">Saved.</p>}
     </div>
   );

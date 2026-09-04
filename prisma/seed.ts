@@ -240,7 +240,10 @@ async function main() {
       {
         name: "Appointment created → confirmation task",
         triggerEvent: "APPOINTMENT_CREATED",
-        actions: JSON.stringify([{ type: "CREATE_TASK", taskType: "CALL", title: "Confirm upcoming appointment", priority: "HIGH", dueInHours: 2 }]),
+        actions: JSON.stringify([
+          { type: "CREATE_TASK", taskType: "CALL", title: "Confirm upcoming appointment", priority: "HIGH", dueInHours: 2 },
+          { type: "NOTIFY", notifType: "APPOINTMENT", title: "New appointment booked" },
+        ]),
         order: 2,
       },
       {

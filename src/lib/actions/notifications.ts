@@ -24,6 +24,13 @@ export async function markAllNotificationsRead() {
   revalidatePath("/", "layout");
 }
 
+export async function deleteNotification(id: string) {
+  const session = await auth();
+  if (!session?.user) return;
+  await prisma.notification.deleteMany({ where: { id, userId: session.user.id } });
+  revalidatePath("/", "layout");
+}
+
 export async function getRecentNotifications() {
   const session = await auth();
   if (!session?.user) return [];

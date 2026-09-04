@@ -19,6 +19,8 @@ import { getBookingSettings, isSlotAvailable, getAvailableSlots as getAvailableS
 import { verifyVehicleStillListed } from "@/lib/inventory/sync";
 import { normalizePhone, isValidPhone } from "@/lib/phone";
 import { notifyAppointmentEvent } from "@/lib/messaging/notify";
+import { notifyAdmin } from "@/lib/notify/adminAlert";
+import { formatDate } from "@/lib/format";
 import { BOOKING_SOURCE_MAP, DEFAULT_BOOKING_SOURCE } from "@/lib/constants";
 
 // ── Shared helpers ─────────────────────────────────────────────────────
@@ -409,7 +411,7 @@ export async function cancelBookingAppointment(_prev: ManageActionState, formDat
   const parsed = cancelSchema.safeParse(Object.fromEntries(formData.entries()));
   if (!parsed.success) return { error: "Appointment not found." };
 
-  const appt = await prisma.appointment.findUnique({ where: { manageToken: parsed.data.token } });
+  const appt = await prisma.appointment.findUnique({ where: { manageToken: parsed.data.token }, include: { customer: true } });
   if (!appt) return { error: "Appointment not found." };
 
   await prisma.appointment.update({ where: { id: appt.id }, data: { status: "CANCELLED" } });
@@ -417,6 +419,14 @@ export async function cancelBookingAppointment(_prev: ManageActionState, formDat
 
   const url = await baseUrl();
   await notifyAppointmentEvent(appt.id, "CANCELLED", url);
+  await notifyAdmin({
+    userId: appt.salespersonId,
+    type: "APPOINTMENT_CANCELLED",
+    title: "Appointment cancelled",
+    body: `${appt.customer.firstName} ${appt.customer.lastName} cancelled their ${formatDate(appt.date, "EEE, MMM d")} test drive.`,
+    link: "/appointments",
+    baseUrl: url,
+  });
 
   revalidatePath("/appointments");
   revalidatePath("/calendar");

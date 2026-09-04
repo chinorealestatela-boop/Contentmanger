@@ -39,7 +39,12 @@ model User {
   isActive          Boolean   @default(true)
   roleId            String
   role              Role      @relation(fields: [roleId], references: [id])
-  notificationPrefs String? // JSON-encoded notification preferences
+  notificationPrefs String? // JSON-encoded { [notifType]: { push?, sms?, email? } } — see src/lib/notify/adminAlert.ts
+  // Where alerts actually get sent — independent of the login email/phone
+  // above, so changing notification delivery details here never touches
+  // login credentials. Falls back to email/phone above when unset.
+  notifyPhone       String?
+  notifyEmail       String?
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
   lastLoginAt       DateTime?
@@ -57,6 +62,24 @@ model User {
   resetTokens    PasswordResetToken[]
   sessions       Session[]
   followUps      FollowUp[]           @relation("FollowUpAssignee")
+  pushSubscriptions PushSubscription[]
+}
+
+// One row per browser/device the user has enabled push notifications on
+// (see src/lib/push/webpush.ts) — a user can have several (phone + laptop,
+// say). endpoint is unique per browser subscription, so re-subscribing the
+// same device just updates its keys instead of creating a duplicate.
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
 }
 
 model Session {
@@ -764,12 +787,25 @@ model Notification {
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  type      String // NEW_LEAD | HOT_LEAD | OVERDUE_FOLLOW_UP | APPOINTMENT | APPOINTMENT_TOMORROW | NO_SHOW | CUSTOMER_ACTIVITY | VEHICLE_SOLD | IMPORTANT_TASK | AUTOMATION
+  type      String // NEW_LEAD | HOT_LEAD | OVERDUE_FOLLOW_UP | APPOINTMENT | APPOINTMENT_REMINDER | APPOINTMENT_TOMORROW | APPOINTMENT_CANCELLED | NO_SHOW | CUSTOMER_ACTIVITY | VEHICLE_SOLD | IMPORTANT_TASK | AUTOMATION
   title     String
   body      String?
   link      String?
   isRead    Boolean  @default(false)
   createdAt DateTime @default(now())
+
+  // Delivery status for the real push/SMS/email fan-out this notification
+  // triggered (see src/lib/notify/adminAlert.ts) — set once per channel,
+  // independent of whether the recipient has that channel enabled at all
+  // (an unattempted channel just stays false/null, same as a failed one,
+  // but the *Error field distinguishes "never tried" from "tried and
+  // failed" for anything worth debugging).
+  pushSent   Boolean @default(false)
+  pushError  String?
+  smsSent    Boolean @default(false)
+  smsError   String?
+  emailSent  Boolean @default(false)
+  emailError String?
 
   @@index([userId, isRead])
 }

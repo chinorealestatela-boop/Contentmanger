@@ -2,10 +2,10 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { Bell } from "lucide-react";
+import { Bell, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatTimeAgo } from "@/lib/format";
-import { markAllNotificationsRead, markNotificationRead } from "@/lib/actions/notifications";
+import { markAllNotificationsRead, markNotificationRead, deleteNotification } from "@/lib/actions/notifications";
 
 export type NotificationDTO = {
   id: string;
@@ -61,25 +61,39 @@ export function NotificationBell({ initial }: { initial: NotificationDTO[] }) {
                 <p className="px-4 py-8 text-center text-sm text-[var(--text-muted)]">You&rsquo;re all caught up.</p>
               )}
               {notifications.map((n) => (
-                <Link
-                  key={n.id}
-                  href={n.link ?? "/dashboard"}
-                  onClick={() => {
-                    setNotifications((prev) => prev.map((x) => (x.id === n.id ? { ...x, isRead: true } : x)));
-                    startTransition(() => markNotificationRead(n.id));
-                    setOpen(false);
-                  }}
-                  className={cn("block border-b border-[var(--border)] px-4 py-3 last:border-0 hover:bg-[var(--bg-subtle)]", !n.isRead && "bg-[var(--brand-soft)]/40")}
-                >
-                  <div className="flex items-start gap-2">
-                    {!n.isRead && <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--brand)]" />}
-                    <div className={cn("min-w-0", n.isRead && "pl-3.5")}>
-                      <p className="text-[13px] font-semibold text-[var(--text)]">{n.title}</p>
-                      {n.body && <p className="mt-0.5 truncate text-xs text-[var(--text-muted)]">{n.body}</p>}
-                      <p className="mt-1 text-[11px] text-[var(--text-faint)]">{formatTimeAgo(n.createdAt)}</p>
+                <div key={n.id} className={cn("group relative border-b border-[var(--border)] last:border-0 hover:bg-[var(--bg-subtle)]", !n.isRead && "bg-[var(--brand-soft)]/40")}>
+                  <Link
+                    href={n.link ?? "/dashboard"}
+                    onClick={() => {
+                      setNotifications((prev) => prev.map((x) => (x.id === n.id ? { ...x, isRead: true } : x)));
+                      startTransition(() => markNotificationRead(n.id));
+                      setOpen(false);
+                    }}
+                    className="block px-4 py-3 pr-9"
+                  >
+                    <div className="flex items-start gap-2">
+                      {!n.isRead && <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--brand)]" />}
+                      <div className={cn("min-w-0", n.isRead && "pl-3.5")}>
+                        <p className="text-[13px] font-semibold text-[var(--text)]">{n.title}</p>
+                        {n.body && <p className="mt-0.5 truncate text-xs text-[var(--text-muted)]">{n.body}</p>}
+                        <p className="mt-1 text-[11px] text-[var(--text-faint)]">{formatTimeAgo(n.createdAt)}</p>
+                      </div>
                     </div>
-                  </div>
-                </Link>
+                  </Link>
+                  <button
+                    type="button"
+                    aria-label="Delete notification"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setNotifications((prev) => prev.filter((x) => x.id !== n.id));
+                      startTransition(() => deleteNotification(n.id));
+                    }}
+                    className="absolute right-2 top-3 flex h-6 w-6 items-center justify-center rounded-md text-[var(--text-faint)] opacity-0 hover:bg-[var(--bg-elevated)] hover:text-[var(--danger)] group-hover:opacity-100"
+                  >
+                    <X size={13} />
+                  </button>
+                </div>
               ))}
             </div>
           </div>

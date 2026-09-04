@@ -32,6 +32,19 @@ async function sendViaResend(to: string, subject: string, html: string): Promise
   }
 }
 
+/** Staff-facing alert, not logged to EmailMessage (that table is a
+ * customer's own message history) — see sendAdminSms's comment in
+ * src/lib/sms/provider.ts for the same reasoning. */
+export async function sendAdminEmail(toEmail: string, subject: string, html: string): Promise<{ sent: boolean; simulated: boolean; error?: string }> {
+  if (!isResendConfigured()) {
+    console.log(`[ADMIN EMAIL SIMULATED -> ${toEmail}] ${subject}`);
+    return { sent: false, simulated: true };
+  }
+  const result = await sendViaResend(toEmail, subject, html);
+  if (!result.ok) console.error(`[ADMIN EMAIL FAILED -> ${toEmail}] ${result.error}`);
+  return { sent: result.ok, simulated: false, error: result.error };
+}
+
 export async function sendEmail(params: {
   customerId: string;
   appointmentId?: string | null;
