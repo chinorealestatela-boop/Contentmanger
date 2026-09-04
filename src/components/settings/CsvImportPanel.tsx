@@ -25,8 +25,14 @@ export function CsvImportPanel() {
         Export your <strong className="text-[var(--text-muted)]">full current inventory</strong> from DealerCenter (or any spreadsheet tool) as a CSV — like a
         live sync, this replaces the prior AutoMax-sourced list: any previously-imported vehicle not present in the file gets marked unavailable, so
         uploading only a partial list will incorrectly hide the rest. Expected columns (any common header name works, case-insensitive): VIN or Stock
-        Number (required), Year, Make, Model, Trim, Price, Mileage, Exterior/Interior Color, Engine, Transmission, Drivetrain, Body Style, Description,
+        Number ideally, plus Year, Make, Model, Trim, Price, Mileage, Exterior/Interior Color, Engine, Transmission, Drivetrain, Body Style, Description,
         Features, Photos, and optionally a Status column (a row marked &ldquo;sold&rdquo;/&ldquo;pending&rdquo; is skipped, not imported as available).
+      </p>
+      <p className="text-[12px] text-[var(--text-faint)]">
+        No VIN/Stock # column? Year + Make + Model + Price is used to identify each vehicle instead, so re-uploading the same file updates the same
+        rows rather than duplicating them — but two vehicles with an identical year, make, model, <em>and</em> price will be treated as one, and a
+        price change looks like the old listing sold and a new one was added rather than a price update. Ask AutoMax LV/DealerCenter to include a
+        Stock # column in the export if that&rsquo;s available — it makes tracking exact.
       </p>
 
       {result && (

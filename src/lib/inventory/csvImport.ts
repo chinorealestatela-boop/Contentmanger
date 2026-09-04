@@ -158,6 +158,24 @@ function toNumber(v: string | null): number | null {
 
 const SOLD_STATUS_PATTERN = /\b(sold|sale\s*pending|pending|no longer available|unavailable|hold)\b/i;
 
+/** Deterministic stand-in identifier for an export with no VIN/stock #
+ * column at all (real-world example: a bare Year/Make/Model/Price sheet).
+ * Built from whatever identifying fields the row does have, so re-uploading
+ * the same file later produces the same key and updates the same row
+ * instead of creating a duplicate — the same goal resolveStockNumber() in
+ * engine.ts serves for a listing missing just one of the two, just applied
+ * per-row here since engine.ts has no year/make/model/price to work with
+ * once a real stockNumber is already set. NOT a substitute for a real
+ * VIN/stock #: two identical year+make+model+price rows collide into one
+ * vehicle (see the caller's warning to the user about this). */
+function syntheticStockNumber(year: number, make: string, model: string, price: number | null): string {
+  const slug = `${year}-${make}-${model}-${price ?? "NA"}`
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return `CSV-${slug}`;
+}
+
 export function parseInventoryCsv(text: string): InventoryFetchResult {
   const rows = parseCsv(text);
   if (rows.length === 0) {
@@ -166,16 +184,17 @@ export function parseInventoryCsv(text: string): InventoryFetchResult {
 
   const [headerRow, ...dataRows] = rows;
   const index = buildHeaderIndex(headerRow);
+  const hasIdColumn = index.vin !== undefined || index.stockNumber !== undefined;
 
-  if (index.vin === undefined && index.stockNumber === undefined) {
+  if (!hasIdColumn && (index.year === undefined || index.make === undefined || index.model === undefined)) {
     return {
       vehicles: [],
       unparsed: [
         {
           url: "(file)",
           reason:
-            "No VIN or Stock Number column recognized in the header row. Expected one of these headers (case-insensitive): " +
-            `VIN; ${HEADER_ALIASES.stockNumber.join(", ")}. Found headers: ${headerRow.join(", ") || "(none)"}.`,
+            "No VIN, Stock Number, or Year/Make/Model columns recognized in the header row — nothing usable to identify a vehicle by. " +
+            `Found headers: ${headerRow.join(", ") || "(none)"}.`,
         },
       ],
     };
@@ -188,13 +207,6 @@ export function parseInventoryCsv(text: string): InventoryFetchResult {
     const rowLabel = `row ${i + 2}`; // +2: 1-indexed, plus the header row
     if (row.every((c) => c.trim() === "")) continue; // blank line
 
-    const vin = cell(row, index, "vin");
-    const stockNumber = cell(row, index, "stockNumber");
-    if (!vin && !stockNumber) {
-      unparsed.push({ url: rowLabel, reason: "No VIN or stock number in this row." });
-      continue;
-    }
-
     const status = cell(row, index, "status");
     if (status && SOLD_STATUS_PATTERN.test(status)) {
       unparsed.push({ url: rowLabel, reason: `Status column says "${status}" — excluded rather than synced as available.` });
@@ -203,16 +215,41 @@ export function parseInventoryCsv(text: string): InventoryFetchResult {
 
     const yearRaw = cell(row, index, "year");
     const year = yearRaw ? Number(yearRaw.replace(/[^0-9]/g, "")) : null;
+    const validYear = year && year > 1900 ? year : null;
+    const make = cell(row, index, "make");
+    const model = cell(row, index, "model");
+    const price = toNumber(cell(row, index, "price"));
+
+    const vin = cell(row, index, "vin");
+    let stockNumber = cell(row, index, "stockNumber");
+
+    if (!vin && !stockNumber) {
+      if (hasIdColumn) {
+        // The file has a VIN/Stock # column in general — this particular
+        // row just left it blank. Don't guess; that's real missing data.
+        unparsed.push({ url: rowLabel, reason: "No VIN or stock number in this row." });
+        continue;
+      }
+      // No identifier column exists anywhere in this export — synthesize
+      // a stable one from year/make/model/price instead of refusing the
+      // whole file (this is the shape of a real AutoMax LV export, which
+      // only lists Year/Make/Model/Price with nothing more unique).
+      if (!validYear || !make || !model) {
+        unparsed.push({ url: rowLabel, reason: "Missing Year/Make/Model — can't identify this row without a VIN/Stock # column present." });
+        continue;
+      }
+      stockNumber = syntheticStockNumber(validYear, make, model, price);
+    }
 
     vehicles.push({
       vin,
       stockNumber,
       externalId: cell(row, index, "externalId"),
-      year: year && year > 1900 ? year : null,
-      make: cell(row, index, "make"),
-      model: cell(row, index, "model"),
+      year: validYear,
+      make,
+      model,
       trim: cell(row, index, "trim"),
-      price: toNumber(cell(row, index, "price")),
+      price,
       mileage: toNumber(cell(row, index, "mileage")),
       exteriorColor: cell(row, index, "exteriorColor"),
       interiorColor: cell(row, index, "interiorColor"),
