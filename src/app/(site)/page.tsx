@@ -23,8 +23,8 @@ export default async function LandingPage() {
   return (
     <div>
       {/* Hero */}
-      <section className="relative overflow-hidden bg-[var(--sidebar-bg)] px-4 py-16 text-white sm:px-6 sm:py-24">
-        <div className="pointer-events-none absolute inset-0 opacity-20" style={{ background: "radial-gradient(circle at 20% 20%, var(--brand) 0%, transparent 55%)" }} />
+      <section className="relative overflow-hidden bg-[var(--brand)] px-4 py-16 text-white sm:px-6 sm:py-24">
+        <div className="pointer-events-none absolute inset-0 opacity-20" style={{ background: "radial-gradient(circle at 20% 20%, #ffffff 0%, transparent 55%)" }} />
         <div className="relative mx-auto max-w-3xl text-center">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-[12px] font-semibold text-white/90">
             <Car size={13} /> Las Vegas, NV
