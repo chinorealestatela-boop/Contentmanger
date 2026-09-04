@@ -1,8 +1,38 @@
-// Fetches and parses live inventory from https://www.automaxlv.com/ — the
-// ONLY inventory source this app pulls from (see sync.ts / SOURCE-OF-TRUTH
-// rule in the admin Inventory Sync page).
+// Fetches and parses live inventory from https://www.automaxlv.com/.
 //
-// ── Provenance / status as of 2026-09-04 ────────────────────────────────
+// ── RESOLVED 2026-09-04: the site blocks automated access outright ──────
+// Confirmed directly from production runtime logs (this file's always-on
+// diagnostic logging — see logDiag() below) after the module-bundling bug
+// that used to break this route was fixed and a real sync ran against the
+// live site for the first time:
+//   - Rendering the listing page with a real headless Chromium (the exact
+//     approach this file uses in production) returns Cloudflare's
+//     "Performing security verification" Turnstile challenge page — no
+//     vehicle markup, no "dws-" classes, nothing to parse. This is not a
+//     markup mismatch; the page never gets past the bot check.
+//   - A plain fetch() of the sitemap XML (which doesn't execute JS, so
+//     Turnstile can't run) gets a flat 403 from a "dealercenterwebsite.net
+//     ... you have been blocked" Cloudflare block page.
+// Combined with robots.txt's explicit disallow list for AI/scraper user
+// agents (noted below), this closes out the investigation: no amount of
+// tuning the parser's regexes or the rendering approach fixes this — the
+// site is actively refusing automated requests, full stop.
+//
+// THE WORKING FALLBACK: src/lib/inventory/csvSync.ts + csvImport.ts —
+// the dealer's own inventory export, uploaded through the admin UI
+// (Settings → Inventory Sync → "Upload Inventory"). Same dedupe/upsert/
+// retire engine (engine.ts), just fed from a parsed CSV instead of a
+// scrape. This is the currently-recommended path; this file is left in
+// place (not deleted) in case automaxlv.com's access policy changes, a
+// real DealerCenter feed/API becomes available, or an anti-bot-bypass
+// service gets added — any of which would make live sync work again
+// without redesigning the rest of the pipeline (engine.ts doesn't care
+// which source produced its input).
+//
+// Everything below this point is the now-closed investigation into
+// whether this was a markup problem, kept for history/context.
+//
+// ── Provenance / status as of 2026-09-04 (superseded by the above) ──────
 // A previous version of this file's header claimed the markup below was
 // "verified against the live site... in a real browser, inspecting the
 // rendered DOM" — but the code that shipped used plain `fetch()`, which

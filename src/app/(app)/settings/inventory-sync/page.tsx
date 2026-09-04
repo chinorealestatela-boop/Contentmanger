@@ -4,6 +4,7 @@ import { requireScope } from "@/lib/queries/scope";
 import { prisma } from "@/lib/prisma";
 import { SettingsShell } from "@/components/settings/SettingsShell";
 import { InventorySyncPanel } from "@/components/settings/InventorySyncPanel";
+import { CsvImportPanel } from "@/components/settings/CsvImportPanel";
 import { Badge } from "@/components/ui/Badge";
 import { formatTimeAgo, formatDateTime } from "@/lib/format";
 
@@ -26,7 +27,7 @@ export default async function InventorySyncPage() {
     <SettingsShell
       isAdmin={scope.role === "ADMIN"}
       title="Inventory Sync"
-      subtitle="Vehicle inventory is pulled live from automaxlv.com — the only source of truth for what's available to test drive. See src/lib/inventory/ in the codebase for how this works."
+      subtitle="Vehicle inventory is AutoMax LV's — the only source of truth for what's available to test drive. See src/lib/inventory/ in the codebase for how this works."
     >
       <div className="card space-y-4 p-5">
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
@@ -35,15 +36,28 @@ export default async function InventorySyncPage() {
           <Stat label="Flagged for review" value={flagged.length} />
           <Stat label="Last synced" value={lastRun ? formatTimeAgo(lastRun.startedAt) : "Never"} small />
         </div>
+      </div>
 
+      <div className="card space-y-3 p-5">
+        <div>
+          <p className="text-[13px] font-semibold text-[var(--text)]">Upload Inventory <span className="text-[var(--brand)]">(Recommended)</span></p>
+          <p className="mt-1 text-[12.5px] text-[var(--text-muted)]">
+            automaxlv.com blocks automated access (Cloudflare bot protection returns a &ldquo;security verification&rdquo; page instead of vehicle data,
+            confirmed from production logs) — uploading your own export is the reliable way to keep inventory current.
+          </p>
+        </div>
+        <CsvImportPanel />
+      </div>
+
+      <div className="card space-y-3 p-5">
+        <div>
+          <p className="text-[13px] font-semibold text-[var(--text)]">Automatic Sync from automaxlv.com</p>
+          <p className="mt-1 text-[12.5px] text-[var(--text-muted)]">
+            Attempts a live scrape of the site. Currently blocked by the site&rsquo;s bot protection (see above) — kept in case that changes; use the
+            upload above in the meantime.
+          </p>
+        </div>
         <InventorySyncPanel />
-
-        {!lastRun && (
-          <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12.5px] text-amber-800">
-            No successful sync yet. Click <strong>Sync Now</strong> above to pull inventory from automaxlv.com for the first time. If it fails,
-            check the run detail below — the site&rsquo;s page structure may need the parser in <code>src/lib/inventory/automaxlv.ts</code> adjusted.
-          </div>
-        )}
       </div>
 
       {flagged.length > 0 && (

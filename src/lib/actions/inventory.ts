@@ -3,19 +3,23 @@
 import { headers } from "next/headers";
 import { requireScope } from "@/lib/queries/scope";
 import type { SyncResult } from "@/lib/inventory/sync";
+import { importInventoryFromCsv } from "@/lib/inventory/csvSync";
 import { revalidatePath } from "next/cache";
 
 // Deliberately does NOT import syncAutoMaxInventoryWithRetry (or anything
-// else from src/lib/inventory/sync.ts) — only the SyncResult type, which
-// is erased at compile time and pulls in no runtime code. Importing the
-// real function here used to drag playwright-core into this action's own
-// serverless bundle for /settings/inventory-sync, which has no
-// outputFileTracingIncludes entry in next.config.ts and so failed at
-// runtime with "Cannot find module .../playwright-core/browsers.json" —
-// the same error /api/cron/inventory-sync used to hit before it got that
-// entry. Instead, "Sync Now" calls that already-correctly-configured route
-// over HTTP, so playwright-core is only ever bundled in the one place it's
-// traced for.
+// else from src/lib/inventory/sync.ts, which itself imports automaxlv.ts)
+// — only the SyncResult type, which is erased at compile time and pulls in
+// no runtime code. Importing the real function here used to drag
+// playwright-core into this action's own serverless bundle for
+// /settings/inventory-sync, which has no outputFileTracingIncludes entry
+// in next.config.ts and so failed at runtime with "Cannot find module
+// .../playwright-core/browsers.json" — the same error
+// /api/cron/inventory-sync used to hit before it got that entry. Instead,
+// "Sync Now" calls that already-correctly-configured route over HTTP, so
+// playwright-core is only ever bundled in the one place it's traced for.
+// importInventoryFromCsv below is safe to import directly, by contrast —
+// it comes from csvSync.ts, which has no import path into automaxlv.ts at
+// all (see that file's header).
 async function resolveBaseUrl() {
   const h = await headers();
   const host = h.get("x-forwarded-host") ?? h.get("host");
@@ -60,6 +64,34 @@ export async function runInventorySyncNow(): Promise<SyncResult> {
     // uncaught exception in the "Sync Now" button — report it the same way
     // a sync failure from the site itself would be reported.
     result = { ...FAILED_STUB, errorMessage: err instanceof Error ? err.message : "Could not reach the sync route." };
+  }
+
+  revalidatePath("/settings/inventory-sync");
+  revalidatePath("/vehicles");
+  revalidatePath("/book");
+  return result;
+}
+
+const MAX_CSV_BYTES = 10 * 1024 * 1024; // 10MB — comfortably larger than any real dealer inventory export
+
+// useActionState-shaped: (previousResult, formData) => Promise<result>.
+export async function importInventoryCsv(_prev: SyncResult | null, formData: FormData): Promise<SyncResult> {
+  await requireScope();
+
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    return { ...FAILED_STUB, errorMessage: "Choose a CSV file to import first." };
+  }
+  if (file.size > MAX_CSV_BYTES) {
+    return { ...FAILED_STUB, errorMessage: `File is too large (${Math.round(file.size / 1024 / 1024)}MB) — max 10MB.` };
+  }
+
+  let result: SyncResult;
+  try {
+    const text = await file.text();
+    result = await importInventoryFromCsv(text);
+  } catch (err) {
+    result = { ...FAILED_STUB, errorMessage: err instanceof Error ? err.message : "Could not read the uploaded file." };
   }
 
   revalidatePath("/settings/inventory-sync");
