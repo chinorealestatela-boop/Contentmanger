@@ -13,6 +13,12 @@ export default async function BookPage({ searchParams }: { searchParams: Promise
       preselectedVehicleId={sp.vehicle}
       sourceRef={sp.ref}
       maxBookingWindowDays={window_.maxBookingWindowDays}
+      contact={{
+        agentName: window_.agentName,
+        location: window_.location,
+        dealershipName: window_.dealershipName,
+        dealershipPhone: window_.dealershipPhone,
+      }}
     />
   );
 }

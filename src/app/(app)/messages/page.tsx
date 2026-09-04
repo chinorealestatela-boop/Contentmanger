@@ -6,6 +6,7 @@ import { ColorPill } from "@/components/ui/Badge";
 import { formatTimeAgo } from "@/lib/format";
 import { optionColor, optionLabel, MESSAGE_STATUSES, SMS_MESSAGE_TYPES, EMAIL_MESSAGE_TYPES } from "@/lib/constants";
 import { cn } from "@/lib/utils";
+import { RetryMessageButton } from "@/components/messages/RetryMessageButton";
 
 export default async function MessageLogPage({ searchParams }: { searchParams: Promise<{ channel?: string }> }) {
   const sp = await searchParams;
@@ -53,9 +54,14 @@ export default async function MessageLogPage({ searchParams }: { searchParams: P
                 <span className="text-[11px] text-[var(--text-faint)]">{m.label}</span>
               </div>
               <p className="mt-0.5 truncate text-[12.5px] text-[var(--text-muted)]">{m.preview}</p>
-              {m.errorMessage && <p className="mt-0.5 text-[11px] text-red-600">{m.errorMessage}</p>}
+              {m.errorMessage && <p className="mt-0.5 text-[11px] text-[var(--danger)]">{m.errorMessage}</p>}
               <p className="mt-1 text-[11px] text-[var(--text-faint)]">To {m.to} · {formatTimeAgo(m.createdAt)}</p>
             </div>
+            {m.status === "FAILED" && (
+              <div onClick={(e) => e.preventDefault()} className="shrink-0 self-center">
+                <RetryMessageButton kind={m.channel} id={m.id} />
+              </div>
+            )}
           </Link>
         ))}
       </div>

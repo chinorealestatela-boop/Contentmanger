@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Loader2, CalendarCheck, XCircle, Phone } from "lucide-react";
 import { rescheduleBookingAppointment, cancelBookingAppointment, fetchAvailableSlots, type ManageActionState } from "@/lib/actions/booking";
 import { formatDate, formatTime12h } from "@/lib/format";
+import { WHAT_TO_BRING } from "@/lib/messaging/templates";
 import { cn } from "@/lib/utils";
 
 export type ManageAppointment = {
@@ -47,6 +48,26 @@ export function ManagePanel({ appt }: { appt: ManageAppointment }) {
         {appt.location && <Row label="Location" value={appt.location} />}
         <Row label="With" value={appt.agentName} />
       </div>
+
+      {mode === "view" && (
+        <div className="mt-4 rounded-xl border border-[var(--brand)]/30 bg-[var(--brand-soft)] p-4 text-left">
+          <p className="text-[13px] font-bold text-[var(--text)]">What to Bring</p>
+          <ul className="mt-2 space-y-1.5 text-[12.5px] text-[var(--text)]">
+            {WHAT_TO_BRING.map((item) => (
+              <li key={item} className="flex items-start gap-2">
+                <span className="mt-0.5 text-[var(--brand)]">•</span>
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {mode === "view" && (
+        <p className="mt-4 text-[13px] font-semibold text-[var(--text)]">
+          When you arrive, please let the staff know you&rsquo;re here for your test drive with {appt.agentName}.
+        </p>
+      )}
 
       {mode === "view" && (
         <div className="mt-5 flex flex-col gap-2.5 sm:flex-row sm:justify-center">

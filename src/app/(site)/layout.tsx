@@ -6,7 +6,7 @@ import { getBookingSettings } from "@/lib/availability";
 async function getDealership() {
   const row = await prisma.setting.findUnique({ where: { key: "dealership" } });
   const parsed = row ? JSON.parse(row.value) : {};
-  return { name: parsed.name || "AutoMax LV", phone: parsed.phone || "(702) 555-0100" };
+  return { name: parsed.name || "AutoMax LV", phone: parsed.phone || "702-325-3898" };
 }
 
 export default async function SiteLayout({ children }: { children: React.ReactNode }) {

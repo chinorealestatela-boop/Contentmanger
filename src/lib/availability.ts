@@ -31,7 +31,7 @@ export type BookingSettings = {
 export const DEFAULT_BOOKING_SETTINGS: BookingSettings = {
   timezone: "America/Los_Angeles",
   agentName: "Chino",
-  location: "AutoMax LV, Las Vegas, NV",
+  location: "3141 Fremont St, Las Vegas, NV 89104",
   hours: {
     "0": { enabled: false, start: "10:00", end: "17:00" }, // Sunday — closed by default
     "1": { enabled: true, start: "09:00", end: "19:00" },

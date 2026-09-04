@@ -64,6 +64,8 @@ export async function getCustomerProfile(customerId: string) {
       activities: { orderBy: { createdAt: "desc" }, include: { actor: true }, take: 100 },
       followUpEnrollments: { orderBy: { startedAt: "desc" }, include: { sequence: true } },
       followUps: { orderBy: [{ followUpDate: "desc" }, { followUpTime: "desc" }], include: { assignee: true } },
+      smsMessages: { orderBy: { createdAt: "desc" }, take: 25 },
+      emailMessages: { orderBy: { createdAt: "desc" }, take: 25 },
     },
   });
 }

@@ -22,19 +22,21 @@ export function isTwilioConfigured(): boolean {
 
 export { normalizePhone, isValidPhone } from "@/lib/phone";
 
-async function sendViaTwilio(to: string, body: string): Promise<{ ok: boolean; sid?: string; error?: string }> {
+async function sendViaTwilio(to: string, body: string, statusCallbackUrl?: string): Promise<{ ok: boolean; sid?: string; error?: string }> {
   const sid = process.env.TWILIO_ACCOUNT_SID!;
   const token = process.env.TWILIO_AUTH_TOKEN!;
   const from = process.env.TWILIO_FROM_NUMBER!;
 
   try {
+    const form: Record<string, string> = { To: to, From: from, Body: body };
+    if (statusCallbackUrl) form.StatusCallback = statusCallbackUrl;
     const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
       method: "POST",
       headers: {
         Authorization: `Basic ${Buffer.from(`${sid}:${token}`).toString("base64")}`,
         "Content-Type": "application/x-www-form-urlencoded",
       },
-      body: new URLSearchParams({ To: to, From: from, Body: body }).toString(),
+      body: new URLSearchParams(form).toString(),
     });
     const data = await res.json().catch(() => null);
     if (!res.ok) return { ok: false, error: data?.message ?? `Twilio responded ${res.status}` };
@@ -50,6 +52,12 @@ export async function sendSms(params: {
   toPhone: string;
   type: SmsType;
   body: string;
+  // Absolute URL Twilio should POST delivery-status updates to (see
+  // src/app/api/webhooks/twilio/route.ts). Omitted when the caller has no
+  // request context to build an absolute URL from (e.g. some background
+  // jobs) — the send still happens, it just won't get a delivered/failed
+  // update after the initial "queued/sent" response.
+  statusCallbackUrl?: string;
 }): Promise<{ sent: boolean; simulated: boolean }> {
   const normalized = normalizePhone(params.toPhone) ?? params.toPhone;
 
@@ -69,7 +77,7 @@ export async function sendSms(params: {
     return { sent: false, simulated: true };
   }
 
-  const result = await sendViaTwilio(normalized, params.body);
+  const result = await sendViaTwilio(normalized, params.body, params.statusCallbackUrl);
   await prisma.smsMessage.create({
     data: {
       customerId: params.customerId,

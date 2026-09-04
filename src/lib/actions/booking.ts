@@ -105,8 +105,18 @@ export async function fetchAvailableSlots(dateStr: string) {
 }
 
 export async function fetchBookingWindow() {
-  const settings = await getBookingSettings();
-  return { maxBookingWindowDays: settings.maxBookingWindowDays, timezone: settings.timezone, hours: settings.hours, blackoutDates: settings.blackoutDates };
+  const [settings, dealershipRow] = await Promise.all([getBookingSettings(), prisma.setting.findUnique({ where: { key: "dealership" } })]);
+  const dealership = dealershipRow ? JSON.parse(dealershipRow.value) : {};
+  return {
+    maxBookingWindowDays: settings.maxBookingWindowDays,
+    timezone: settings.timezone,
+    hours: settings.hours,
+    blackoutDates: settings.blackoutDates,
+    agentName: settings.agentName,
+    location: settings.location,
+    dealershipName: dealership.name || "AutoMax LV",
+    dealershipPhone: dealership.phone || "702-325-3898",
+  };
 }
 
 // ── Step 5: submit ────────────────────────────────────────────────────────

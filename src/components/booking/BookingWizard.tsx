@@ -2,10 +2,11 @@
 
 import { useActionState, useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
-import { Search, Car, ChevronLeft, ChevronRight, Check, Loader2, CalendarCheck } from "lucide-react";
+import { Search, Car, ChevronLeft, ChevronRight, Check, Loader2, CalendarCheck, PartyPopper } from "lucide-react";
 import { submitBooking, fetchAvailableSlots, type BookingActionState } from "@/lib/actions/booking";
 import { isValidPhone, formatPhoneInput } from "@/lib/phone";
 import { formatDate, formatTime12h } from "@/lib/format";
+import { WHAT_TO_BRING } from "@/lib/messaging/templates";
 import { DOWN_PAYMENT_RANGES, MONTHLY_PAYMENT_RANGES, CREDIT_RANGES, type Option } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
@@ -56,16 +57,25 @@ type FormState = {
 
 const STEP_LABELS = ["Vehicle", "You", "A Few Questions", "Schedule", "Confirm"];
 
+export type BookingContact = {
+  agentName: string;
+  location: string;
+  dealershipName: string;
+  dealershipPhone: string;
+};
+
 export function BookingWizard({
   vehicles,
   preselectedVehicleId,
   sourceRef,
   maxBookingWindowDays,
+  contact,
 }: {
   vehicles: BookingVehicle[];
   preselectedVehicleId?: string;
   sourceRef?: string;
   maxBookingWindowDays: number;
+  contact: BookingContact;
 }) {
   const preselected = vehicles.find((v) => v.id === preselectedVehicleId);
   const [step, setStep] = useState(1);
@@ -152,7 +162,17 @@ export function BookingWizard({
   }
 
   if (state && "success" in state && state.success) {
-    return <ConfirmationScreen confirmationCode={state.confirmationCode} manageToken={state.manageToken} />;
+    return (
+      <ConfirmationScreen
+        confirmationCode={state.confirmationCode}
+        manageToken={state.manageToken}
+        customerName={form.firstName}
+        vehicleLabel={form.manualVehicle || !form.vehicleId ? `${form.vehicleYear} ${form.vehicleMake} ${form.vehicleModel} ${form.vehicleTrim}`.trim() : form.vehicleLabel}
+        date={form.date}
+        time={form.time}
+        contact={contact}
+      />
+    );
   }
 
   return (
@@ -582,18 +602,66 @@ function Row({ label, value }: { label: string; value: string }) {
 
 // ── Confirmation ─────────────────────────────────────────────────────
 
-function ConfirmationScreen({ confirmationCode, manageToken }: { confirmationCode: string; manageToken: string }) {
+function ConfirmationScreen({
+  confirmationCode,
+  manageToken,
+  customerName,
+  vehicleLabel,
+  date,
+  time,
+  contact,
+}: {
+  confirmationCode: string;
+  manageToken: string;
+  customerName: string;
+  vehicleLabel: string;
+  date: string;
+  time: string;
+  contact: BookingContact;
+}) {
   return (
     <div className="mx-auto max-w-lg px-4 py-10 text-center sm:px-6">
-      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
-        <Check size={28} />
+      <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[var(--brand-soft)] text-[var(--brand)]">
+        <PartyPopper size={30} />
       </div>
-      <h1 className="mt-4 text-2xl font-extrabold text-[var(--text)]">You&rsquo;re Booked!</h1>
-      <p className="mt-2 text-[14px] text-[var(--text-muted)]">
-        Confirmation #<span className="font-mono font-semibold text-[var(--text)]">{confirmationCode}</span>
+      <h1 className="mt-4 text-2xl font-extrabold text-[var(--text)]">APPOINTMENT BOOKED!</h1>
+      <p className="mt-1.5 text-[14.5px] text-[var(--text-muted)]">
+        Your test drive with <span className="font-semibold text-[var(--text)]">{contact.agentName}</span> is confirmed.
       </p>
-      <p className="mt-3 text-[13.5px] text-[var(--text-muted)]">
-        We&rsquo;ve texted and/or emailed your confirmation. Manage your appointment anytime from that link, or below.
+      <p className="mt-2 text-[13px] text-[var(--text-faint)]">
+        Confirmation #<span className="font-mono font-semibold text-[var(--text-muted)]">{confirmationCode}</span>
+      </p>
+
+      <div className="mt-6 space-y-2 rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)] p-4 text-left text-[13.5px]">
+        <Row label="Name" value={customerName || "—"} />
+        {vehicleLabel && <Row label="Vehicle" value={vehicleLabel} />}
+        <Row label="Date" value={date ? formatDate(new Date(`${date}T00:00:00`), "EEEE, MMM d, yyyy") : "—"} />
+        <Row label="Time" value={time ? formatTime12h(time) : "—"} />
+        <Row label="Location" value={contact.location} />
+        <Row label="Phone" value={contact.dealershipPhone} />
+      </div>
+
+      <div className="mt-5 rounded-xl border border-[var(--brand)]/30 bg-[var(--brand-soft)] p-4 text-left">
+        <p className="text-[13px] font-bold text-[var(--text)]">What to Bring</p>
+        <p className="mt-1 text-[12px] text-[var(--text-muted)]">
+          To help make your car-buying process go as smoothly as possible, please bring:
+        </p>
+        <ul className="mt-2 space-y-1.5 text-[12.5px] text-[var(--text)]">
+          {WHAT_TO_BRING.map((item) => (
+            <li key={item} className="flex items-start gap-2">
+              <span className="mt-0.5 text-[var(--brand)]">•</span>
+              <span>{item}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <p className="mt-5 text-[13px] font-semibold text-[var(--text)]">
+        When you arrive, please let the staff know you&rsquo;re here for your test drive with {contact.agentName}.
+      </p>
+
+      <p className="mt-3 text-[13px] text-[var(--text-muted)]">
+        We&rsquo;ve texted and/or emailed this confirmation to you. Manage your appointment anytime below.
       </p>
 
       <div className="mt-6 flex flex-col gap-2.5 sm:flex-row sm:justify-center">

@@ -587,7 +587,7 @@ model SmsMessage {
   type    String // BOOKING_CONFIRMATION | REMINDER_24H | REMINDER_2H | RESCHEDULED | CANCELLED | CUSTOM
   body    String
 
-  status       String  @default("PENDING") // PENDING | SENT | FAILED | SIMULATED
+  status       String  @default("PENDING") // PENDING | SENT | DELIVERED | FAILED | SIMULATED
   errorMessage String?
   providerId   String? // provider's message SID/id, once a real SMS provider is connected
 
@@ -611,7 +611,7 @@ model EmailMessage {
   subject String
   body    String
 
-  status       String  @default("PENDING") // PENDING | SENT | FAILED | SIMULATED
+  status       String  @default("PENDING") // PENDING | SENT | DELIVERED | FAILED | SIMULATED
   errorMessage String?
   providerId   String?
 

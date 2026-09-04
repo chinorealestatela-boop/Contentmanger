@@ -323,6 +323,7 @@ export const EMAIL_MESSAGE_TYPES: Option[] = [
 export const MESSAGE_STATUSES: Option[] = [
   { value: "PENDING", label: "Pending", color: "#a16207" },
   { value: "SENT", label: "Sent", color: "#16a34a" },
+  { value: "DELIVERED", label: "Delivered", color: "#16a34a" },
   { value: "SIMULATED", label: "Simulated", color: "#2563eb" },
   { value: "FAILED", label: "Failed", color: "#dc2626" },
 ];

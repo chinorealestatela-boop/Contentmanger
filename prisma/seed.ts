@@ -160,8 +160,8 @@ async function main() {
       key: "dealership",
       value: JSON.stringify({
         name: "AutoMax LV",
-        address: "4820 Boulder Hwy, Las Vegas, NV 89121",
-        phone: "(702) 555-0199",
+        address: "3141 Fremont St, Las Vegas, NV 89104",
+        phone: "702-325-3898",
         timezone: "America/Los_Angeles",
       }),
     },

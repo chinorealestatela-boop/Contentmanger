@@ -17,7 +17,7 @@ async function getDealershipInfo() {
   const parsed = row ? JSON.parse(row.value) : {};
   return {
     name: parsed.name || "AutoMax LV",
-    phone: parsed.phone || "",
+    phone: parsed.phone || "702-325-3898",
   };
 }
 
@@ -88,6 +88,7 @@ export async function notifyAppointmentEvent(appointmentId: string, event: Appoi
       toPhone: appt.customer.phone,
       type: smsPlan.type,
       body: smsPlan.body,
+      statusCallbackUrl: `${baseUrl}/api/webhooks/twilio`,
     });
   }
 

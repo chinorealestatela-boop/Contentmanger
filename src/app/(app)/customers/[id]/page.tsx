@@ -9,6 +9,7 @@ import { Avatar } from "@/components/ui/Avatar";
 import { TemperatureBadge, Badge, ColorPill } from "@/components/ui/Badge";
 import { SectionCard, EmptyRow } from "@/components/ui/SectionCard";
 import { ActivityTimeline } from "@/components/customers/ActivityTimeline";
+import { MessageLogSection } from "@/components/customers/MessageLogSection";
 import { ProfileActions } from "@/components/customers/ProfileActions";
 import { FollowUpsSection } from "@/components/customers/FollowUpsSection";
 import { formatCurrency, formatDate, formatRelativeDay, formatTime12h, formatTimeAgo } from "@/lib/format";
@@ -299,6 +300,9 @@ export default async function CustomerProfilePage({ params }: { params: Promise<
 
         {/* Right column: timeline */}
         <div className="space-y-5">
+          <SectionCard title="Confirmations &amp; Reminders">
+            <MessageLogSection sms={customer.smsMessages} email={customer.emailMessages} />
+          </SectionCard>
           <SectionCard title="Activity Timeline">
             <ActivityTimeline activities={customer.activities} />
           </SectionCard>
