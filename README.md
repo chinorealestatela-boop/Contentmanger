@@ -136,17 +136,21 @@ Vehicle inventory in this CRM is meant to be pulled live from **automaxlv.com** 
 
 | Piece | Where |
 |---|---|
-| Fetch + parse automaxlv.com | `src/lib/inventory/automaxlv.ts` |
+| Render + parse automaxlv.com | `src/lib/inventory/automaxlv.ts` |
 | Sync orchestration (dedupe by VIN → stock # → site id, create/update/retire, error handling) | `src/lib/inventory/sync.ts` |
 | Live "is this vehicle still listed" check, called right before a booking is confirmed | `verifyVehicleStillListed()` in `sync.ts`, wired into `submitBooking()` |
 | Admin UI — status, manual "Sync Now", flagged listings, run history | Settings → Inventory Sync (`/settings/inventory-sync`) |
-| Scheduled background sync | `GET /api/cron/inventory-sync` (same `CRON_SECRET`/pattern as the reminder cron) |
+| Scheduled background sync | `GET /api/cron/inventory-sync` (same `CRON_SECRET`/pattern as the reminder cron; runs on the Node.js runtime with `maxDuration: 300` — needs a Vercel plan that supports 300s functions) |
+| Local diagnostic — logs every network request a real browser makes on the site, saves rendered HTML | `node scripts/discover-inventory-api.mjs` (needs `npx playwright install chromium` once; only works with real internet access) |
 
-**Status: built and unit-tested against mocked site data, but never run against the real site** — automaxlv.com was unreachable from the sandbox this was built in (network policy), so `automaxlv.ts`'s parser is written against the general, well-documented `schema.org/Vehicle` JSON-LD pattern most dealer-site platforms embed for SEO/Google Vehicle Listings, not against automaxlv.com's actual markup. The dedupe/update/retire/error-handling logic in `sync.ts` is verified (mocked-fetch test covering create, update, retire-on-removal, flag-on-unparseable, total-failure-leaves-inventory-untouched, and the live pre-booking check).
+**automaxlv.com renders its inventory client-side** — confirmed by fetching both the listing page and a vehicle detail page with plain HTTP (no JS execution): both returned a generic "vehicle could not be found" placeholder instead of any vehicle markup. So `automaxlv.ts` launches a real headless Chromium (`playwright-core` + `@sparticuz/chromium` in production, the `playwright` devDependency locally) and reads the page after it renders, rather than using `fetch()`. The actual field-extraction regexes (VIN, price, mileage, etc., all under DealerCenter's `dws-*` widget classes) are carried forward from an earlier investigation and have **not been independently re-confirmed against a real render** — see the file's header comment for the full chain of what's verified vs. assumed.
 
-**First real run needs a human to check the result:** go to Settings → Inventory Sync and click **Sync Now**.
+**What's mechanically verified:** the Playwright browser launches, renders content, and `waitForSelector`/`page.content()` work as expected (tested against local content); the field-parsing regexes correctly extract every documented field from HTML matching the documented markup (tested against synthetic HTML built from that markup, including the sold-vehicle exclusion); `next build` succeeds with `serverExternalPackages` correctly keeping the native Chromium binaries out of the webpack bundle. **What's not verified:** whether automaxlv.com's real rendered DOM actually matches the documented markup, and whether `@sparticuz/chromium` launches successfully inside a real Vercel serverless function — neither could be tested from a sandboxed environment with no network access to automaxlv.com or Vercel.
+
+**First real run needs a human to check the result:** deploy, then go to Settings → Inventory Sync and click **Sync Now**.
 - Vehicles show up correctly → done, schedule the cron and you're live.
-- Zero vehicles / a failed run → open `automaxlv.com/inventory/` in a browser, view source on a listing and a vehicle detail page, and adjust `automaxlv.ts` to match (it's written specifically so this is a contained fix, not a rewrite). If AutoMax's website platform vendor offers a proper inventory data feed instead of scraping HTML, that's the more robust option — swap it in without touching anything else.
+- Zero vehicles / a failed run → run `node scripts/discover-inventory-api.mjs` locally (real internet access required) and check `./debug/interesting-requests.json` for a JSON API the site's widget calls (if found, switch `automaxlv.ts` to call it directly instead of rendering pages — much faster and more reliable) and `./debug/listing-rendered.html` / `./debug/vdp-rendered.html` against the markup notes in `automaxlv.ts`'s header, adjusting the regexes to match reality.
+- A timeout in production → the Vercel plan's function-duration cap may be too short for rendering 75+ pages even with `RENDER_CONCURRENCY`; see the comment in `route.ts` for the options (upgrade plan, lower concurrency, split the sync into batched cron hits, or move this one job to a small persistent worker).
 
 Once it's working, point a scheduler (same options as the reminder cron — Vercel Cron, cron-job.org, etc.) at `/api/cron/inventory-sync` every 1-4 hours for background sync; that also satisfies "at least once daily".
 
