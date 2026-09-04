@@ -30,7 +30,7 @@ export default async function LandingPage() {
             <Car size={13} /> Las Vegas, NV
           </span>
           <h1 className="mt-4 text-3xl font-extrabold leading-tight text-white sm:text-5xl">Ready to Find Your Next Ride?</h1>
-          <p className="mx-auto mt-4 max-w-xl text-[15px] text-black/80 sm:text-lg">
+          <p className="mx-auto mt-4 max-w-xl text-[15px] text-white/90 sm:text-lg">
             Schedule your test drive and let&rsquo;s find the right vehicle and payment for you.
           </p>
           <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
