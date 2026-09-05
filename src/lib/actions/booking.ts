@@ -266,6 +266,7 @@ export async function submitBooking(_prev: BookingActionState, formData: FormDat
       downPaymentRange: d.downPaymentRange,
       monthlyPaymentRange: d.monthlyPaymentRange,
       creditRange: d.creditRange,
+      currentlyDriving: d.currentlyDriving,
       lastContactedAt: new Date(),
       nextFollowUpAt: new Date(d.date),
     },

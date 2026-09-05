@@ -16,7 +16,7 @@ import { formatCurrency, formatDate, formatRelativeDay, formatTime12h, formatTim
 import {
   optionLabel, CONTACT_METHODS, CONTACT_TIMES, PURCHASE_TIMEFRAMES, FINANCE_TYPES,
   CREDIT_APP_STATUSES, APPOINTMENT_STATUSES, APPRAISAL_STATUSES, COMMUNICATION_TYPES,
-  TASK_STATUSES, OFFER_STATUSES,
+  TASK_STATUSES, OFFER_STATUSES, DOWN_PAYMENT_RANGES, MONTHLY_PAYMENT_RANGES, CREDIT_RANGES,
 } from "@/lib/constants";
 
 export default async function CustomerProfilePage({ params }: { params: Promise<{ id: string }> }) {
@@ -101,12 +101,23 @@ export default async function CustomerProfilePage({ params }: { params: Promise<
           {/* Buying profile */}
           {activeLead && (
             <SectionCard title="Buying Profile">
+              {(activeLead.downPaymentRange || activeLead.monthlyPaymentRange || activeLead.creditRange || activeLead.currentlyDriving) && (
+                <div className="mb-4 rounded-lg border border-[var(--brand)]/25 bg-[var(--brand-soft)] p-3.5">
+                  <p className="mb-2.5 text-[11.5px] font-bold uppercase tracking-wide text-[var(--brand)]">Booking Quiz Answers — self-reported</p>
+                  <dl className="grid grid-cols-2 gap-3 text-[13px] sm:grid-cols-4">
+                    <Info label="Down Payment" value={optionLabel(DOWN_PAYMENT_RANGES, activeLead.downPaymentRange)} />
+                    <Info label="Target Monthly Payment" value={optionLabel(MONTHLY_PAYMENT_RANGES, activeLead.monthlyPaymentRange)} />
+                    <Info label="Self-Reported Credit" value={optionLabel(CREDIT_RANGES, activeLead.creditRange)} />
+                    <Info label="Currently Driving" value={activeLead.currentlyDriving === "YES" ? "Yes" : activeLead.currentlyDriving === "NO" ? "No" : null} />
+                  </dl>
+                </div>
+              )}
               <dl className="grid grid-cols-2 gap-4 text-[13px] sm:grid-cols-3">
                 <Info label="Purchase Timeframe" value={optionLabel(PURCHASE_TIMEFRAMES, activeLead.purchaseTimeframe)} />
                 <Info label="Lead Source" value={activeLead.source?.name ?? null} />
                 <Info label="Finance Type" value={optionLabel(FINANCE_TYPES, activeLead.financeType)} />
                 <Info label="Desired Payment" value={activeLead.desiredPayment ? `${formatCurrency(activeLead.desiredPayment)}/mo` : null} />
-                <Info label="Down Payment" value={activeLead.downPayment ? formatCurrency(activeLead.downPayment) : null} />
+                <Info label="Down Payment (exact)" value={activeLead.downPayment ? formatCurrency(activeLead.downPayment) : null} />
                 <Info label="Credit Application" value={optionLabel(CREDIT_APP_STATUSES, activeLead.creditAppStatus)} />
                 <Info label="Co-Buyer" value={activeLead.hasCoBuyer ? (activeLead.coBuyerName || "Yes") : "No"} />
                 <Info label="Preferred Body Style" value={activeLead.prefBodyStyle} />

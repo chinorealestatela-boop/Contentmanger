@@ -213,6 +213,7 @@ model Lead {
   downPaymentRange    String?
   monthlyPaymentRange String?
   creditRange         String?
+  currentlyDriving    String? // "YES" | "NO" — also captured on the booking form
 
   // Vehicle matching preferences (used for inventory search)
   prefBodyStyle  String?

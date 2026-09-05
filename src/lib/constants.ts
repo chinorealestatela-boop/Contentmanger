@@ -281,7 +281,6 @@ export const DOWN_PAYMENT_RANGES: Option[] = [
   { value: "1000_2000", label: "$1,000 – $2,000" },
   { value: "2000_3000", label: "$2,000 – $3,000" },
   { value: "3000_PLUS", label: "$3,000+" },
-  { value: "NOT_SURE", label: "Not sure yet" },
 ];
 
 export const MONTHLY_PAYMENT_RANGES: Option[] = [
@@ -290,7 +289,6 @@ export const MONTHLY_PAYMENT_RANGES: Option[] = [
   { value: "400_500", label: "$400 – $500" },
   { value: "500_600", label: "$500 – $600" },
   { value: "600_PLUS", label: "$600+" },
-  { value: "NOT_SURE", label: "Not sure yet" },
 ];
 
 export const CREDIT_RANGES: Option[] = [
@@ -300,7 +298,6 @@ export const CREDIT_RANGES: Option[] = [
   { value: "BAD", label: "Bad" },
   { value: "POOR", label: "Poor" },
   { value: "NO_CREDIT", label: "No Credit" },
-  { value: "NOT_SURE", label: "Not Sure" },
 ];
 
 // ── SMS / Email message log ─────────────────────────────────────────────

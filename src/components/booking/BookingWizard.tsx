@@ -117,7 +117,7 @@ export function BookingWizard({
   const canNext = useMemo(() => {
     if (step === 1) return !!(form.vehicleId || (form.manualVehicle && form.vehicleMake.trim()));
     if (step === 2) return form.firstName.trim() && form.lastName.trim() && isValidPhone(form.phone);
-    if (step === 3) return true; // buying questions are optional, never block progress
+    if (step === 3) return !!(form.downPaymentRange && form.monthlyPaymentRange && form.creditRange && form.currentlyDriving);
     if (step === 4) return !!(form.date && form.time);
     return true;
   }, [step, form]);
@@ -406,7 +406,7 @@ function StepBuying({ form, set }: { form: FormState; set: <K extends keyof Form
   return (
     <div>
       <h2 className="text-lg font-bold text-[var(--text)]">A few quick questions</h2>
-      <p className="mt-1 text-[13px] text-[var(--text-muted)]">This just helps us prep the right options — nothing here locks you in.</p>
+      <p className="mt-1 text-[13px] text-[var(--text-muted)]">This just helps us prep the right options — nothing here locks you in. Please answer all four to continue.</p>
 
       <div className="mt-5 space-y-5">
         <div>
