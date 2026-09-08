@@ -94,7 +94,7 @@ export async function notifyAppointmentEvent(appointmentId: string, event: Appoi
 
   let emailResult = null;
   const emailPlan = emailMap[event];
-  if (emailPlan && appt.customer.email) {
+  if (emailPlan && appt.customer.email && appt.customer.emailConsent) {
     emailResult = await sendEmail({
       customerId: appt.customerId,
       appointmentId: appt.id,

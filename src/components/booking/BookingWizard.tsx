@@ -51,8 +51,7 @@ type FormState = {
   date: string;
   time: string;
 
-  smsConsent: boolean;
-  privacyConsent: boolean;
+  commConsent: boolean;
 };
 
 const STEP_LABELS = ["Vehicle", "You", "A Few Questions", "Schedule", "Confirm"];
@@ -103,8 +102,7 @@ export function BookingWizard({
     tradeOwesMoney: "",
     date: "",
     time: "",
-    smsConsent: false,
-    privacyConsent: false,
+    commConsent: false,
   });
 
   const [state, formAction, pending] = useActionState<BookingActionState, FormData>(submitBooking, null);
@@ -156,8 +154,7 @@ export function BookingWizard({
       ref: sourceRef ?? "",
     };
     for (const [k, v] of Object.entries(map)) if (v) fd.set(k, v);
-    if (form.smsConsent) fd.set("smsConsent", "on");
-    if (form.privacyConsent) fd.set("privacyConsent", "on");
+    if (form.commConsent) fd.set("commConsent", "on");
     startSubmitTransition(() => formAction(fd));
   }
 
@@ -188,7 +185,7 @@ export function BookingWizard({
         {step === 2 && <StepCustomer form={form} set={set} />}
         {step === 3 && <StepBuying form={form} set={set} />}
         {step === 4 && <StepSchedule form={form} set={set} maxBookingWindowDays={maxBookingWindowDays} />}
-        {step === 5 && <StepReview form={form} set={set} />}
+        {step === 5 && <StepReview form={form} set={set} dealershipName={contact.dealershipName} />}
 
         <div className="mt-6 flex items-center justify-between gap-3">
           <button type="button" onClick={back} disabled={step === 1} className="btn btn-secondary disabled:opacity-0">
@@ -202,7 +199,7 @@ export function BookingWizard({
             <button
               type="button"
               onClick={submit}
-              disabled={pending || !form.privacyConsent}
+              disabled={pending || !form.commConsent}
               className="btn btn-primary flex-1 py-2.5 sm:flex-none sm:px-6"
             >
               {pending ? <Loader2 size={15} className="animate-spin" /> : <CalendarCheck size={15} />}
@@ -558,7 +555,7 @@ function toDateInputValue(d: Date) {
 
 // ── Step 5 ────────────────────────────────────────────────────────────
 
-function StepReview({ form, set }: { form: FormState; set: <K extends keyof FormState>(k: K, v: FormState[K]) => void }) {
+function StepReview({ form, set, dealershipName }: { form: FormState; set: <K extends keyof FormState>(k: K, v: FormState[K]) => void; dealershipName: string }) {
   const vehicleText = form.manualVehicle || !form.vehicleId ? `${form.vehicleYear} ${form.vehicleMake} ${form.vehicleModel} ${form.vehicleTrim}`.trim() : form.vehicleLabel;
 
   return (
@@ -573,17 +570,19 @@ function StepReview({ form, set }: { form: FormState; set: <K extends keyof Form
         <Row label="Time" value={form.time ? formatTime12h(form.time) : "—"} />
       </div>
 
-      <div className="mt-5 space-y-3">
+      <div className="mt-5 rounded-xl border border-[var(--border)] bg-[var(--bg-subtle)] p-3.5">
         <label className="flex items-start gap-2.5 text-[12.5px] text-[var(--text-muted)]">
-          <input type="checkbox" className="mt-0.5" checked={form.smsConsent} onChange={(e) => set("smsConsent", e.target.checked)} />
+          <input
+            type="checkbox"
+            className="mt-0.5"
+            checked={form.commConsent}
+            onChange={(e) => set("commConsent", e.target.checked)}
+            required
+          />
           <span>
-            Text me my appointment confirmation and reminders. Msg &amp; data rates may apply. Reply STOP to opt out at any time, HELP for help.
-          </span>
-        </label>
-        <label className="flex items-start gap-2.5 text-[12.5px] text-[var(--text-muted)]">
-          <input type="checkbox" className="mt-0.5" checked={form.privacyConsent} onChange={(e) => set("privacyConsent", e.target.checked)} required />
-          <span>
-            I agree to be contacted about my inquiry by phone, text, or email. <span className="text-red-500">*</span>
+            I agree to receive text messages and emails from {dealershipName} about my test drive appointment, including
+            confirmations and reminders. Message frequency varies. Msg &amp; data rates may apply. Reply STOP to unsubscribe
+            from texts at any time, or contact us to unsubscribe from emails. <span className="text-red-500">*</span>
           </span>
         </label>
       </div>

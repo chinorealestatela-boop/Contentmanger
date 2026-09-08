@@ -118,10 +118,16 @@ model Customer {
   preferredContactMethod String  @default("PHONE") // PHONE | TEXT | EMAIL
   bestContactTime        String? // MORNING | AFTERNOON | EVENING | ANYTIME
 
-  // SMS/TCPA opt-in — captured at public booking time (see src/app/(site)/book).
-  // Reminders are only ever sent to customers who have consented.
-  smsConsent   Boolean   @default(false)
-  smsConsentAt DateTime?
+  // Text/email (TCPA) consent — captured as one required checkbox at public
+  // booking time (see src/app/(site)/book, StepReview's single consent
+  // checkbox). consentIp is the IP address the consent was given from, kept
+  // alongside the timestamps as a defensible proof-of-consent record.
+  // Reminders/confirmations are only ever sent to customers who consented.
+  smsConsent     Boolean   @default(false)
+  smsConsentAt   DateTime?
+  emailConsent   Boolean   @default(false)
+  emailConsentAt DateTime?
+  consentIp      String?
 
   ownerId String
   owner   User   @relation("CustomerOwner", fields: [ownerId], references: [id])

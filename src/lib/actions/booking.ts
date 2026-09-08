@@ -153,9 +153,10 @@ const bookingSchema = z.object({
   date: z.string().min(1, "Select a date."),
   time: z.string().min(1, "Select a time."),
 
-  // Consent
-  smsConsent: z.string().optional(),
-  privacyConsent: z.string().refine((v) => v === "on" || v === "true", { message: "Please agree to be contacted to continue." }),
+  // Consent — one required checkbox covering automated text + email about
+  // the appointment (see StepReview). No separate optional/required split
+  // anymore: without this, we can't legally text or email a confirmation.
+  commConsent: z.string().refine((v) => v === "on" || v === "true", { message: "Please agree to receive text/email messages about your appointment to continue." }),
 
   // Attribution / anti-duplicate
   ref: z.string().optional(),
@@ -175,7 +176,8 @@ export async function submitBooking(_prev: BookingActionState, formData: FormDat
   if (!d.vehicleId && !d.vehicleMake) return { error: "Select a vehicle or tell us what you're interested in." };
   if (!isValidPhone(d.phone)) return { error: "Enter a valid 10-digit phone number." };
   const phone = normalizePhone(d.phone)!;
-  const smsConsent = d.smsConsent === "on" || d.smsConsent === "true";
+  const consented = d.commConsent === "on" || d.commConsent === "true";
+  const consentIp = (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() || null;
 
   const settings = await getBookingSettings();
 
@@ -236,8 +238,11 @@ export async function submitBooking(_prev: BookingActionState, formData: FormDat
         lastName: d.lastName,
         email: d.email || customer.email,
         preferredContactMethod: d.preferredContactMethod,
-        smsConsent: smsConsent || customer.smsConsent,
-        smsConsentAt: smsConsent && !customer.smsConsent ? new Date() : customer.smsConsentAt,
+        smsConsent: consented || customer.smsConsent,
+        smsConsentAt: consented && !customer.smsConsent ? new Date() : customer.smsConsentAt,
+        emailConsent: consented || customer.emailConsent,
+        emailConsentAt: consented && !customer.emailConsent ? new Date() : customer.emailConsentAt,
+        consentIp: consented ? consentIp : customer.consentIp,
       },
     });
   } else {
@@ -249,8 +254,11 @@ export async function submitBooking(_prev: BookingActionState, formData: FormDat
         email: d.email || undefined,
         preferredContactMethod: d.preferredContactMethod,
         ownerId: salespersonId,
-        smsConsent,
-        smsConsentAt: smsConsent ? new Date() : undefined,
+        smsConsent: consented,
+        smsConsentAt: consented ? new Date() : undefined,
+        emailConsent: consented,
+        emailConsentAt: consented ? new Date() : undefined,
+        consentIp: consented ? consentIp : undefined,
       },
     });
   }
