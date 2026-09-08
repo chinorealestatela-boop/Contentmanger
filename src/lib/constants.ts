@@ -271,6 +271,7 @@ export const BOOKING_SOURCE_MAP: Record<string, string> = {
   fb: "Facebook",
   website: "Website",
   direct: "Direct Link",
+  inventory: "Vehicle Inventory Page",
 };
 export const DEFAULT_BOOKING_SOURCE = "Direct Link";
 

@@ -47,7 +47,7 @@ function generateManageToken() {
 /** The single salesperson every booking-site appointment is assigned to.
  * Reads Setting("primarySalesperson"); falls back to the earliest-created
  * ADMIN, then the earliest-created active user of any role. */
-async function getPrimarySalespersonId(): Promise<string | null> {
+export async function getPrimarySalespersonId(): Promise<string | null> {
   const row = await prisma.setting.findUnique({ where: { key: "primarySalesperson" } });
   if (row) {
     try {
@@ -69,7 +69,7 @@ async function getPrimarySalespersonId(): Promise<string | null> {
   return anyUser?.id ?? null;
 }
 
-async function resolveSourceId(ref: string | undefined | null) {
+export async function resolveSourceId(ref: string | undefined | null) {
   const name = (ref && BOOKING_SOURCE_MAP[ref.toLowerCase().trim()]) || DEFAULT_BOOKING_SOURCE;
   const source = await prisma.leadSource.upsert({
     where: { name },

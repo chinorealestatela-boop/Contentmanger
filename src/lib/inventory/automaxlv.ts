@@ -499,6 +499,7 @@ function parseVehiclePage(html: string, pageUrl: string): ScrapedVehicle | { unp
     engine,
     transmission,
     drivetrain,
+    fuelType: null, // not exposed by this site's markup — left for a manual/CSV edit if needed
     bodyStyle: guessBodyStyle(trim),
     features,
     description,

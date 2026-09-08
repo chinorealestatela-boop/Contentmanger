@@ -128,6 +128,7 @@ export async function applyInventoryResult(fetchResult: () => Promise<InventoryF
         description: v.description ?? existing?.description ?? null,
         engine: v.engine ?? existing?.engine ?? null,
         transmission: v.transmission ?? existing?.transmission ?? null,
+        fuelType: v.fuelType ?? existing?.fuelType ?? null,
         features: JSON.stringify(v.features.length > 0 ? v.features : existing ? JSON.parse(existing.features || "[]") : []),
         source: SOURCE,
         sourceUrl: v.url,

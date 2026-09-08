@@ -306,6 +306,7 @@ model Vehicle {
   // the AutoMax LV inventory sync (see src/lib/inventory/).
   engine       String?
   transmission String?
+  fuelType     String? // GASOLINE | HYBRID | ELECTRIC | DIESEL | FLEX — free text, shown on the public vehicle detail page
   features     String? // JSON-encoded array of feature strings
 
   // ── Inventory sync bookkeeping (src/lib/inventory/) ───────────────────

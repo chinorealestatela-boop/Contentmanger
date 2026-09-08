@@ -22,6 +22,9 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
             <span className="text-[15px] font-bold text-[var(--text)]">{dealership.name}</span>
           </Link>
           <div className="flex items-center gap-2">
+            <Link href="/inventory" className="hidden text-[13px] font-semibold text-[var(--text-muted)] hover:text-[var(--brand)] sm:block">
+              Available Vehicles
+            </Link>
             <a href={telHref} className="hidden items-center gap-1.5 text-[13px] font-semibold text-[var(--text-muted)] sm:flex hover:text-[var(--brand)]">
               <Phone size={14} /> {dealership.phone}
             </a>

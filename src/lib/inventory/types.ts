@@ -27,6 +27,7 @@ export type ScrapedVehicle = {
   transmission: string | null;
   drivetrain: string | null;
   bodyStyle: string | null;
+  fuelType: string | null;
 
   features: string[];
   description: string | null;

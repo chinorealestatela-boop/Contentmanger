@@ -40,7 +40,7 @@ export default async function LandingPage() {
             <Link href="/book" className="btn w-full bg-white px-6 py-3 text-[15px] font-bold text-black hover:bg-white/90 sm:w-auto">
               Schedule My Test Drive
             </Link>
-            <Link href="/book" className="btn w-full border border-white bg-white px-6 py-3 text-[15px] font-bold text-black hover:bg-white/90 sm:w-auto">
+            <Link href="/inventory" className="btn w-full border border-white bg-white px-6 py-3 text-[15px] font-bold text-black hover:bg-white/90 sm:w-auto">
               Check Availability
             </Link>
           </div>
@@ -113,17 +113,22 @@ export default async function LandingPage() {
       {vehicles.length > 0 && (
         <section className="px-4 py-14 sm:px-6">
           <div className="mx-auto max-w-5xl">
-            <h2 className="text-2xl font-bold text-[var(--text)] sm:text-3xl">Some of What&rsquo;s on the Lot</h2>
-            <p className="mt-1 text-[13.5px] text-[var(--text-muted)]">Don&rsquo;t see what you want? You can enter any vehicle when you book.</p>
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <h2 className="text-2xl font-bold text-[var(--text)] sm:text-3xl">Some of What&rsquo;s on the Lot</h2>
+                <p className="mt-1 text-[13.5px] text-[var(--text-muted)]">Don&rsquo;t see what you want? You can enter any vehicle when you book.</p>
+              </div>
+              <Link href="/inventory" className="text-[13px] font-semibold text-[var(--brand)] hover:underline">View All Available Vehicles →</Link>
+            </div>
             <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {vehicles.map((v) => (
-                <Link key={v.id} href={`/book?vehicle=${v.id}`} className="card group overflow-hidden p-4 hover:shadow-md">
+                <Link key={v.id} href={`/inventory/${v.id}`} className="card group overflow-hidden p-4 hover:shadow-md">
                   <VehicleThumb src={v.photos[0]} alt={`${v.year} ${v.make} ${v.model}`} className="h-28 w-full" iconSize={36} />
                   <p className="mt-3 text-[14px] font-semibold text-[var(--text)]">{v.year} {v.make} {v.model}</p>
                   <p className="text-[12.5px] text-[var(--text-muted)]">{v.trim ?? v.bodyStyle ?? v.condition} · {v.mileage.toLocaleString()} mi</p>
                   <div className="mt-2 flex items-center justify-between">
                     <span className="text-[14px] font-bold text-[var(--brand)]">{formatCurrency(v.internetPrice ?? v.sellingPrice)}</span>
-                    <span className="text-[12px] font-semibold text-[var(--brand)] opacity-0 transition-opacity group-hover:opacity-100">Book Test Drive →</span>
+                    <span className="text-[12px] font-semibold text-[var(--brand)] opacity-0 transition-opacity group-hover:opacity-100">View Details →</span>
                   </div>
                 </Link>
               ))}
