@@ -582,7 +582,11 @@ function StepReview({ form, set, dealershipName }: { form: FormState; set: <K ex
           <span>
             I agree to receive text messages and emails from {dealershipName} about my test drive appointment, including
             confirmations and reminders. Message frequency varies. Msg &amp; data rates may apply. Reply STOP to unsubscribe
-            from texts at any time, or contact us to unsubscribe from emails. <span className="text-red-500">*</span>
+            from texts at any time, or contact us to unsubscribe from emails. See our{" "}
+            <Link href="/privacy" target="_blank" rel="noopener noreferrer" className="font-semibold text-[var(--brand)] underline">
+              Privacy &amp; SMS Terms
+            </Link>{" "}
+            for exactly what you&rsquo;re agreeing to. <span className="text-red-500">*</span>
           </span>
         </label>
       </div>
