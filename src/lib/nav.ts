@@ -25,7 +25,7 @@ export const NAV_ITEMS: NavItem[] = [
 
 export const MOBILE_NAV_ITEMS: NavItem[] = [
   { label: "Today", href: "/dashboard", icon: "LayoutDashboard" },
-  { label: "Pipeline", href: "/pipeline", icon: "Kanban" },
+  { label: "Calendar", href: "/calendar", icon: "CalendarClock" },
   { label: "Tasks", href: "/tasks", icon: "CheckSquare" },
   { label: "Customers", href: "/customers", icon: "Users" },
   { label: "More", href: "/more", icon: "Menu" },

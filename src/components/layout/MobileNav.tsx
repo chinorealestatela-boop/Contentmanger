@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Kanban, CheckSquare, Users, Menu, type LucideIcon } from "lucide-react";
+import { LayoutDashboard, CalendarClock, CheckSquare, Users, Menu, type LucideIcon } from "lucide-react";
 import { MOBILE_NAV_ITEMS } from "@/lib/nav";
 import { cn } from "@/lib/utils";
 
-const ICONS: Record<string, LucideIcon> = { LayoutDashboard, Kanban, CheckSquare, Users, Menu };
+const ICONS: Record<string, LucideIcon> = { LayoutDashboard, CalendarClock, CheckSquare, Users, Menu };
 
 export function MobileNav({ onMore }: { onMore: () => void }) {
   const pathname = usePathname();
