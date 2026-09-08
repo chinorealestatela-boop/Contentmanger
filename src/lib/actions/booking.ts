@@ -22,6 +22,7 @@ import { notifyAppointmentEvent } from "@/lib/messaging/notify";
 import { notifyAdmin } from "@/lib/notify/adminAlert";
 import { formatDate } from "@/lib/format";
 import { BOOKING_SOURCE_MAP, DEFAULT_BOOKING_SOURCE } from "@/lib/constants";
+import { parsePhotos } from "@/lib/utils";
 
 // ── Shared helpers ─────────────────────────────────────────────────────
 
@@ -97,7 +98,7 @@ export async function getBookingVehicles(q?: string) {
     orderBy: [{ year: "desc" }, { make: "asc" }],
     select: { id: true, year: true, make: true, model: true, trim: true, condition: true, exteriorColor: true, photos: true, internetPrice: true, sellingPrice: true, mileage: true },
     take: 60,
-  });
+  }).then((rows) => rows.map((v) => ({ ...v, photos: parsePhotos(v.photos) })));
 }
 
 // ── Step 4: availability ─────────────────────────────────────────────────

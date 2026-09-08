@@ -2,13 +2,14 @@
 
 import { useActionState, useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
-import { Search, Car, ChevronLeft, ChevronRight, Check, Loader2, CalendarCheck, PartyPopper } from "lucide-react";
+import { Search, ChevronLeft, ChevronRight, Check, Loader2, CalendarCheck, PartyPopper } from "lucide-react";
 import { submitBooking, fetchAvailableSlots, type BookingActionState } from "@/lib/actions/booking";
 import { isValidPhone, formatPhoneInput } from "@/lib/phone";
 import { formatDate, formatTime12h } from "@/lib/format";
 import { WHAT_TO_BRING } from "@/lib/messaging/templates";
 import { DOWN_PAYMENT_RANGES, MONTHLY_PAYMENT_RANGES, CREDIT_RANGES, type Option } from "@/lib/constants";
 import { cn } from "@/lib/utils";
+import { VehicleThumb } from "@/components/vehicles/VehicleThumb";
 
 export type BookingVehicle = {
   id: string;
@@ -21,6 +22,7 @@ export type BookingVehicle = {
   internetPrice: number | null;
   sellingPrice: number | null;
   mileage: number;
+  photos: string[];
 };
 
 type FormState = {
@@ -268,7 +270,7 @@ function StepVehicle({ vehicles, form, set }: { vehicles: BookingVehicle[]; form
                     selected ? "border-[var(--brand)] bg-[var(--brand-soft)]" : "border-[var(--border)] hover:bg-[var(--bg-subtle)]"
                   )}
                 >
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--bg-subtle)] text-[var(--text-faint)]"><Car size={18} /></span>
+                  <VehicleThumb src={v.photos[0]} alt={vehicleLabel(v)} className="h-10 w-10 shrink-0" />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[13.5px] font-semibold text-[var(--text)]">{v.year} {v.make} {v.model}</span>
                     <span className="block text-[12px] text-[var(--text-muted)]">{v.trim ?? v.condition} · {v.mileage.toLocaleString()} mi{v.exteriorColor ? ` · ${v.exteriorColor}` : ""}</span>

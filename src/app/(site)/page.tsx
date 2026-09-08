@@ -2,6 +2,8 @@ import Link from "next/link";
 import { CalendarCheck, ShieldCheck, Clock, Car, MessageCircleHeart, CheckCircle2 } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { formatCurrency } from "@/lib/format";
+import { parsePhotos } from "@/lib/utils";
+import { VehicleThumb } from "@/components/vehicles/VehicleThumb";
 
 export const metadata = { title: "Schedule Your Test Drive | AutoMax LV" };
 // Inventory changes as vehicles are added/sold from the admin dashboard —
@@ -9,12 +11,13 @@ export const metadata = { title: "Schedule Your Test Drive | AutoMax LV" };
 export const revalidate = 60;
 
 async function getFeaturedVehicles() {
-  return prisma.vehicle.findMany({
+  const vehicles = await prisma.vehicle.findMany({
     where: { status: "AVAILABLE" },
     orderBy: { year: "desc" },
     take: 6,
-    select: { id: true, year: true, make: true, model: true, trim: true, condition: true, internetPrice: true, sellingPrice: true, mileage: true, bodyStyle: true },
+    select: { id: true, year: true, make: true, model: true, trim: true, condition: true, internetPrice: true, sellingPrice: true, mileage: true, bodyStyle: true, photos: true },
   });
+  return vehicles.map((v) => ({ ...v, photos: parsePhotos(v.photos) }));
 }
 
 export default async function LandingPage() {
@@ -115,9 +118,7 @@ export default async function LandingPage() {
             <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {vehicles.map((v) => (
                 <Link key={v.id} href={`/book?vehicle=${v.id}`} className="card group overflow-hidden p-4 hover:shadow-md">
-                  <div className="flex h-28 items-center justify-center rounded-lg bg-[var(--bg-subtle)] text-[var(--text-faint)]">
-                    <Car size={36} />
-                  </div>
+                  <VehicleThumb src={v.photos[0]} alt={`${v.year} ${v.make} ${v.model}`} className="h-28 w-full" iconSize={36} />
                   <p className="mt-3 text-[14px] font-semibold text-[var(--text)]">{v.year} {v.make} {v.model}</p>
                   <p className="text-[12.5px] text-[var(--text-muted)]">{v.trim ?? v.bodyStyle ?? v.condition} · {v.mileage.toLocaleString()} mi</p>
                   <div className="mt-2 flex items-center justify-between">
