@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 
 export const metadata = { title: "Privacy & SMS Terms | AutoMax LV" };
@@ -78,6 +79,7 @@ export default async function PrivacyPage() {
         <h2 className="text-[15px] font-semibold text-[var(--text)]">Contact us</h2>
         <p className="mt-1.5">
           Questions about your information, this policy, or our text messaging program? Call or text us at {phone}.
+          See also our <Link href="/terms" className="underline">Terms &amp; Conditions</Link>.
         </p>
       </section>
     </div>

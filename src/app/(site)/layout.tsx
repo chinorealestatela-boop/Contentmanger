@@ -41,7 +41,8 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
           <a href={telHref} className="mt-1 inline-block text-[12.5px] font-medium text-[var(--brand)]">{dealership.phone}</a>
           <p className="mt-4 text-[11px] text-[var(--text-faint)]">
             By requesting a test drive you agree to be contacted by phone, text, or email about your inquiry. Message and data rates may apply for SMS. See our{" "}
-            <Link href="/privacy" className="underline">privacy &amp; SMS terms</Link>.
+            <Link href="/privacy" className="underline">privacy &amp; SMS terms</Link> and{" "}
+            <Link href="/terms" className="underline">terms &amp; conditions</Link>.
           </p>
           <p className="mt-3 text-[11px] text-[var(--text-faint)]">
             <Link href="/login" className="hover:text-[var(--text-muted)]">Staff login</Link>
