@@ -26,10 +26,20 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           where: { email },
           include: { role: true },
         });
-        if (!user || !user.isActive) return null;
+        if (!user) {
+          console.error(`[auth] login failed: no user row for email "${email}"`);
+          return null;
+        }
+        if (!user.isActive) {
+          console.error(`[auth] login failed: user ${user.id} (${email}) is inactive`);
+          return null;
+        }
 
         const valid = await bcrypt.compare(password, user.passwordHash);
-        if (!valid) return null;
+        if (!valid) {
+          console.error(`[auth] login failed: password mismatch for user ${user.id} (${email}), hash length ${user.passwordHash?.length}`);
+          return null;
+        }
 
         await prisma.user.update({
           where: { id: user.id },
