@@ -19,7 +19,7 @@ export type BookingSettings = {
   breaks: { start: string; end: string }[]; // daily breaks (e.g. lunch), applied every working day
   blackoutDates: string[]; // "YYYY-MM-DD" — holidays / days off, no slots offered
   maxAppointmentsPerDay: number | null; // null = unlimited (bounded only by hours/duration)
-  minLeadTimeHours: number; // can't book a slot starting sooner than this from now
+  minLeadTimeMinutes: number; // can't book a slot starting sooner than this from now
   maxBookingWindowDays: number; // can't book more than this many days out
   reminders: {
     sendImmediateConfirmation: boolean;
@@ -46,7 +46,7 @@ export const DEFAULT_BOOKING_SETTINGS: BookingSettings = {
   breaks: [{ start: "13:00", end: "13:30" }],
   blackoutDates: [],
   maxAppointmentsPerDay: null,
-  minLeadTimeHours: 2,
+  minLeadTimeMinutes: 30,
   maxBookingWindowDays: 30,
   reminders: {
     sendImmediateConfirmation: true,
@@ -134,7 +134,7 @@ const ACTIVE_APPOINTMENT_STATUSES = new Set(["SCHEDULED", "CONFIRMED", "SHOWED"]
 
 /** Every bookable "HH:mm" start time for a given date, filtering out
  * anything that overlaps an existing (non-cancelled) appointment, falls in
- * a configured break, or is closer than minLeadTimeHours from now. Caller
+ * a configured break, or is closer than minLeadTimeMinutes from now. Caller
  * passes in the day's existing appointments (see getAvailableSlots below,
  * which wraps this with the actual DB query + maxAppointmentsPerDay cap). */
 export function generateSlotsForDate(
@@ -166,7 +166,7 @@ export function generateSlotsForDate(
   // Minimum bookable instant, expressed as minutes-since-midnight *for this
   // date* — only meaningful when dateStr is today; earlier/future dates are
   // unaffected (minMinutesToday ends up negative/irrelevant).
-  const cutoff = new Date(now.getTime() + settings.minLeadTimeHours * 3600000);
+  const cutoff = new Date(now.getTime() + settings.minLeadTimeMinutes * 60000);
   const cutoffDateStr = `${cutoff.getFullYear()}-${String(cutoff.getMonth() + 1).padStart(2, "0")}-${String(cutoff.getDate()).padStart(2, "0")}`;
   const minMinutesToday = cutoffDateStr === dateStr ? cutoff.getHours() * 60 + cutoff.getMinutes() : -1;
 

@@ -139,8 +139,9 @@ export function BookingSettingsForm({
           />
         </div>
         <div>
-          <label className="label">Minimum notice (hours)</label>
-          <input type="number" min={0} className="input" value={settings.minLeadTimeHours} onChange={(e) => update("minLeadTimeHours", Number(e.target.value))} />
+          <label className="label">Minimum notice (minutes)</label>
+          <input type="number" min={0} step={5} className="input" value={settings.minLeadTimeMinutes} onChange={(e) => update("minLeadTimeMinutes", Number(e.target.value))} />
+          <p className="mt-1 text-[11px] text-[var(--text-faint)]">Customers can book same-day, as long as the slot starts at least this many minutes from right now.</p>
         </div>
         <div>
           <label className="label">How far out customers can book (days)</label>

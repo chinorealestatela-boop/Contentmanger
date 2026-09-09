@@ -266,7 +266,7 @@ const bookingSettingsSchema = z.object({
   breaks: z.array(z.object({ start: z.string(), end: z.string() })),
   blackoutDates: z.array(z.string()),
   maxAppointmentsPerDay: z.coerce.number().int().min(1).nullable(),
-  minLeadTimeHours: z.coerce.number().min(0).max(72),
+  minLeadTimeMinutes: z.coerce.number().int().min(0).max(4320), // up to 72h, expressed in minutes
   maxBookingWindowDays: z.coerce.number().int().min(1).max(365),
   reminders: z.object({
     sendImmediateConfirmation: z.boolean(),
