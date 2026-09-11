@@ -106,6 +106,31 @@ function weekdayOf(dateStr: string): number {
   return d.getUTCDay();
 }
 
+/** Wall-clock "YYYY-MM-DD" date and minutes-since-midnight for a given
+ * instant, in a specific IANA timezone — NOT Date.prototype's getHours()/
+ * getFullYear()/etc., which reflect the server process's own timezone.
+ * On Vercel that's UTC, not the dealership's configured settings.timezone
+ * (e.g. America/Los_Angeles), so using those getters directly here used to
+ * make "8:00 AM" read as "3:30 PM" for lead-time/today-ness purposes —
+ * off by exactly the UTC offset. Always go through this instead when
+ * comparing "now" against business hours or the booking window. */
+function wallClockInZone(instant: Date, timeZone: string): { dateStr: string; minutes: number } {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(instant);
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "00";
+  return {
+    dateStr: `${get("year")}-${get("month")}-${get("day")}`,
+    minutes: Number(get("hour")) * 60 + Number(get("minute")),
+  };
+}
+
 export function isBlackoutDate(dateStr: string, settings: BookingSettings): boolean {
   return settings.blackoutDates.includes(dateStr);
 }
@@ -117,9 +142,9 @@ export function isWorkingDay(dateStr: string, settings: BookingSettings): boolea
 }
 
 export function isWithinBookingWindow(dateStr: string, settings: BookingSettings, now = new Date()): boolean {
-  const today = new Date(now);
-  today.setHours(0, 0, 0, 0);
-  const target = new Date(`${dateStr}T00:00:00`);
+  const { dateStr: todayStr } = wallClockInZone(now, settings.timezone);
+  const today = new Date(`${todayStr}T00:00:00Z`);
+  const target = new Date(`${dateStr}T00:00:00Z`);
   const diffDays = Math.round((target.getTime() - today.getTime()) / 86400000);
   return diffDays >= 0 && diffDays <= settings.maxBookingWindowDays;
 }
@@ -164,11 +189,12 @@ export function generateSlotsForDate(
   const breaks = settings.breaks.map((b) => ({ start: toMinutes(b.start), end: toMinutes(b.end) }));
 
   // Minimum bookable instant, expressed as minutes-since-midnight *for this
-  // date* — only meaningful when dateStr is today; earlier/future dates are
-  // unaffected (minMinutesToday ends up negative/irrelevant).
+  // date*, in the dealership's own timezone — only meaningful when dateStr
+  // is today; earlier/future dates are unaffected (minMinutesToday ends up
+  // negative/irrelevant).
   const cutoff = new Date(now.getTime() + settings.minLeadTimeMinutes * 60000);
-  const cutoffDateStr = `${cutoff.getFullYear()}-${String(cutoff.getMonth() + 1).padStart(2, "0")}-${String(cutoff.getDate()).padStart(2, "0")}`;
-  const minMinutesToday = cutoffDateStr === dateStr ? cutoff.getHours() * 60 + cutoff.getMinutes() : -1;
+  const { dateStr: cutoffDateStr, minutes: cutoffMinutes } = wallClockInZone(cutoff, settings.timezone);
+  const minMinutesToday = cutoffDateStr === dateStr ? cutoffMinutes : -1;
 
   const slots: string[] = [];
   for (let start = dayStart; start + duration <= dayEnd; start += step) {
