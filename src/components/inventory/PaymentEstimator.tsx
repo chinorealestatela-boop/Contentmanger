@@ -12,6 +12,9 @@ export function PaymentEstimator({ price }: { price: number }) {
   const [apr, setApr] = useState(7.9);
   const [termMonths, setTermMonths] = useState(60);
 
+  // Same formula as estimateMonthlyPayment() in lib/utils.ts, inlined here
+  // (rather than called) so every slider (down/apr/term) can vary independently
+  // per-keystroke without re-deriving default assumptions each time.
   const monthly = useMemo(() => {
     const principal = Math.max(0, price - down);
     const rate = apr / 100 / 12;

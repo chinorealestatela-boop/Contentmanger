@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { VehicleGallery } from "@/components/inventory/VehicleGallery";
 import { PaymentEstimator } from "@/components/inventory/PaymentEstimator";
 import { VehicleInquiryForm } from "@/components/inventory/VehicleInquiryForm";
+import { StickyBookBar } from "@/components/inventory/StickyBookBar";
 import { formatCurrency } from "@/lib/format";
 import { optionLabel, BODY_STYLES } from "@/lib/constants";
 
@@ -46,7 +47,7 @@ export default async function VehicleDetailPage({ params }: { params: Promise<{ 
   ].filter((s) => s.value);
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
+    <div className="mx-auto max-w-5xl px-4 py-8 pb-24 sm:px-6 lg:pb-8">
       <Link href="/inventory" className="inline-flex items-center gap-1 text-[13px] font-semibold text-[var(--text-muted)] hover:text-[var(--brand)]">
         <ChevronLeft size={15} /> Back to Available Vehicles
       </Link>
@@ -111,6 +112,8 @@ export default async function VehicleDetailPage({ params }: { params: Promise<{ 
         {price != null && <PaymentEstimator price={price} />}
         <VehicleInquiryForm vehicleId={vehicle.id} vehicleLabel={title} dealershipName={dealershipName} />
       </div>
+
+      <StickyBookBar vehicleId={vehicle.id} title={title} price={price} />
     </div>
   );
 }

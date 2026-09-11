@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { CalendarCheck, ShieldCheck, Clock, Car, MessageCircleHeart, CheckCircle2 } from "lucide-react";
+import { CalendarCheck, ShieldCheck, Clock, Car, MessageCircle, MessageCircleHeart, CheckCircle2 } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { formatCurrency } from "@/lib/format";
-import { parsePhotos } from "@/lib/utils";
+import { parsePhotos, estimateMonthlyPayment } from "@/lib/utils";
 import { VehicleThumb } from "@/components/vehicles/VehicleThumb";
 
 export const metadata = { title: "Schedule Your Test Drive | AutoMax LV" };
@@ -86,6 +86,20 @@ export default async function LandingPage() {
         </div>
       </section>
 
+      {/* Not ready to test drive yet? */}
+      <section className="px-4 pb-14 sm:px-6">
+        <div className="mx-auto max-w-2xl rounded-2xl border border-[var(--border)] bg-[var(--bg-elevated)] p-6 text-center sm:p-8">
+          <MessageCircle size={22} className="mx-auto text-[var(--brand)]" />
+          <h2 className="mt-2 text-xl font-bold text-[var(--text)] sm:text-2xl">Not Ready to Test Drive Yet?</h2>
+          <p className="mx-auto mt-2 max-w-md text-[13.5px] text-[var(--text-muted)]">
+            Book a free 15-minute call instead — no vehicle needed. We&rsquo;ll just talk through financing, trade-ins, or what fits your budget.
+          </p>
+          <Link href="/consultation" className="btn btn-secondary mt-5 px-6 py-2.5 text-[14px]">
+            <Clock size={15} /> Schedule a Free 15-Min Consultation
+          </Link>
+        </div>
+      </section>
+
       {/* How it works */}
       <section className="bg-[var(--bg-subtle)] px-4 py-14 sm:px-6">
         <div className="mx-auto max-w-4xl">
@@ -126,8 +140,15 @@ export default async function LandingPage() {
                   <VehicleThumb src={v.photos[0]} alt={`${v.year} ${v.make} ${v.model}`} className="h-28 w-full" iconSize={36} />
                   <p className="mt-3 text-[14px] font-semibold text-[var(--text)]">{v.year} {v.make} {v.model}</p>
                   <p className="text-[12.5px] text-[var(--text-muted)]">{v.trim ?? v.bodyStyle ?? v.condition} · {v.mileage.toLocaleString()} mi</p>
-                  <div className="mt-2 flex items-center justify-between">
-                    <span className="text-[14px] font-bold text-[var(--brand)]">{formatCurrency(v.internetPrice ?? v.sellingPrice)}</span>
+                  <div className="mt-2 flex items-end justify-between">
+                    <div>
+                      <span className="block text-[14px] font-bold text-[var(--brand)]">{formatCurrency(v.internetPrice ?? v.sellingPrice)}</span>
+                      {(v.internetPrice ?? v.sellingPrice) != null && (
+                        <span className="text-[11px] font-medium text-[var(--text-muted)]">
+                          Est. {formatCurrency(Math.round(estimateMonthlyPayment((v.internetPrice ?? v.sellingPrice)!)))}/mo
+                        </span>
+                      )}
+                    </div>
                     <span className="text-[12px] font-semibold text-[var(--brand)] opacity-0 transition-opacity group-hover:opacity-100">View Details →</span>
                   </div>
                 </Link>

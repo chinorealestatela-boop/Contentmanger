@@ -2,6 +2,7 @@
 
 import { useActionState, useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
+import { track } from "@vercel/analytics";
 import { Search, ChevronLeft, ChevronRight, Check, Loader2, CalendarCheck, PartyPopper } from "lucide-react";
 import { submitBooking, fetchAvailableSlots, type BookingActionState } from "@/lib/actions/booking";
 import { isValidPhone, formatPhoneInput } from "@/lib/phone";
@@ -113,6 +114,22 @@ export function BookingWizard({
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((f) => ({ ...f, [key]: value }));
   }
+
+  // Funnel tracking (Vercel Analytics custom events) — fires on the initial
+  // render and every step change, so "booking_step_view" grouped by step in
+  // Vercel's Analytics > Events shows exactly where people stop advancing,
+  // instead of guessing from pageview counts on /book alone.
+  useEffect(() => {
+    track("booking_step_view", { step, stepLabel: STEP_LABELS[step - 1], vehiclePreselected: !!preselectedVehicleId });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step]);
+
+  useEffect(() => {
+    if (state && "success" in state && state.success) {
+      track("booking_completed", { hadVehicle: !!form.vehicleId, manualVehicle: form.manualVehicle });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state]);
 
   const canNext = useMemo(() => {
     if (step === 1) return !!(form.vehicleId || (form.manualVehicle && form.vehicleMake.trim()));

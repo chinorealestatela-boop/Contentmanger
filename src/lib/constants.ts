@@ -127,6 +127,7 @@ export const APPOINTMENT_TYPES: Option[] = [
   { value: "TRADE_IN_EVALUATION", label: "Trade-In Evaluation", color: "#16a34a" },
   { value: "SALES_APPOINTMENT", label: "Sales Appointment", color: "#db2777" },
   { value: "DELIVERY", label: "Delivery", color: "#4f46e5" },
+  { value: "CONSULTATION", label: "15-Min Consultation", color: "#0284c7" },
   { value: "OTHER", label: "Other", color: "#64748b" },
 ];
 
@@ -272,6 +273,7 @@ export const BOOKING_SOURCE_MAP: Record<string, string> = {
   website: "Website",
   direct: "Direct Link",
   inventory: "Vehicle Inventory Page",
+  consultation: "15-Min Consultation",
 };
 export const DEFAULT_BOOKING_SOURCE = "Direct Link";
 

@@ -1,5 +1,5 @@
 import {
-  Phone, PhoneCall, Car, Building2, Eye, DollarSign, ArrowLeftRight, Briefcase, Truck, MoreHorizontal,
+  Phone, PhoneCall, Car, Building2, Eye, DollarSign, ArrowLeftRight, Briefcase, Truck, MoreHorizontal, MessageCircle,
   type LucideIcon,
 } from "lucide-react";
 import { optionColor, APPOINTMENT_TYPES } from "@/lib/constants";
@@ -17,6 +17,7 @@ export const EVENT_ICONS: Record<string, LucideIcon> = {
   TRADE_IN_EVALUATION: ArrowLeftRight,
   SALES_APPOINTMENT: Briefcase,
   DELIVERY: Truck,
+  CONSULTATION: MessageCircle,
   OTHER: MoreHorizontal,
 };
 

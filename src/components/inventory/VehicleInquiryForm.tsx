@@ -1,7 +1,8 @@
 "use client";
 
-import { useActionState, useState, useTransition } from "react";
+import { useActionState, useEffect, useState, useTransition } from "react";
 import Link from "next/link";
+import { track } from "@vercel/analytics";
 import { Loader2, CheckCircle2 } from "lucide-react";
 import { submitVehicleInquiry, type InquiryActionState } from "@/lib/actions/vehicleInquiry";
 import { isValidPhone, formatPhoneInput } from "@/lib/phone";
@@ -18,6 +19,13 @@ export function VehicleInquiryForm({ vehicleId, vehicleLabel, dealershipName }: 
   const [message, setMessage] = useState("");
   const [consent, setConsent] = useState(false);
   const [touched, setTouched] = useState(false);
+
+  useEffect(() => {
+    if (state && "success" in state && state.success) {
+      track("inquiry_submitted", { inquiryType, vehicleId });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state]);
 
   if (state && "success" in state && state.success) {
     return (

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Palette } from "lucide-react";
 import { VehicleThumb } from "@/components/vehicles/VehicleThumb";
 import { formatCurrency } from "@/lib/format";
+import { estimateMonthlyPayment } from "@/lib/utils";
 import { optionLabel, BODY_STYLES } from "@/lib/constants";
 import type { PublicVehicleListItem } from "@/lib/queries/publicInventory";
 
@@ -43,8 +44,13 @@ export function PublicVehicleCard({ vehicle }: { vehicle: PublicVehicleListItem 
 
         <p className="text-[11px] text-[var(--text-faint)]">Stock #{vehicle.stockNumber}</p>
 
-        <div className="mt-auto flex items-center justify-between gap-2 pt-2">
+        <div className="mt-auto flex items-end justify-between gap-2 pt-2">
           <span className="text-[17px] font-extrabold text-[var(--brand)]">{formatCurrency(price)}</span>
+          {price != null && (
+            <span className="text-[12px] font-semibold text-[var(--text-muted)]">
+              Est. {formatCurrency(Math.round(estimateMonthlyPayment(price)))}/mo
+            </span>
+          )}
         </div>
 
         <div className="grid grid-cols-2 gap-2 pt-1">
