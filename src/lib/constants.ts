@@ -274,6 +274,7 @@ export const BOOKING_SOURCE_MAP: Record<string, string> = {
   direct: "Direct Link",
   inventory: "Vehicle Inventory Page",
   consultation: "15-Min Consultation",
+  "inventory-alert": "Inventory Alert Signup",
 };
 export const DEFAULT_BOOKING_SOURCE = "Direct Link";
 

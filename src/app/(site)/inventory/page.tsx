@@ -1,7 +1,9 @@
 import { Suspense } from "react";
 import { searchPublicInventory, getInventoryFilterOptions, type InventorySort } from "@/lib/queries/publicInventory";
+import { fetchBookingWindow } from "@/lib/actions/booking";
 import { PublicVehicleCard } from "@/components/inventory/PublicVehicleCard";
 import { InventoryControls } from "@/components/inventory/InventoryControls";
+import { InventoryAlertBanner } from "@/components/inventory/InventoryAlertBanner";
 import { Pagination } from "@/components/ui/Pagination";
 
 export const metadata = { title: "Available Vehicles | AutoMax LV" };
@@ -19,9 +21,10 @@ export default async function InventoryPage({
   const sp = await searchParams;
   const sort: InventorySort = sp.sort && SORT_VALUES.has(sp.sort) ? (sp.sort as InventorySort) : "newest";
 
-  const [{ vehicles, total, page, pageCount }, options] = await Promise.all([
+  const [{ vehicles, total, page, pageCount }, options, window_] = await Promise.all([
     searchPublicInventory({ ...sp, sort, page: sp.page ? Number(sp.page) : 1 }),
     getInventoryFilterOptions(),
+    fetchBookingWindow(),
   ]);
 
   return (
@@ -59,6 +62,8 @@ export default async function InventoryPage({
           />
         </InventoryControls>
       </Suspense>
+
+      <InventoryAlertBanner dealershipName={window_.dealershipName} />
     </div>
   );
 }
