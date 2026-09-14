@@ -1,17 +1,17 @@
 "use client";
 
 import { useActionState, useEffect, useState, useTransition } from "react";
+import Link from "next/link";
 import { Phone, MessageSquare, Mail, StickyNote, CheckSquare, CalendarPlus, PhoneCall, Check } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { logCommunication } from "@/lib/actions/communications";
 import { addNote } from "@/lib/actions/notes";
 import { createTask } from "@/lib/actions/tasks";
-import { createAppointment } from "@/lib/actions/appointments";
 import { createFollowUp } from "@/lib/actions/followups";
 import { completeTask } from "@/lib/actions/tasks";
-import { TASK_TYPES, TASK_PRIORITIES, APPOINTMENT_TYPES, FOLLOWUP_REMINDER_OPTIONS } from "@/lib/constants";
+import { TASK_TYPES, TASK_PRIORITIES, FOLLOWUP_REMINDER_OPTIONS } from "@/lib/constants";
 
-type ModalKind = "CALL" | "TEXT" | "EMAIL" | "NOTE" | "TASK" | "APPOINTMENT" | "FOLLOWUP" | null;
+type ModalKind = "CALL" | "TEXT" | "EMAIL" | "NOTE" | "TASK" | "FOLLOWUP" | null;
 
 export function QuickActions({
   customerId,
@@ -34,13 +34,13 @@ export function QuickActions({
 
   return (
     <div className={`flex flex-wrap items-center gap-1.5 ${className ?? ""}`}>
-      <button className={`${btnClass} bg-amber-500 !text-white hover:bg-amber-600`} onClick={() => setModal("FOLLOWUP")} title="Follow Up"><PhoneCall size={13} /> {size === "md" && "Follow Up"}</button>
+      <button className={`${btnClass} !border-[var(--brand-line)] !bg-[var(--brand-soft)] !text-[var(--brand-bright)]`} onClick={() => setModal("FOLLOWUP")} title="Follow Up"><PhoneCall size={13} /> {size === "md" && "Follow Up"}</button>
       <button className={btnClass} onClick={() => setModal("CALL")} title="Call"><Phone size={13} /> {size === "md" && "Call"}</button>
       <button className={btnClass} onClick={() => setModal("TEXT")} title="Text"><MessageSquare size={13} /> {size === "md" && "Text"}</button>
       <button className={btnClass} onClick={() => setModal("EMAIL")} title="Email"><Mail size={13} /> {size === "md" && "Email"}</button>
       <button className={btnClass} onClick={() => setModal("NOTE")} title="Note"><StickyNote size={13} /> {size === "md" && "Note"}</button>
       <button className={btnClass} onClick={() => setModal("TASK")} title="Task"><CheckSquare size={13} /> {size === "md" && "Task"}</button>
-      <button className={btnClass} onClick={() => setModal("APPOINTMENT")} title="Add to Calendar"><CalendarPlus size={13} /> {size === "md" && "Appt"}</button>
+      <Link href={`/bookings/new?customerId=${customerId}${leadId ? `&leadId=${leadId}` : ""}`} className={btnClass} title="New Booking"><CalendarPlus size={13} /> {size === "md" && "Book"}</Link>
       {taskId && (
         <button
           disabled={pending || completed}
@@ -57,9 +57,12 @@ export function QuickActions({
       )}
       {modal === "NOTE" && <NoteModal customerId={customerId} leadId={leadId} onClose={() => setModal(null)} />}
       {modal === "TASK" && <TaskModal customerId={customerId} leadId={leadId} onClose={() => setModal(null)} />}
-      {modal === "APPOINTMENT" && <AppointmentModal customerId={customerId} leadId={leadId} onClose={() => setModal(null)} />}
     </div>
   );
+}
+
+function ErrorBox({ children }: { children: React.ReactNode }) {
+  return <div className="rounded-lg border border-[var(--danger)]/40 bg-[var(--danger-soft)] px-3 py-2 text-sm text-[var(--danger)]">{children}</div>;
 }
 
 function FollowUpModal({ customerId, leadId, onClose }: { customerId: string; leadId?: string | null; onClose: () => void }) {
@@ -75,10 +78,10 @@ function FollowUpModal({ customerId, leadId, onClose }: { customerId: string; le
       <form action={formAction} className="space-y-4">
         <input type="hidden" name="customerId" value={customerId} />
         {leadId && <input type="hidden" name="leadId" value={leadId} />}
-        {state?.error && <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{state.error}</div>}
+        {state?.error && <ErrorBox>{state.error}</ErrorBox>}
         <div>
           <label className="label">Conversation Topic / Reason</label>
-          <input name="topic" required className="input" placeholder="e.g. Check availability of 2025 Toyota Camry" autoFocus />
+          <input name="topic" required className="input" placeholder="e.g. Confirm pickup time for Friday reservation" autoFocus />
         </div>
         <div>
           <label className="label">Detailed Follow-Up Notes</label>
@@ -121,7 +124,7 @@ function CommunicationModal({ type, customerId, onClose }: { type: "CALL" | "TEX
       <form action={formAction} className="space-y-4">
         <input type="hidden" name="customerId" value={customerId} />
         <input type="hidden" name="type" value={type} />
-        {state?.error && <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{state.error}</div>}
+        {state?.error && <ErrorBox>{state.error}</ErrorBox>}
         <div>
           <label className="label">Direction</label>
           <select name="direction" className="input" defaultValue="OUTBOUND">
@@ -152,8 +155,8 @@ function NoteModal({ customerId, leadId, onClose }: { customerId: string; leadId
       <form action={formAction} className="space-y-4">
         <input type="hidden" name="customerId" value={customerId} />
         {leadId && <input type="hidden" name="leadId" value={leadId} />}
-        {state?.error && <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{state.error}</div>}
-        <textarea name="body" required rows={4} className="input" placeholder="Add sales notes, preferences, objections…" autoFocus />
+        {state?.error && <ErrorBox>{state.error}</ErrorBox>}
+        <textarea name="body" required rows={4} className="input" placeholder="Add notes, preferences, special requests…" autoFocus />
         <div className="flex justify-end gap-2">
           <button type="button" onClick={onClose} className="btn btn-ghost">Cancel</button>
           <button type="submit" disabled={pending} className="btn btn-primary">{pending ? "Saving…" : "Save Note"}</button>
@@ -174,10 +177,10 @@ function TaskModal({ customerId, leadId, onClose }: { customerId: string; leadId
       <form action={formAction} className="space-y-4">
         <input type="hidden" name="customerId" value={customerId} />
         {leadId && <input type="hidden" name="leadId" value={leadId} />}
-        {state?.error && <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{state.error}</div>}
+        {state?.error && <ErrorBox>{state.error}</ErrorBox>}
         <div>
           <label className="label">Title</label>
-          <input name="title" required className="input" placeholder="e.g. Call about financing options" autoFocus />
+          <input name="title" required className="input" placeholder="e.g. Confirm flight details" autoFocus />
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
@@ -210,47 +213,6 @@ function TaskModal({ customerId, leadId, onClose }: { customerId: string; leadId
         <div className="flex justify-end gap-2">
           <button type="button" onClick={onClose} className="btn btn-ghost">Cancel</button>
           <button type="submit" disabled={pending} className="btn btn-primary">{pending ? "Saving…" : "Create Task"}</button>
-        </div>
-      </form>
-    </Modal>
-  );
-}
-
-function AppointmentModal({ customerId, leadId, onClose }: { customerId: string; leadId?: string | null; onClose: () => void }) {
-  const [state, formAction, pending] = useActionState(createAppointment, null);
-  useEffect(() => {
-    if (state?.success) onClose();
-  }, [state, onClose]);
-  const todayStr = new Date().toISOString().slice(0, 10);
-  return (
-    <Modal title="Set Appointment" onClose={onClose}>
-      <form action={formAction} className="space-y-4">
-        <input type="hidden" name="customerId" value={customerId} />
-        {leadId && <input type="hidden" name="leadId" value={leadId} />}
-        {state?.error && <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{state.error}</div>}
-        <div>
-          <label className="label">Type</label>
-          <select name="type" className="input" defaultValue="SALES_APPOINTMENT">
-            {APPOINTMENT_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-          </select>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="label">Date</label>
-            <input type="date" name="date" required className="input" defaultValue={todayStr} />
-          </div>
-          <div>
-            <label className="label">Time</label>
-            <input type="time" name="time" required className="input" defaultValue="10:00" />
-          </div>
-        </div>
-        <div>
-          <label className="label">Notes</label>
-          <textarea name="notes" rows={2} className="input" />
-        </div>
-        <div className="flex justify-end gap-2">
-          <button type="button" onClick={onClose} className="btn btn-ghost">Cancel</button>
-          <button type="submit" disabled={pending} className="btn btn-primary">{pending ? "Saving…" : "Add to Calendar"}</button>
         </div>
       </form>
     </Modal>

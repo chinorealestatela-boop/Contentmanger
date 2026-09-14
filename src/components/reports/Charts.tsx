@@ -1,6 +1,6 @@
 "use client";
 
-import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { SEQUENTIAL_BLUE, stableColor } from "@/lib/chart-colors";
 import { formatCurrency } from "@/lib/format";
 
@@ -83,6 +83,27 @@ export function CategoricalBarChart({
           {data.map((d, i) => <Cell key={i} fill={stableColor(String(d[xKey]), knownOrder)} />)}
         </Bar>
       </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+export function TrendAreaChart({ data, xKey, yKey, valueFormat }: { data: Record<string, string | number>[]; xKey: string; yKey: string; valueFormat?: ValueFormat }) {
+  if (data.length === 0) return <EmptyChart />;
+  return (
+    <ResponsiveContainer width="100%" height={220}>
+      <AreaChart data={data} margin={{ top: 8, right: 12, left: 4, bottom: 4 }}>
+        <defs>
+          <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#c9a24b" stopOpacity={0.35} />
+            <stop offset="100%" stopColor="#c9a24b" stopOpacity={0} />
+          </linearGradient>
+        </defs>
+        <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
+        <XAxis dataKey={xKey} tick={{ fontSize: 11, fill: "var(--text-faint)" }} axisLine={false} tickLine={false} />
+        <YAxis tick={{ fontSize: 11, fill: "var(--text-faint)" }} axisLine={false} tickLine={false} width={valueFormat === "currency" ? 56 : 32} />
+        <Tooltip content={<ChartTooltip valueFormat={valueFormat} />} cursor={{ stroke: "var(--brand-line)" }} />
+        <Area type="monotone" dataKey={yKey} stroke="#c9a24b" strokeWidth={2} fill="url(#revenueGradient)" />
+      </AreaChart>
     </ResponsiveContainer>
   );
 }

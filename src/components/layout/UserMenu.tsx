@@ -23,7 +23,7 @@ export function UserMenu({
 
   return (
     <div className="relative">
-      <button onClick={() => setOpen((o) => !o)} className="flex items-center gap-2 rounded-lg py-1 pl-1 pr-2 hover:bg-[var(--bg-subtle)]">
+      <button onClick={() => setOpen((o) => !o)} className="flex items-center gap-2 rounded-lg py-1 pl-1 pr-2 hover:bg-white/[0.05]">
         <Avatar firstName={firstName} lastName={lastName} color={color} size="sm" />
         <div className="hidden text-left sm:block">
           <p className="text-[13px] font-semibold leading-tight text-[var(--text)]">{firstName} {lastName}</p>
@@ -34,16 +34,16 @@ export function UserMenu({
       {open && (
         <>
           <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} />
-          <div className="animate-fade-in absolute right-0 z-40 mt-2 w-52 rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)] py-1.5 shadow-lg">
-            <Link href="/settings/profile" onClick={() => setOpen(false)} className="flex items-center gap-2.5 px-3.5 py-2 text-[13px] text-[var(--text)] hover:bg-[var(--bg-subtle)]">
+          <div className="animate-fade-in card absolute right-0 z-40 mt-2 w-52 py-1.5">
+            <Link href="/settings/profile" onClick={() => setOpen(false)} className="flex items-center gap-2.5 px-3.5 py-2 text-[13px] text-[var(--text)] hover:bg-white/[0.05]">
               <User size={15} /> My Profile
             </Link>
-            <Link href="/settings" onClick={() => setOpen(false)} className="flex items-center gap-2.5 px-3.5 py-2 text-[13px] text-[var(--text)] hover:bg-[var(--bg-subtle)]">
+            <Link href="/settings" onClick={() => setOpen(false)} className="flex items-center gap-2.5 px-3.5 py-2 text-[13px] text-[var(--text)] hover:bg-white/[0.05]">
               <Settings size={15} /> Settings
             </Link>
-            <div className="my-1 border-t border-[var(--border)]" />
+            <div className="my-1 divider" />
             <form action={logoutAction}>
-              <button type="submit" className="flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-[13px] text-red-600 hover:bg-red-50">
+              <button type="submit" className="flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-[13px] text-[var(--danger)] hover:bg-[var(--danger-soft)]">
                 <LogOut size={15} /> Log Out
               </button>
             </form>

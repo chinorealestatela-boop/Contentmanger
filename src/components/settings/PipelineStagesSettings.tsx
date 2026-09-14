@@ -29,13 +29,13 @@ export function PipelineStagesSettings({ stages }: { stages: Stage[] }) {
                 <button disabled={i === stages.length - 1} onClick={() => startTransition(() => moveStage(s.id, "down"))} className="text-[var(--text-faint)] hover:text-[var(--text)] disabled:opacity-30"><ArrowDown size={12} /></button>
               </div>
               <ColorPill color={s.color}>{s.name}</ColorPill>
-              {s.isClosedWon && <Badge variant="sold">Closed Won</Badge>}
-              {s.isClosedLost && <Badge variant="lost">Closed Lost</Badge>}
+              {s.isClosedWon && <Badge variant="success">Closed Won</Badge>}
+              {s.isClosedLost && <Badge variant="neutral">Closed Lost</Badge>}
               {!s.active && <Badge variant="neutral">Inactive</Badge>}
             </div>
             <button
               onClick={() => startTransition(() => toggleStageActive(s.id, !s.active))}
-              className={cn("relative h-6 w-11 shrink-0 rounded-full transition-colors", s.active ? "bg-emerald-500" : "bg-[var(--border)]")}
+              className={cn("relative h-6 w-11 shrink-0 rounded-full transition-colors", s.active ? "bg-[var(--success)]" : "bg-white/10")}
             >
               <span className={cn("absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform", s.active ? "translate-x-5" : "translate-x-0.5")} />
             </button>
@@ -44,7 +44,7 @@ export function PipelineStagesSettings({ stages }: { stages: Stage[] }) {
       </div>
 
       <form ref={formRef} action={formAction} className="mt-4 space-y-3 border-t border-[var(--border)] pt-4">
-        {state?.error && <p className="text-xs text-red-600">{state.error}</p>}
+        {state?.error && <p className="text-xs text-[var(--danger)]">{state.error}</p>}
         <div className="flex gap-2">
           <input name="name" required placeholder="New stage name" className="input" />
           <input name="color" type="color" defaultValue="#2563eb" className="h-[38px] w-14 shrink-0 rounded-lg border border-[var(--border)]" />

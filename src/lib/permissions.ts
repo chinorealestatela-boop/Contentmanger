@@ -3,38 +3,83 @@
 // change — each role just needs a JSON permissions blob shaped like this.
 
 export type Permissions = {
-  viewAllCustomers: boolean; // manager/admin see the whole team's book, not just their own
+  viewAllCustomers: boolean; // manager+ see the whole book, not just their own leads/bookings
   manageTeam: boolean; // assign leads, view team performance
-  manageUsers: boolean; // create/deactivate users, change roles
-  manageSettings: boolean; // pipeline stages, lead sources, lost reasons, automations, sequences
-  manageInventory: boolean;
+  manageUsers: boolean; // create/deactivate employees, change roles
+  manageSettings: boolean; // pipeline stages, lead sources, services, pricing, automations
+  manageFleet: boolean; // vehicles, maintenance
+  manageDrivers: boolean;
+  manageFinance: boolean; // payments, refunds, deposits
   viewReports: "own" | "team" | "all";
+  driverView: boolean; // sees the mobile driver console instead of the full CRM by default
 };
 
 export const DEFAULT_PERMISSIONS: Record<string, Permissions> = {
-  SALESPERSON: {
-    viewAllCustomers: false,
-    manageTeam: false,
-    manageUsers: false,
-    manageSettings: false,
-    manageInventory: true,
-    viewReports: "own",
-  },
-  MANAGER: {
+  OWNER: {
     viewAllCustomers: true,
     manageTeam: true,
-    manageUsers: false,
+    manageUsers: true,
     manageSettings: true,
-    manageInventory: true,
-    viewReports: "team",
+    manageFleet: true,
+    manageDrivers: true,
+    manageFinance: true,
+    viewReports: "all",
+    driverView: false,
   },
   ADMIN: {
     viewAllCustomers: true,
     manageTeam: true,
     manageUsers: true,
     manageSettings: true,
-    manageInventory: true,
+    manageFleet: true,
+    manageDrivers: true,
+    manageFinance: true,
     viewReports: "all",
+    driverView: false,
+  },
+  MANAGER: {
+    viewAllCustomers: true,
+    manageTeam: true,
+    manageUsers: false,
+    manageSettings: true,
+    manageFleet: true,
+    manageDrivers: true,
+    manageFinance: true,
+    viewReports: "team",
+    driverView: false,
+  },
+  DISPATCHER: {
+    viewAllCustomers: true,
+    manageTeam: false,
+    manageUsers: false,
+    manageSettings: false,
+    manageFleet: true,
+    manageDrivers: true,
+    manageFinance: false,
+    viewReports: "team",
+    driverView: false,
+  },
+  SALES: {
+    viewAllCustomers: false,
+    manageTeam: false,
+    manageUsers: false,
+    manageSettings: false,
+    manageFleet: false,
+    manageDrivers: false,
+    manageFinance: false,
+    viewReports: "own",
+    driverView: false,
+  },
+  DRIVER: {
+    viewAllCustomers: false,
+    manageTeam: false,
+    manageUsers: false,
+    manageSettings: false,
+    manageFleet: false,
+    manageDrivers: false,
+    manageFinance: false,
+    viewReports: "own",
+    driverView: true,
   },
 };
 
@@ -42,6 +87,6 @@ export function parsePermissions(json: string): Permissions {
   try {
     return JSON.parse(json) as Permissions;
   } catch {
-    return DEFAULT_PERMISSIONS.SALESPERSON;
+    return DEFAULT_PERMISSIONS.SALES;
   }
 }

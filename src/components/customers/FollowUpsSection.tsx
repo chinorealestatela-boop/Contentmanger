@@ -17,7 +17,7 @@ type FollowUp = {
   priority: string;
   status: string;
   completionNotes: string | null;
-  assignee: { firstName: string; lastName: string };
+  assignee: { firstName: string; lastName: string } | null;
 };
 
 function displayStatus(f: FollowUp) {
@@ -49,12 +49,12 @@ export function FollowUpsSection({ followUps }: { followUps: FollowUp[] }) {
                 <div className="min-w-0">
                   <p className="text-[13px] font-medium text-[var(--text)]">{f.topic}</p>
                   <p className="mt-0.5 text-[11.5px] text-[var(--text-faint)]">
-                    {formatDate(f.followUpDate)} at {formatTime12h(f.followUpTime)} · {f.assignee.firstName} {f.assignee.lastName}
+                    {formatDate(f.followUpDate)} at {formatTime12h(f.followUpTime)} · {f.assignee ? `${f.assignee.firstName} ${f.assignee.lastName}` : "Unassigned"}
                     {priority && priority.value !== "NORMAL" && <> · <span style={{ color: priority.color }}>{priority.label}</span></>}
                   </p>
                   {f.notes && <p className="mt-1.5 text-[12.5px] text-[var(--text-muted)]">{f.notes}</p>}
                   {f.status === "COMPLETED" && f.completionNotes && (
-                    <p className="mt-1.5 rounded-md bg-emerald-50 px-2.5 py-1.5 text-[12px] text-emerald-800">{f.completionNotes}</p>
+                    <p className="mt-1.5 rounded-md bg-[var(--success-soft)] px-2.5 py-1.5 text-[12px] text-[var(--success)]">{f.completionNotes}</p>
                   )}
                 </div>
                 <span className="badge shrink-0" style={{ background: `${status.color}1a`, color: status.color }}>{status.label}</span>
@@ -68,7 +68,7 @@ export function FollowUpsSection({ followUps }: { followUps: FollowUp[] }) {
                     <RotateCcw size={13} /> Reschedule
                   </button>
                   <button
-                    className="btn btn-secondary btn-sm text-red-600"
+                    className="btn btn-secondary btn-sm !text-[var(--danger)]"
                     disabled={cancelling}
                     onClick={() => {
                       if (confirm("Cancel this follow-up?")) startCancel(() => cancelFollowUp(f.id));
@@ -79,7 +79,7 @@ export function FollowUpsSection({ followUps }: { followUps: FollowUp[] }) {
                 </div>
               )}
               {f.status === "MISSED" && (
-                <div className="mt-2.5 flex items-center gap-1.5 text-[11.5px] text-red-600">
+                <div className="mt-2.5 flex items-center gap-1.5 text-[11.5px] text-[var(--danger)]">
                   <Clock size={13} /> This follow-up passed without being completed.
                   <button className="btn btn-secondary btn-sm ml-auto" onClick={() => setAction({ kind: "reschedule", followUp: f })}>
                     <RotateCcw size={13} /> Reschedule
@@ -104,7 +104,7 @@ function CompleteModal({ followUp, onClose }: { followUp: FollowUp; onClose: () 
     <Modal title="Complete Follow-Up" onClose={onClose}>
       <form action={formAction} className="space-y-4">
         <input type="hidden" name="followUpId" value={followUp.id} />
-        {state?.error && <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{state.error}</div>}
+        {state?.error && <div className="rounded-lg border border-[var(--danger)]/40 bg-[var(--danger-soft)] px-3 py-2 text-sm text-[var(--danger)]">{state.error}</div>}
         <p className="text-[13px] text-[var(--text-muted)]">{followUp.topic}</p>
         <div>
           <label className="label">What happened on the call?</label>
@@ -129,7 +129,7 @@ function RescheduleModal({ followUp, onClose }: { followUp: FollowUp; onClose: (
     <Modal title="Reschedule Follow-Up" onClose={onClose}>
       <form action={formAction} className="space-y-4">
         <input type="hidden" name="followUpId" value={followUp.id} />
-        {state?.error && <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{state.error}</div>}
+        {state?.error && <div className="rounded-lg border border-[var(--danger)]/40 bg-[var(--danger-soft)] px-3 py-2 text-sm text-[var(--danger)]">{state.error}</div>}
         <p className="text-[13px] text-[var(--text-muted)]">{followUp.topic}</p>
         <div className="grid grid-cols-2 gap-3">
           <div><label className="label">New Date</label><input type="date" name="followUpDate" required className="input" defaultValue={nextDayStr} /></div>

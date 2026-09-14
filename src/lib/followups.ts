@@ -55,6 +55,7 @@ export async function syncFollowUps() {
   }
 
   for (const f of toRemind) {
+    if (!f.assigneeId) continue;
     await prisma.notification.create({
       data: {
         userId: f.assigneeId,

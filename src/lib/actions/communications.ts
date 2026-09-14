@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireScope } from "@/lib/queries/scope";
 import { logActivity } from "@/lib/activity";
 import { recomputeLeadScore } from "@/lib/scoring-engine";
+import { stopFollowUpsForLead } from "@/lib/automation/engine";
 import { revalidatePath } from "next/cache";
 
 const schema = z.object({
@@ -42,6 +43,12 @@ export async function logCommunication(_prev: SimpleActionState, formData: FormD
   const activeLeads = await prisma.lead.findMany({ where: { customerId, status: "ACTIVE" }, select: { id: true } });
   for (const l of activeLeads) await recomputeLeadScore(l.id, scope.userId);
 
+  // Customer responded — stop the automated follow-up cadence for their
+  // active leads (spec §16: "Stop the automation once the lead responds").
+  if (direction === "INBOUND") {
+    for (const l of activeLeads) await stopFollowUpsForLead(l.id, "RESPONDED");
+  }
+
   await logActivity({
     customerId,
     type: "COMMUNICATION_LOGGED",
@@ -52,6 +59,5 @@ export async function logCommunication(_prev: SimpleActionState, formData: FormD
   revalidatePath("/customers");
   revalidatePath(`/customers/${customerId}`);
   revalidatePath("/dashboard");
-  revalidatePath("/communications");
   return { success: "Logged." };
 }

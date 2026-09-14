@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Cormorant_Garamond } from "next/font/google";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -12,16 +12,22 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const display = Cormorant_Garamond({
+  variable: "--font-display",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+});
+
 export const metadata: Metadata = {
-  title: "Driveline CRM — Automotive Sales Command Center",
-  description: "A personal command center for automotive salespeople: leads, follow-ups, appointments, and deals in one place.",
+  title: "Stratos Exotics & Lifestyle — Operations",
+  description: "The operating system for Stratos Exotics & Lifestyle: leads, quotes, bookings, fleet, chauffeurs, and revenue in one elegant command center.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${display.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">{children}</body>
     </html>

@@ -1,12 +1,15 @@
 import { prisma } from "@/lib/prisma";
 
-/** Central helper for writing to the customer activity timeline. Every
- * meaningful CRM action (communication logged, note added, stage change,
- * appointment set, automation fired, etc.) should call this so the
- * customer profile's timeline stays a complete chronological record. */
+/** Central helper for writing to the activity timeline (customer profile,
+ * booking detail, dashboard feed). Every meaningful CRM action — stage
+ * change, quote sent, booking created, payment received, driver assigned,
+ * automation fired, etc. — should call this so there's a complete
+ * chronological audit trail (spec §28/§29: "every important action
+ * should be logged"). */
 export async function logActivity(params: {
-  customerId: string;
+  customerId?: string | null;
   leadId?: string | null;
+  bookingId?: string | null;
   type: string;
   description: string;
   actorId?: string | null;
@@ -14,8 +17,9 @@ export async function logActivity(params: {
 }) {
   return prisma.activity.create({
     data: {
-      customerId: params.customerId,
+      customerId: params.customerId ?? null,
       leadId: params.leadId ?? null,
+      bookingId: params.bookingId ?? null,
       type: params.type,
       description: params.description,
       actorId: params.actorId ?? null,

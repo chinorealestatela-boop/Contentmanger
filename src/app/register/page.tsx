@@ -11,11 +11,11 @@ export default function RegisterPage() {
   return (
     <AuthShell
       title="Create your account"
-      subtitle="Set up a Driveline CRM account. New accounts start as Salesperson."
+      subtitle="Set up a Stratos Exotics workspace account. New accounts start as Concierge / Sales."
       footer={
         <>
           Already have an account?{" "}
-          <Link href="/login" className="font-semibold text-[var(--brand)] hover:underline">
+          <Link href="/login" className="font-semibold text-[var(--brand-bright)] hover:underline">
             Log in
           </Link>
         </>
@@ -23,7 +23,7 @@ export default function RegisterPage() {
     >
       <form action={formAction} className="space-y-4">
         {state?.error && (
-          <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{state.error}</div>
+          <div className="rounded-lg border border-[var(--danger)]/40 bg-[var(--danger-soft)] px-3 py-2 text-sm text-[var(--danger)]">{state.error}</div>
         )}
         <div className="grid grid-cols-2 gap-3">
           <div>
@@ -37,11 +37,11 @@ export default function RegisterPage() {
         </div>
         <div>
           <label className="label" htmlFor="title">Title (optional)</label>
-          <input id="title" name="title" className="input" placeholder="Sales Consultant" />
+          <input id="title" name="title" className="input" placeholder="Concierge Manager" />
         </div>
         <div>
           <label className="label" htmlFor="email">Email</label>
-          <input id="email" name="email" type="email" required autoComplete="email" className="input" placeholder="you@dealership.com" />
+          <input id="email" name="email" type="email" required autoComplete="email" className="input" placeholder="you@stratoslux.com" />
         </div>
         <div>
           <label className="label" htmlFor="password">Password</label>

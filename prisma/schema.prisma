@@ -1,8 +1,11 @@
-// Automotive Sales CRM — Database Schema
-// SQLite (file-based, zero external services required for v1).
+// Stratos Exotics & Lifestyle — CRM / Operations Platform
+// Database Schema
+// SQLite (file-based, zero external services required to run/demo).
 // SQLite has no native enum support in Prisma, so fixed-choice fields are
 // typed as String and validated/typed at the application layer (see
 // src/lib/constants.ts for the canonical value lists / TS union types).
+// Swap the datasource for Postgres/MySQL later with no application code
+// changes (see scripts/generate-postgres-schema.mjs).
 
 generator client {
   provider = "prisma-client-js"
@@ -14,12 +17,12 @@ datasource db {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// AUTH / USERS / ROLES
+// AUTH / EMPLOYEES / ROLES
 // ─────────────────────────────────────────────────────────────────────────
 
 model Role {
   id          String   @id @default(cuid())
-  name        String   @unique // SALESPERSON | MANAGER | ADMIN (extensible)
+  name        String   @unique // OWNER | ADMIN | MANAGER | DISPATCHER | SALES | DRIVER
   label       String
   description String?
   permissions String // JSON-encoded permission flags
@@ -34,8 +37,8 @@ model User {
   email             String    @unique
   passwordHash      String
   phone             String?
-  avatarColor       String    @default("#2563eb")
-  title             String? // e.g. "Sales Consultant"
+  avatarColor       String    @default("#c9a24b")
+  title             String? // e.g. "Concierge Manager", "Lead Chauffeur"
   isActive          Boolean   @default(true)
   roleId            String
   role              Role      @relation(fields: [roleId], references: [id])
@@ -47,16 +50,18 @@ model User {
   customers      Customer[]           @relation("CustomerOwner")
   leads          Lead[]               @relation("LeadAssignee")
   tasks          Task[]               @relation("TaskAssignee")
-  appointments   Appointment[]        @relation("AppointmentSalesperson")
-  testDrives     TestDrive[]          @relation("TestDriveSalesperson")
   activities     Activity[]           @relation("ActivityActor")
   communications Communication[]      @relation("CommunicationActor")
   notes          Note[]               @relation("NoteAuthor")
-  sales          Sale[]               @relation("SaleSalesperson")
   notifications  Notification[]
   resetTokens    PasswordResetToken[]
   sessions       Session[]
   followUps      FollowUp[]           @relation("FollowUpAssignee")
+  quotesCreated  Quote[]              @relation("QuoteCreatedBy")
+  driverProfile  Driver?
+  documents      Document[]           @relation("DocumentUploadedBy")
+
+  @@index([roleId])
 }
 
 model Session {
@@ -88,12 +93,20 @@ model Customer {
   lastName               String
   phone                  String?
   email                  String?
+  company                String?
   address                String?
   city                   String?
   state                  String?
   zip                    String?
   preferredContactMethod String  @default("PHONE") // PHONE | TEXT | EMAIL
-  bestContactTime        String? // MORNING | AFTERNOON | EVENING | ANYTIME
+  tier                   String  @default("STANDARD") // STANDARD | VIP | VVIP | CORPORATE
+  preferredVehicleId     String?
+  preferredVehicle       Vehicle? @relation("PreferredVehicle", fields: [preferredVehicleId], references: [id])
+  preferredDriverId      String?
+  preferredDriver        Driver? @relation("PreferredDriver", fields: [preferredDriverId], references: [id])
+  specialRequests        String?
+  referralSource         String?
+  notes                  String?
 
   ownerId String
   owner   User   @relation("CustomerOwner", fields: [ownerId], references: [id])
@@ -101,21 +114,20 @@ model Customer {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  leads               Lead[]
-  vehicleInterests    CustomerVehicle[]
-  tradeIns            TradeIn[]
-  appointments        Appointment[]
-  testDrives          TestDrive[]
-  tasks               Task[]
-  communications      Communication[]
-  notes               Note[]
-  offers              Offer[]
-  sales               Sale[]
-  activities          Activity[]
+  leads          Lead[]
+  bookings       Booking[]
+  quotes         Quote[]
+  payments       Payment[]
+  tasks          Task[]
+  communications Communication[]
+  notes_         Note[]
+  activities     Activity[]
+  documents      Document[]
+  followUps      FollowUp[]
   followUpEnrollments FollowUpEnrollment[]
-  followUps           FollowUp[]
 
   @@index([lastName, firstName])
+  @@index([tier])
 }
 
 model LeadSource {
@@ -130,7 +142,7 @@ model PipelineStage {
   id           String  @id @default(cuid())
   name         String  @unique
   order        Int
-  color        String  @default("#64748b")
+  color        String  @default("#8a8a8a")
   isClosedWon  Boolean @default(false)
   isClosedLost Boolean @default(false)
   active       Boolean @default(true)
@@ -154,41 +166,38 @@ model Lead {
   sourceId String?
   source   LeadSource? @relation(fields: [sourceId], references: [id])
 
-  assigneeId String
-  assignee   User   @relation("LeadAssignee", fields: [assigneeId], references: [id])
+  assigneeId String?
+  assignee   User?  @relation("LeadAssignee", fields: [assigneeId], references: [id])
 
   stageId        String
   stage          PipelineStage @relation(fields: [stageId], references: [id])
   stageEnteredAt DateTime      @default(now())
 
-  status            String  @default("ACTIVE") // ACTIVE | ON_HOLD | SOLD | LOST
-  temperature       String  @default("COLD") // HOT | WARM | COLD
-  score             Int     @default(0)
-  purchaseTimeframe String? // IMMEDIATE | THIS_WEEK | THIS_MONTH | THIS_QUARTER | RESEARCHING
+  status String @default("ACTIVE") // ACTIVE | ON_HOLD | BOOKED | LOST
 
-  dateReceived DateTime @default(now())
+  // Inquiry / trip details
+  serviceRequested   String? // one of SERVICE_TYPES
+  pickupLocation     String?
+  dropoffLocation    String?
+  serviceDate        DateTime?
+  pickupTime         String?
+  passengers         Int?
+  vehicleRequested   String?
+  vehicleId          String?
+  vehicle            Vehicle? @relation(fields: [vehicleId], references: [id])
+  chauffeurRequested Boolean  @default(true) // false = self-drive rental
+  driverRequested    String?
+  estimatedHours     Float?
+  estimatedPrice     Float?
+  budget             Float?
 
-  // Financing
-  financeType     String? // CASH | FINANCE | LEASE
-  desiredPayment  Float?
-  downPayment     Float?
-  creditAppStatus String  @default("NOT_STARTED") // NOT_STARTED | SUBMITTED | APPROVED | DECLINED | PENDING
-  hasCoBuyer      Boolean @default(false)
-  coBuyerName     String?
+  isVip     Boolean @default(false) // flagged high-value by staff or AI
+  score     Int     @default(0)
+  rawInquiry String? // original inquiry text (website form / message) fed to the AI assistant
+  aiSummary  String?
+  aiExtracted String? // JSON-encoded structured fields the AI parsed out of rawInquiry
 
-  // Vehicle matching preferences (used for inventory search)
-  prefBodyStyle  String?
-  prefMaxPrice   Float?
-  prefDrivetrain String?
-  prefThirdRow   Boolean @default(false)
-  prefColor      String?
-
-  // Notes
-  customerNeeds String?
-  customerWants String?
-  objections    String?
-  preferences   String?
-  salesNotes    String?
+  notes String?
 
   lastContactedAt DateTime?
   nextFollowUpAt  DateTime?
@@ -198,26 +207,23 @@ model Lead {
   lostAt       DateTime?
   lostNotes    String?
 
-  soldAt DateTime?
-
-  reactivatedAt     DateTime?
-  reactivationCount Int       @default(0)
+  bookedAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  vehicleInterests    CustomerVehicle[]
   tasks               Task[]
   activities          Activity[]
   scoreEvents         LeadScoreEvent[]
-  followUpEnrollments FollowUpEnrollment[]
-  sales               Sale[]
+  communications      Communication[]
+  quotes              Quote[]
+  bookings            Booking[]
   followUps           FollowUp[]
-  appointments        Appointment[]
+  followUpEnrollments FollowUpEnrollment[]
 
   @@index([assigneeId, status])
-  @@index([temperature])
   @@index([stageId])
+  @@index([isVip])
 }
 
 model LeadScoreEvent {
@@ -230,205 +236,340 @@ model LeadScoreEvent {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// VEHICLES / INVENTORY / MATCHING
+// FLEET / VEHICLES / MAINTENANCE / GPS
 // ─────────────────────────────────────────────────────────────────────────
 
 model Vehicle {
   id              String   @id @default(cuid())
-  stockNumber     String   @unique
-  vin             String   @unique
-  year            Int
+  fleetNumber     String   @unique
+  name            String // display name, e.g. "Rolls-Royce Cullinan — Black Badge"
   make            String
   model           String
-  trim            String?
-  condition       String   @default("USED") // NEW | USED | CERTIFIED
-  bodyStyle       String? // SEDAN | SUV | TRUCK | COUPE | VAN | CONVERTIBLE
-  drivetrain      String? // FWD | RWD | AWD | 4WD
-  mileage         Int      @default(0)
-  exteriorColor   String?
-  interiorColor   String?
-  msrp            Float?
-  sellingPrice    Float?
-  internetPrice   Float?
-  status          String   @default("AVAILABLE") // AVAILABLE | HOLD | SOLD | IN_TRANSIT | UNAVAILABLE
-  location        String?
-  photos          String? // JSON-encoded array of photo URLs
-  description     String?
+  year            Int
+  vin             String   @unique
+  licensePlate    String?
+  vehicleType     String // ROLLS_ROYCE | BENTLEY | MAYBACH | SPRINTER | ESCALADE | LAMBORGHINI | EXOTIC | SEDAN | SUV | OTHER
+  color           String?
   seatingCapacity Int?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  photos          String? // JSON-encoded array of photo URLs
+  currentMileage  Int      @default(0)
+  availability    String   @default("AVAILABLE") // AVAILABLE | RESERVED | ON_TRIP | MAINTENANCE | OFFLINE
+  currentLocation String?
+  homeBase        String?
 
-  customerInterests CustomerVehicle[]
-  appointments      Appointment[]
-  testDrives        TestDrive[]
-  offers            Offer[]
-  sales             Sale[]
+  assignedDriverId String?
+  assignedDriver    Driver? @relation("AssignedVehicle", fields: [assignedDriverId], references: [id])
 
-  @@index([status])
-  @@index([make, model])
+  hourlyRate         Float?
+  dailyRate          Float?
+  depositRequirement Float?
+
+  insuranceProvider   String?
+  insurancePolicyNo   String?
+  insuranceExpiresAt  DateTime?
+  registrationExpiresAt DateTime?
+
+  notes     String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  bookings            Booking[]
+  leads               Lead[]
+  maintenanceRecords  MaintenanceRecord[]
+  gpsPings            VehicleGpsPing[]
+  quotes              Quote[]
+  preferredByCustomers Customer[] @relation("PreferredVehicle")
+  documents           Document[]
+
+  @@index([availability])
+  @@index([vehicleType])
 }
 
-model CustomerVehicle {
+model MaintenanceRecord {
+  id             String    @id @default(cuid())
+  vehicleId      String
+  vehicle        Vehicle   @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  type           String // SERVICE | REPAIR | INSPECTION | DETAIL | TIRE | OIL_CHANGE | OTHER
+  description    String
+  status         String    @default("SCHEDULED") // SCHEDULED | IN_PROGRESS | COMPLETED | CANCELLED
+  scheduledDate  DateTime?
+  completedDate  DateTime?
+  cost           Float?
+  mileageAtService Int?
+  vendor         String?
+  notes          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([vehicleId, status])
+}
+
+// Mock/latest telematics reading per vehicle. Architected so a real GPS
+// provider (Samsara, Geotab, Verizon Connect, etc.) can write rows here
+// through a webhook/poller without any UI changes — see
+// src/lib/integrations/gps.ts.
+model VehicleGpsPing {
   id         String   @id @default(cuid())
+  vehicleId  String
+  vehicle    Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  lat        Float
+  lng        Float
+  heading    Float?
+  speedMph   Float?
+  label      String? // human-readable nearest location, e.g. "Near LAX"
+  recordedAt DateTime @default(now())
+
+  @@index([vehicleId, recordedAt])
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// DRIVERS / CHAUFFEURS
+// ─────────────────────────────────────────────────────────────────────────
+
+model Driver {
+  id     String  @id @default(cuid())
+  userId String? @unique
+  user   User?   @relation(fields: [userId], references: [id])
+
+  firstName        String
+  lastName         String
+  phone            String?
+  email            String?
+  photoUrl         String?
+  licenseNumber    String?
+  licenseExpiresAt DateTime?
+  certifications   String? // JSON-encoded array
+  status           String  @default("AVAILABLE") // AVAILABLE | ASSIGNED | EN_ROUTE | WITH_CLIENT | COMPLETED | OFF_DUTY
+  currentLocation  String?
+  rating           Float?  @default(5)
+  completedTrips   Int     @default(0)
+  notes            String?
+  isActive         Boolean @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  assignedVehicles      Vehicle[]  @relation("AssignedVehicle")
+  bookings              Booking[]
+  quotes                Quote[]
+  preferredByCustomers  Customer[] @relation("PreferredDriver")
+  documents             Document[]
+
+  @@index([status])
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// SERVICES / LOCATIONS
+// ─────────────────────────────────────────────────────────────────────────
+
+model Service {
+  id          String  @id @default(cuid())
+  name        String  @unique
+  description String?
+  baseRate    Float?
+  active      Boolean @default(true)
+  order       Int     @default(0)
+}
+
+model Location {
+  id      String  @id @default(cuid())
+  name    String
+  address String?
+  type    String  @default("OTHER") // AIRPORT | HOTEL | VENUE | RESIDENCE | OTHER
+  notes   String?
+
+  @@index([type])
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// QUOTES
+// ─────────────────────────────────────────────────────────────────────────
+
+model Quote {
+  id          String   @id @default(cuid())
+  quoteNumber String   @unique
+
   customerId String
   customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
   leadId     String?
   lead       Lead?    @relation(fields: [leadId], references: [id], onDelete: SetNull)
-  vehicleId  String?
-  vehicle    Vehicle? @relation(fields: [vehicleId], references: [id])
 
-  // Free-text fallback when no exact inventory match exists yet
-  year  Int?
-  make  String?
-  model String?
-  trim  String?
+  vehicleId String?
+  vehicle   Vehicle? @relation(fields: [vehicleId], references: [id])
+  driverId  String?
+  driver    Driver?  @relation(fields: [driverId], references: [id])
 
-  isPrimary     Boolean  @default(false)
-  interestLevel String   @default("INTERESTED") // INTERESTED | STRONG | PURCHASED | PASSED
-  createdAt     DateTime @default(now())
-}
+  serviceType     String?
+  pickupLocation  String?
+  dropoffLocation String?
+  additionalStops String? // JSON array
+  serviceDate     DateTime?
+  pickupTime      String?
+  hours           Float?
+  distanceMiles   Float?
+  amenities       String? // JSON array
 
-// ─────────────────────────────────────────────────────────────────────────
-// TRADE-INS
-// ─────────────────────────────────────────────────────────────────────────
+  baseRate       Float   @default(0)
+  driverFee      Float   @default(0)
+  mileageFee     Float   @default(0)
+  additionalFees Float   @default(0)
+  discount       Float   @default(0)
+  taxRate        Float   @default(0.0975)
+  taxAmount      Float   @default(0)
+  subtotal       Float   @default(0)
+  totalPrice     Float   @default(0)
+  depositAmount  Float   @default(0)
 
-model TradeIn {
-  id              String   @id @default(cuid())
-  customerId      String
-  customer        Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  year            Int?
-  make            String?
-  model           String?
-  trim            String?
-  vin             String?
-  mileage         Int?
-  payoff          Float    @default(0)
-  estimatedValue  Float    @default(0)
-  desiredValue    Float?
-  appraisalStatus String   @default("PENDING") // PENDING | APPRAISED | ACCEPTED | DECLINED
-  photos          String? // JSON array
-  notes           String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-}
+  status      String    @default("DRAFT") // DRAFT | SENT | VIEWED | ACCEPTED | DECLINED | EXPIRED | CONVERTED
+  validUntil  DateTime?
+  termsText   String?
+  sentAt      DateTime?
+  respondedAt DateTime?
 
-// ─────────────────────────────────────────────────────────────────────────
-// APPOINTMENTS / TEST DRIVES
-// ─────────────────────────────────────────────────────────────────────────
+  convertedBookingId String? @unique
+  convertedBooking   Booking? @relation("QuoteConvertedBooking", fields: [convertedBookingId], references: [id])
 
-// Also serves as the CRM's calendar event — every entry here is what
-// renders on the Calendar tab (month/week/day views), the dashboard's
-// upcoming-activities widgets, and the customer profile's "Add to
-// Calendar" list. leadId is optional (an appointment can be logged
-// against a customer with no active lead), customerId is always required
-// so it always shows on the customer's profile.
-model Appointment {
-  id            String   @id @default(cuid())
-  customerId    String
-  customer      Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  leadId        String?
-  lead          Lead?    @relation(fields: [leadId], references: [id], onDelete: SetNull)
-  vehicleId     String?
-  vehicle       Vehicle? @relation(fields: [vehicleId], references: [id])
-  salespersonId String
-  salesperson   User     @relation("AppointmentSalesperson", fields: [salespersonId], references: [id])
-
-  date     DateTime // date component
-  time     String // start time, "HH:mm"
-  endTime  String? // "HH:mm"
-  location String?
-  type     String @default("SALES_APPOINTMENT") // CUSTOMER_CALL | FOLLOW_UP_CALL | TEST_DRIVE | DEALERSHIP_APPOINTMENT | VEHICLE_WALKAROUND | FINANCING_DISCUSSION | TRADE_IN_EVALUATION | SALES_APPOINTMENT | DELIVERY | OTHER
-  status   String @default("SCHEDULED") // SCHEDULED | CONFIRMED | SHOWED | NO_SHOW | CANCELLED | COMPLETED
-  notes    String?
-
-  // Reminder: minutes before start to surface an in-app reminder
-  // notification (0 = at the scheduled time). Null = no reminder.
-  reminderOffsetMinutes Int?
-  reminderSentAt        DateTime?
+  createdById String?
+  createdBy   User?   @relation("QuoteCreatedBy", fields: [createdById], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  testDrives TestDrive[]
+  payments Payment[]
+
+  @@index([customerId])
+  @@index([status])
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// BOOKINGS / RESERVATIONS / TRIPS
+// ─────────────────────────────────────────────────────────────────────────
+
+model Booking {
+  id            String @id @default(cuid())
+  bookingNumber String @unique
+
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  leadId     String?
+  lead       Lead?    @relation(fields: [leadId], references: [id], onDelete: SetNull)
+
+  vehicleId String?
+  vehicle   Vehicle? @relation(fields: [vehicleId], references: [id])
+  driverId  String?
+  driver    Driver?  @relation(fields: [driverId], references: [id])
+
+  serviceType     String // one of SERVICE_TYPES
+  pickupAddress   String?
+  dropoffAddress  String?
+  additionalStops String? // JSON array of strings
+
+  date      DateTime // trip date
+  pickupTime String
+  endTime    String?
+  passengers Int      @default(1)
+
+  flightNumber       String?
+  flightAirline      String?
+  flightAirport      String?
+  flightArrivalTime  DateTime?
+  flightDepartureTime DateTime?
+  flightStatus       String? // ON_TIME | DELAYED | LANDED | CANCELLED
+
+  specialInstructions String?
+  amenities           String? // JSON array
+
+  baseRate       Float @default(0)
+  driverFee      Float @default(0)
+  mileageFee     Float @default(0)
+  additionalFees Float @default(0)
+  discount       Float @default(0)
+  taxAmount      Float @default(0)
+  totalPrice     Float @default(0)
+  deposit        Float @default(0)
+  remainingBalance Float @default(0)
+
+  paymentStatus String @default("PAYMENT_PENDING") // PAYMENT_PENDING | DEPOSIT_PAID | PAID_IN_FULL | REFUNDED | FAILED
+  bookingStatus String @default("RESERVED") // RESERVED | CONFIRMED | DRIVER_ASSIGNED | EN_ROUTE | PASSENGER_PICKED_UP | COMPLETED | CANCELLED
+  opsStage      String @default("UPCOMING") // UPCOMING | DRIVER_ASSIGNED | DRIVER_EN_ROUTE | ARRIVED | PASSENGER_ONBOARD | IN_TRANSIT | COMPLETED
+
+  cancelledAt        DateTime?
+  cancellationReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  quote               Quote?   @relation("QuoteConvertedBooking")
+  trip                Trip?
+  payments            Payment[]
+  tasks               Task[]
+  activities          Activity[]
+  communications       Communication[]
+  documents           Document[]
 
   @@index([date])
-  @@index([status])
-  @@index([leadId])
+  @@index([bookingStatus])
+  @@index([vehicleId, date])
+  @@index([driverId, date])
 }
 
-// A manually-scheduled follow-up call/touch on a specific customer (and
-// optionally a specific lead) — distinct from the generic Task list and
-// from calendar Appointments. Carries the conversation plan going in
-// (topic + notes) and, once done, what actually happened
-// (completionNotes). Rescheduling creates a new row linked back via
-// rescheduledFromId so the history of a follow-up chain is never lost.
-model FollowUp {
-  id         String   @id @default(cuid())
-  customerId String
-  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  leadId     String?
-  lead       Lead?    @relation(fields: [leadId], references: [id], onDelete: SetNull)
+// Live operational execution of a booking — what the driver mobile view
+// and the Live Vehicle Location map read/write.
+model Trip {
+  id        String  @id @default(cuid())
+  bookingId String  @unique
+  booking   Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 
-  topic String // Conversation Topic / Reason for Follow-Up
-  notes String? // Detailed Follow-Up Notes — what to cover on the call
+  status    String    @default("SCHEDULED") // SCHEDULED | ACCEPTED | DRIVER_EN_ROUTE | ARRIVED | PASSENGER_PICKED_UP | IN_TRANSIT | COMPLETED | CANCELLED
+  acceptedAt   DateTime?
+  startedAt    DateTime?
+  arrivedAt    DateTime?
+  pickedUpAt   DateTime?
+  completedAt  DateTime?
 
-  followUpDate DateTime // date component
-  followUpTime String // "HH:mm"
+  currentLat        Float?
+  currentLng        Float?
+  lastGpsUpdateAt   DateTime?
+  estimatedArrival  DateTime?
 
-  // Minutes before followUpDate+Time to fire an in-app reminder
-  // notification (0 = at the scheduled time, e.g. 15/30/60/1440, or any
-  // custom value). Null = no reminder.
-  reminderOffsetMinutes Int?
-  reminderSentAt        DateTime?
-
-  priority String @default("NORMAL") // LOW | NORMAL | HIGH | URGENT
-  status   String @default("SCHEDULED") // SCHEDULED | COMPLETED | RESCHEDULED | CANCELLED | MISSED
-  // "Due Today" isn't stored — it's SCHEDULED + followUpDate == today,
-  // computed at read time so it never needs a background job to stay
-  // accurate as the day rolls over.
-
-  assigneeId String
-  assignee   User   @relation("FollowUpAssignee", fields: [assigneeId], references: [id])
-
-  completedAt     DateTime?
-  completionNotes String? // what happened during the call
-
-  rescheduledFromId String?   @unique
-  rescheduledFrom   FollowUp? @relation("FollowUpReschedule", fields: [rescheduledFromId], references: [id])
-  rescheduledTo     FollowUp? @relation("FollowUpReschedule")
-
+  notes     String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
-  @@index([assigneeId, status, followUpDate])
-  @@index([customerId])
-  @@index([followUpDate])
-}
-
-model TestDrive {
-  id            String       @id @default(cuid())
-  customerId    String
-  customer      Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  vehicleId     String
-  vehicle       Vehicle      @relation(fields: [vehicleId], references: [id])
-  appointmentId String?
-  appointment   Appointment? @relation(fields: [appointmentId], references: [id])
-  salespersonId String
-  salesperson   User         @relation("TestDriveSalesperson", fields: [salespersonId], references: [id])
-
-  date             DateTime
-  startTime        String?
-  endTime          String?
-  notes            String?
-  customerReaction String? // POSITIVE | NEUTRAL | NEGATIVE
-  objections       String?
-  nextStep         String?
-
-  createdAt DateTime @default(now())
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// TASKS / ACTIVITIES / COMMUNICATIONS / NOTES
+// PAYMENTS
+// ─────────────────────────────────────────────────────────────────────────
+
+model Payment {
+  id         String   @id @default(cuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  bookingId  String?
+  booking    Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  quoteId    String?
+  quote      Quote?   @relation(fields: [quoteId], references: [id], onDelete: SetNull)
+
+  amount Float
+  type   String @default("DEPOSIT") // DEPOSIT | BALANCE | FULL | REFUND
+  method String @default("CARD") // CARD | CASH | CHECK | WIRE | OTHER
+  status String @default("PENDING") // PENDING | SUCCEEDED | FAILED | REFUNDED
+
+  // Placeholder seam for a real processor (Stripe PaymentIntent id, etc.)
+  // — never populated with real secrets; see src/lib/integrations/payments.ts
+  processorRef  String?
+  paymentLinkUrl String?
+
+  notes       String?
+  createdAt   DateTime  @default(now())
+  processedAt DateTime?
+
+  @@index([customerId])
+  @@index([bookingId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// TASKS / ACTIVITY / COMMUNICATIONS / NOTES / DOCUMENTS
 // ─────────────────────────────────────────────────────────────────────────
 
 model Task {
@@ -437,17 +578,19 @@ model Task {
   customer   Customer? @relation(fields: [customerId], references: [id], onDelete: Cascade)
   leadId     String?
   lead       Lead?     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  bookingId  String?
+  booking    Booking?  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 
   title    String
-  type     String   @default("OTHER") // CALL | TEXT | EMAIL | FOLLOW_UP | APPOINTMENT | TRADE | CREDIT | DELIVERY | OTHER
+  type     String   @default("OTHER") // CALL | FOLLOW_UP | SEND_QUOTE | COLLECT_DEPOSIT | ASSIGN_DRIVER | CONFIRM_FLIGHT | PREPARE_VEHICLE | SEND_REMINDER | COLLECT_BALANCE | REQUEST_REVIEW | OTHER
   priority String   @default("NORMAL") // LOW | NORMAL | HIGH | URGENT
   dueDate  DateTime
   dueTime  String?
   status   String   @default("PENDING") // PENDING | COMPLETED | SNOOZED | CANCELLED
   notes    String?
 
-  assigneeId String
-  assignee   User   @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  assigneeId String?
+  assignee   User?   @relation("TaskAssignee", fields: [assigneeId], references: [id])
 
   source      String    @default("MANUAL") // MANUAL | AUTOMATION | SEQUENCE
   completedAt DateTime?
@@ -458,13 +601,15 @@ model Task {
 }
 
 model Activity {
-  id         String   @id @default(cuid())
-  customerId String
-  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  id         String    @id @default(cuid())
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id], onDelete: Cascade)
   leadId     String?
-  lead       Lead?    @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  lead       Lead?     @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  bookingId  String?
+  booking    Booking?  @relation(fields: [bookingId], references: [id], onDelete: SetNull)
 
-  type        String // e.g. STAGE_CHANGE, NOTE_ADDED, CALL_LOGGED, TASK_COMPLETED, APPOINTMENT_SET, AUTOMATION, SOLD, LOST, REACTIVATED...
+  type        String // STAGE_CHANGE | NOTE_ADDED | CALL_LOGGED | TASK_COMPLETED | QUOTE_SENT | BOOKING_CREATED | PAYMENT_RECEIVED | DRIVER_ASSIGNED | AUTOMATION | BOOKED | LOST | ...
   description String
   metadata    String? // JSON
 
@@ -474,20 +619,26 @@ model Activity {
   createdAt DateTime @default(now())
 
   @@index([customerId, createdAt])
+  @@index([bookingId])
 }
 
 model Communication {
-  id         String   @id @default(cuid())
+  id         String    @id @default(cuid())
   customerId String
-  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  customer   Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  leadId     String?
+  lead       Lead?     @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  bookingId  String?
+  booking    Booking?  @relation(fields: [bookingId], references: [id], onDelete: SetNull)
 
   type      String // CALL | TEXT | EMAIL | VOICEMAIL | IN_PERSON | OTHER
   direction String  @default("OUTBOUND") // OUTBOUND | INBOUND
+  channel   String? // SMS | EMAIL (for automated sends)
   summary   String
   body      String?
 
-  actorId String
-  actor   User   @relation("CommunicationActor", fields: [actorId], references: [id])
+  actorId String?
+  actor   User?  @relation("CommunicationActor", fields: [actorId], references: [id])
 
   occurredAt DateTime @default(now())
   createdAt  DateTime @default(now())
@@ -509,58 +660,74 @@ model Note {
   createdAt DateTime @default(now())
 }
 
-// ─────────────────────────────────────────────────────────────────────────
-// OFFERS / SALES
-// ─────────────────────────────────────────────────────────────────────────
-
-model Offer {
-  id         String   @id @default(cuid())
-  customerId String
-  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+model Document {
+  id         String    @id @default(cuid())
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id], onDelete: Cascade)
   vehicleId  String?
-  vehicle    Vehicle? @relation(fields: [vehicleId], references: [id])
+  vehicle    Vehicle?  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  driverId   String?
+  driver     Driver?   @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  bookingId  String?
+  booking    Booking?  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 
-  offerPrice     Float?
-  monthlyPayment Float?
-  term           Int?
-  downPayment    Float?
-  status         String  @default("PENDING") // PENDING | COUNTERED | ACCEPTED | REJECTED
-  notes          String?
+  name String
+  type String  @default("OTHER") // ID | LICENSE | INSURANCE | REGISTRATION | CONTRACT | RECEIPT | OTHER
+  url  String? // placeholder file reference
+
+  uploadedById String?
+  uploadedBy   User?   @relation("DocumentUploadedBy", fields: [uploadedById], references: [id])
 
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
 }
 
-model Sale {
+// ─────────────────────────────────────────────────────────────────────────
+// FOLLOW-UPS / SEQUENCES / AUTOMATION
+// ─────────────────────────────────────────────────────────────────────────
+
+model FollowUp {
   id         String   @id @default(cuid())
   customerId String
   customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
   leadId     String?
-  lead       Lead?    @relation(fields: [leadId], references: [id])
-  vehicleId  String
-  vehicle    Vehicle  @relation(fields: [vehicleId], references: [id])
+  lead       Lead?    @relation(fields: [leadId], references: [id], onDelete: SetNull)
 
-  salePrice   Float
-  financeType String // CASH | FINANCE | LEASE
-  saleDate    DateTime @default(now())
+  topic String
+  notes String?
 
-  salespersonId String
-  salesperson   User   @relation("SaleSalesperson", fields: [salespersonId], references: [id])
+  followUpDate DateTime
+  followUpTime String
 
-  notes     String?
+  reminderOffsetMinutes Int?
+  reminderSentAt        DateTime?
+
+  priority String @default("NORMAL") // LOW | NORMAL | HIGH | URGENT
+  status   String @default("SCHEDULED") // SCHEDULED | COMPLETED | RESCHEDULED | CANCELLED | MISSED
+
+  assigneeId String?
+  assignee   User?  @relation("FollowUpAssignee", fields: [assigneeId], references: [id])
+
+  completedAt     DateTime?
+  completionNotes String?
+
+  rescheduledFromId String?   @unique
+  rescheduledFrom   FollowUp? @relation("FollowUpReschedule", fields: [rescheduledFromId], references: [id])
+  rescheduledTo     FollowUp? @relation("FollowUpReschedule")
+
   createdAt DateTime @default(now())
-}
+  updatedAt DateTime @updatedAt
 
-// ─────────────────────────────────────────────────────────────────────────
-// FOLLOW-UP SEQUENCES
-// ─────────────────────────────────────────────────────────────────────────
+  @@index([assigneeId, status, followUpDate])
+  @@index([customerId])
+  @@index([followUpDate])
+}
 
 model FollowUpSequence {
   id          String   @id @default(cuid())
   name        String
   description String?
   isDefault   Boolean  @default(false)
-  trigger     String   @default("NEW_LEAD") // NEW_LEAD | REACTIVATION | MANUAL
+  trigger     String   @default("NEW_LEAD") // NEW_LEAD | NO_RESPONSE | MANUAL
   active      Boolean  @default(true)
   createdAt   DateTime @default(now())
 
@@ -569,14 +736,14 @@ model FollowUpSequence {
 }
 
 model FollowUpStep {
-  id          String           @id @default(cuid())
-  sequenceId  String
-  sequence    FollowUpSequence @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
-  dayOffset   Int
-  type        String // CALL | TEXT | EMAIL | FOLLOW_UP | OTHER
-  title       String
-  description String?
-  order       Int
+  id             String           @id @default(cuid())
+  sequenceId     String
+  sequence       FollowUpSequence @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
+  offsetMinutes  Int // minutes after enrollment (e.g. 0, 120, 960, 2880)
+  channel        String // SMS | EMAIL | CALL | TASK
+  title          String
+  messageBody    String?
+  order          Int
 
   @@index([sequenceId, order])
 }
@@ -591,22 +758,18 @@ model FollowUpEnrollment {
   sequence   FollowUpSequence @relation(fields: [sequenceId], references: [id])
 
   currentStepIndex Int       @default(0)
-  status           String    @default("ACTIVE") // ACTIVE | COMPLETED | CANCELLED
+  status           String    @default("ACTIVE") // ACTIVE | COMPLETED | CANCELLED | STOPPED_RESPONDED
   startedAt        DateTime  @default(now())
   completedAt      DateTime?
 }
-
-// ─────────────────────────────────────────────────────────────────────────
-// AUTOMATION ENGINE
-// ─────────────────────────────────────────────────────────────────────────
 
 model AutomationRule {
   id           String   @id @default(cuid())
   name         String
   description  String?
-  triggerEvent String // NEW_LEAD | STAGE_CHANGE | HOT_LEAD | APPOINTMENT_CREATED | APPOINTMENT_TOMORROW | APPOINTMENT_NO_SHOW | APPOINTMENT_COMPLETED | NO_CONTACT_X_DAYS | TEST_DRIVE_COMPLETED | VEHICLE_SOLD | LEAD_LOST | FOLLOW_UP_COMPLETED
+  triggerEvent String // NEW_LEAD | HIGH_VALUE_LEAD | STAGE_CHANGE | QUOTE_SENT | BOOKING_CONFIRMED | REMINDER_24H | REMINDER_2H | TRIP_COMPLETED | NO_CONTACT_X_HOURS | PAYMENT_RECEIVED | PAYMENT_FAILED | MAINTENANCE_DUE
   conditions   String? // JSON-encoded condition set
-  actions      String // JSON-encoded array of actions to perform
+  actions      String // JSON-encoded array of actions
   active       Boolean  @default(true)
   order        Int      @default(0)
   createdAt    DateTime @default(now())
@@ -621,11 +784,23 @@ model AutomationRun {
   rule       AutomationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
   customerId String?
   leadId     String?
+  bookingId  String?
   status     String         @default("SUCCESS") // SUCCESS | SKIPPED | FAILED
   detail     String?
   createdAt  DateTime       @default(now())
 
   @@index([ruleId, createdAt])
+}
+
+model MessageTemplate {
+  id      String  @id @default(cuid())
+  key     String  @unique // LEAD_CONFIRMATION | QUOTE_SENT | BOOKING_CONFIRMED | REMINDER_24H | REMINDER_2H | THANK_YOU_REVIEW | DEPOSIT_REQUEST | DRIVER_ASSIGNED
+  name    String
+  channel String // SMS | EMAIL
+  subject String?
+  body    String
+  active  Boolean @default(true)
+  updatedAt DateTime @updatedAt
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -637,7 +812,7 @@ model Notification {
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  type      String // NEW_LEAD | HOT_LEAD | OVERDUE_FOLLOW_UP | APPOINTMENT | APPOINTMENT_TOMORROW | NO_SHOW | CUSTOMER_ACTIVITY | VEHICLE_SOLD | IMPORTANT_TASK | AUTOMATION
+  type      String // NEW_LEAD | HIGH_VALUE_LEAD | NEW_BOOKING | PAYMENT_RECEIVED | PAYMENT_FAILED | DRIVER_LATE | VEHICLE_UNAVAILABLE | BOOKING_CONFLICT | CUSTOMER_RESPONDED | FOLLOW_UP_DUE | MAINTENANCE_DUE
   title     String
   body      String?
   link      String?
@@ -656,11 +831,12 @@ model Setting {
 
 // Integration configuration placeholders (all disabled/absent by default).
 // Populated later when external API keys become available; never required
-// for v1 functionality.
+// for core functionality. Non-secret config only — real keys belong in
+// environment variables, never in this table.
 model Integration {
   id        String   @id @default(cuid())
-  provider  String   @unique // OPENAI | TWILIO | GMAIL | OUTLOOK | GOOGLE_CALENDAR | DMS | INVENTORY_FEED
-  category  String // AI | SMS | EMAIL | CALENDAR | INVENTORY | LEADS | DMS
+  provider  String   @unique // TWILIO | SENDGRID | RESEND | STRIPE | GOOGLE_CALENDAR | GPS_TELEMATICS | FLIGHT_TRACKING | OPENAI
+  category  String // SMS | EMAIL | PAYMENTS | CALENDAR | GPS | FLIGHTS | AI
   enabled   Boolean  @default(false)
   config    String? // JSON-encoded, non-secret config only
   createdAt DateTime @default(now())

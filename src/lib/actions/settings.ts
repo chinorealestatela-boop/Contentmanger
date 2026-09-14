@@ -154,7 +154,7 @@ const createUserSchema = z.object({
 
 export async function createUserAccount(_prev: SimpleActionState, formData: FormData): Promise<SimpleActionState> {
   const scope = await requireScope();
-  if (scope.role !== "ADMIN") return { error: "Only admins can create users." };
+  if (!["OWNER", "ADMIN"].includes(scope.role)) return { error: "Only owners/admins can create employees." };
 
   const parsed = createUserSchema.safeParse(Object.fromEntries(formData.entries()));
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input." };
@@ -181,14 +181,14 @@ export async function createUserAccount(_prev: SimpleActionState, formData: Form
 
 export async function toggleUserActive(userId: string, isActive: boolean) {
   const scope = await requireScope();
-  if (scope.role !== "ADMIN") return;
+  if (!["OWNER", "ADMIN"].includes(scope.role)) return;
   await prisma.user.update({ where: { id: userId }, data: { isActive } });
   revalidatePath("/settings/users");
 }
 
 export async function updateUserRole(userId: string, roleId: string) {
   const scope = await requireScope();
-  if (scope.role !== "ADMIN") return;
+  if (!["OWNER", "ADMIN"].includes(scope.role)) return;
   await prisma.user.update({ where: { id: userId }, data: { roleId } });
   revalidatePath("/settings/users");
 }
@@ -196,34 +196,79 @@ export async function updateUserRole(userId: string, roleId: string) {
 // ── Roles & permissions (admin) ─────────────────────────────────────
 export async function updateRolePermissions(roleId: string, permissions: Permissions) {
   const scope = await requireScope();
-  if (scope.role !== "ADMIN") return;
+  if (!["OWNER", "ADMIN"].includes(scope.role)) return;
   await prisma.role.update({ where: { id: roleId }, data: { permissions: JSON.stringify(permissions) } });
   revalidatePath("/settings/roles");
 }
 
 export async function ensureDefaultPermissionsShape(roleName: string): Promise<Permissions> {
-  return DEFAULT_PERMISSIONS[roleName] ?? DEFAULT_PERMISSIONS.SALESPERSON;
+  return DEFAULT_PERMISSIONS[roleName] ?? DEFAULT_PERMISSIONS.SALES;
 }
 
-// ── Dealership settings ─────────────────────────────────────────────
-const dealershipSchema = z.object({
+// ── Company settings ─────────────────────────────────────────────────
+const companySchema = z.object({
   name: z.string().min(1),
-  address: z.string().optional(),
+  website: z.string().optional(),
   phone: z.string().optional(),
-  timezone: z.string().optional(),
+  email: z.string().optional(),
+  address: z.string().optional(),
+  serviceArea: z.string().optional(),
+  depositPercent: z.string().optional(),
+  taxRate: z.string().optional(),
+  bookingPolicy: z.string().optional(),
+  cancellationPolicy: z.string().optional(),
+  termsAndConditions: z.string().optional(),
 });
 
-export async function updateDealershipSettings(_prev: SimpleActionState, formData: FormData): Promise<SimpleActionState> {
+export async function updateCompanySettings(_prev: SimpleActionState, formData: FormData): Promise<SimpleActionState> {
   const scope = await requireScope();
-  if (scope.role !== "ADMIN" && scope.role !== "MANAGER") return { error: "You don't have permission to change this." };
-  const parsed = dealershipSchema.safeParse(Object.fromEntries(formData.entries()));
+  if (!["OWNER", "ADMIN", "MANAGER"].includes(scope.role)) return { error: "You don't have permission to change this." };
+  const parsed = companySchema.safeParse(Object.fromEntries(formData.entries()));
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input." };
 
+  const value = {
+    ...parsed.data,
+    depositPercent: parsed.data.depositPercent ? Number(parsed.data.depositPercent) : 30,
+    taxRate: parsed.data.taxRate ? Number(parsed.data.taxRate) : 9.75,
+  };
+
   await prisma.setting.upsert({
-    where: { key: "dealership" },
-    update: { value: JSON.stringify(parsed.data) },
-    create: { key: "dealership", value: JSON.stringify(parsed.data) },
+    where: { key: "company" },
+    update: { value: JSON.stringify(value) },
+    create: { key: "company", value: JSON.stringify(value) },
   });
-  revalidatePath("/settings/dealership");
+  revalidatePath("/settings/company");
   return { success: "Saved." };
+}
+
+// ── Services ───────────────────────────────────────────────────────
+export async function createService(_prev: SimpleActionState, formData: FormData): Promise<SimpleActionState> {
+  await requireScope();
+  const name = String(formData.get("name") || "").trim();
+  const baseRate = formData.get("baseRate");
+  if (!name) return { error: "Name is required." };
+  const count = await prisma.service.count();
+  await prisma.service.create({ data: { name, baseRate: baseRate ? Number(baseRate) : undefined, order: count } });
+  revalidatePath("/settings/services");
+  return { success: "Added." };
+}
+
+export async function toggleService(id: string, active: boolean) {
+  await requireScope();
+  await prisma.service.update({ where: { id }, data: { active } });
+  revalidatePath("/settings/services");
+}
+
+export async function updateServiceRate(id: string, baseRate: number) {
+  await requireScope();
+  await prisma.service.update({ where: { id }, data: { baseRate } });
+  revalidatePath("/settings/services");
+}
+
+// ── Integrations ─────────────────────────────────────────────────────
+export async function toggleIntegration(provider: string, enabled: boolean) {
+  const scope = await requireScope();
+  if (!["OWNER", "ADMIN"].includes(scope.role)) return;
+  await prisma.integration.update({ where: { provider }, data: { enabled } });
+  revalidatePath("/settings/integrations");
 }

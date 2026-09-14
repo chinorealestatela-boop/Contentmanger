@@ -4,7 +4,6 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireScope } from "@/lib/queries/scope";
 import { logActivity } from "@/lib/activity";
-import { runAutomation } from "@/lib/automation/engine";
 import { revalidatePath } from "next/cache";
 import type { SimpleActionState } from "@/lib/actions/communications";
 
@@ -101,8 +100,6 @@ export async function completeFollowUp(_prev: SimpleActionState, formData: FormD
     description: `Follow-up completed: ${followUp.topic}${parsed.data.completionNotes ? ` — ${parsed.data.completionNotes}` : ""}`,
     actorId: scope.userId,
   });
-
-  await runAutomation("FOLLOW_UP_COMPLETED", { customerId: followUp.customerId, leadId: followUp.leadId, actorId: scope.userId });
 
   revalidatePath("/calendar");
   revalidatePath("/dashboard");

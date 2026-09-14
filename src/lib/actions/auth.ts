@@ -66,14 +66,14 @@ export async function registerAction(_prevState: ActionState, formData: FormData
     return { error: "An account with that email already exists." };
   }
 
-  let role = await prisma.role.findUnique({ where: { name: "SALESPERSON" } });
+  let role = await prisma.role.findUnique({ where: { name: "SALES" } });
   if (!role) {
     role = await prisma.role.create({
       data: {
-        name: "SALESPERSON",
-        label: "Salesperson",
-        description: "Manages assigned customers and leads.",
-        permissions: JSON.stringify(DEFAULT_PERMISSIONS.SALESPERSON),
+        name: "SALES",
+        label: "Concierge / Sales",
+        description: "Manages assigned leads, quotes, and bookings.",
+        permissions: JSON.stringify(DEFAULT_PERMISSIONS.SALES),
       },
     });
   }
@@ -101,7 +101,7 @@ export async function registerAction(_prevState: ActionState, formData: FormData
 }
 
 function pickColor() {
-  const colors = ["#2563eb", "#0d9488", "#7c3aed", "#dc2626", "#ea580c", "#16a34a", "#db2777"];
+  const colors = ["#c9a24b", "#7fa8c9", "#5cb890", "#d98a6a", "#a98fc9", "#c9605c", "#8a8a8a"];
   return colors[Math.floor(Math.random() * colors.length)];
 }
 

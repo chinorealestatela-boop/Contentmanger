@@ -8,7 +8,7 @@ import { auth, signIn } from "@/lib/auth";
 // only one person is using the app. To bring the login screen back for
 // multiple users later, point src/app/page.tsx and
 // src/lib/queries/scope.ts back at "/login" instead of "/api/auto-login".
-const AUTO_LOGIN_EMAIL = "alex.rivera@driveline-motors.com";
+const AUTO_LOGIN_EMAIL = "chino.realestatela@gmail.com";
 const AUTO_LOGIN_PASSWORD = "Password123!";
 
 export async function GET() {

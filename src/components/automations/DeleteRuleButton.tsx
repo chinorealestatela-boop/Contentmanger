@@ -9,7 +9,7 @@ export function DeleteRuleButton({ ruleId }: { ruleId: string }) {
   return (
     <button
       disabled={pending}
-      className="btn btn-ghost btn-sm text-red-600"
+      className="btn btn-ghost btn-sm !text-[var(--danger)]"
       onClick={() => {
         if (confirm("Delete this automation rule?")) startTransition(() => deleteAutomationRule(ruleId));
       }}

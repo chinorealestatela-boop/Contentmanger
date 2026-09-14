@@ -8,7 +8,7 @@ export default async function PipelineStagesSettingsPage() {
   const stages = await prisma.pipelineStage.findMany({ orderBy: { order: "asc" } });
 
   return (
-    <SettingsShell isAdmin={scope.role === "ADMIN"} title="Sales Stages" subtitle="Customize your pipeline — order, color, and closed-won/lost behavior.">
+    <SettingsShell isAdmin={["OWNER", "ADMIN"].includes(scope.role)} title="Sales Stages" subtitle="Customize your pipeline — order, color, and closed-won/lost behavior.">
       <PipelineStagesSettings stages={stages} />
     </SettingsShell>
   );

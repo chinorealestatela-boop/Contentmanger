@@ -12,44 +12,54 @@ export function AuthShell({
   footer?: React.ReactNode;
 }) {
   return (
-    <div className="flex min-h-screen w-full">
-      <div className="hidden lg:flex lg:w-[46%] flex-col justify-between bg-[var(--sidebar-bg)] p-12 text-white">
-        <Link href="/login" className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--brand)] font-bold">D</div>
-          <span className="text-lg font-semibold">Driveline CRM</span>
+    <div className="flex min-h-screen w-full" style={{ background: "var(--bg-app)" }}>
+      <div className="relative hidden lg:flex lg:w-[48%] flex-col justify-between overflow-hidden p-14 text-white">
+        <div
+          className="pointer-events-none absolute inset-0 opacity-70"
+          style={{
+            backgroundImage:
+              "radial-gradient(700px 500px at 20% 0%, rgba(201,162,75,0.16), transparent 60%), radial-gradient(600px 500px at 100% 100%, rgba(127,168,201,0.10), transparent 55%)",
+          }}
+        />
+        <Link href="/login" className="relative z-10 flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full border border-[var(--brand-line)] font-display text-lg text-[var(--brand-bright)]">S</div>
+          <span className="font-display text-xl tracking-wide text-white">STRATOS EXOTICS <span className="text-[var(--text-faint)]">&amp; LIFESTYLE</span></span>
         </Link>
-        <div className="max-w-md">
-          <h1 className="text-3xl font-semibold leading-tight text-white">
-            Know exactly who to work, right now.
+
+        <div className="relative z-10 max-w-md">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-[0.25em] text-[var(--brand-bright)]">Operations Platform</p>
+          <h1 className="font-display text-4xl font-medium leading-[1.15] text-white">
+            The operating system for Stratos Exotics.
           </h1>
-          <p className="mt-4 text-[15px] leading-relaxed text-slate-400">
-            Hot leads, overdue follow-ups, today&rsquo;s appointments, and every customer conversation —
-            organized into one action-first command center built for the sales floor.
+          <p className="mt-5 text-[15px] leading-relaxed text-[var(--text-muted)]">
+            Every lead, quote, reservation, chauffeur, and vehicle — from first inquiry to
+            repeat client — in one elegant command center built for a luxury fleet.
           </p>
-          <ul className="mt-8 space-y-3 text-sm text-slate-300">
+          <ul className="mt-9 space-y-3.5 text-sm text-[var(--text-muted)]">
             {[
-              "Never let a lead go cold again",
-              "Automated follow-up cadences, day 0 through 30",
-              "Pipeline, tasks, and appointments in one view",
+              "Concierge-grade lead response, every time",
+              "Live fleet, chauffeur, and trip visibility",
+              "Quotes, deposits, and balances handled automatically",
             ].map((t) => (
-              <li key={t} className="flex items-center gap-2.5">
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 text-xs">✓</span>
+              <li key={t} className="flex items-center gap-3">
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-[var(--brand-line)] text-[10px] text-[var(--brand-bright)]">✓</span>
                 {t}
               </li>
             ))}
           </ul>
         </div>
-        <p className="text-xs text-slate-500">© {new Date().getFullYear()} Driveline Motors. Internal use only.</p>
+
+        <p className="relative z-10 text-xs text-[var(--text-faint)]">© {new Date().getFullYear()} Stratos Exotics &amp; Lifestyle. Internal use only.</p>
       </div>
 
-      <div className="flex flex-1 items-center justify-center bg-[var(--bg)] px-6 py-12">
-        <div className="w-full max-w-sm">
-          <div className="mb-8 lg:hidden flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--brand)] font-bold text-white">D</div>
-            <span className="text-base font-semibold">Driveline CRM</span>
+      <div className="flex flex-1 items-center justify-center px-6 py-12">
+        <div className="card w-full max-w-sm p-8">
+          <div className="mb-8 flex items-center gap-2.5 lg:hidden">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--brand-line)] font-display text-[var(--brand-bright)]">S</div>
+            <span className="font-display text-lg tracking-wide">STRATOS EXOTICS</span>
           </div>
-          <h2 className="text-2xl font-semibold text-[var(--text)]">{title}</h2>
-          {subtitle && <p className="mt-1.5 text-sm text-[var(--text-muted)]">{subtitle}</p>}
+          <h2 className="font-display text-3xl font-medium text-[var(--text)]">{title}</h2>
+          {subtitle && <p className="mt-2 text-sm text-[var(--text-muted)]">{subtitle}</p>}
           <div className="mt-7">{children}</div>
           {footer && <div className="mt-6 text-center text-sm text-[var(--text-muted)]">{footer}</div>}
         </div>

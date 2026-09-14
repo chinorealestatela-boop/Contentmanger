@@ -7,32 +7,41 @@ import { DeleteRuleButton } from "@/components/automations/DeleteRuleButton";
 import { optionLabel, TRIGGER_EVENTS } from "@/lib/constants";
 import { formatTimeAgo } from "@/lib/format";
 
+function describeAction(a: { type: string; title?: string; taskType?: string; sequenceName?: string; notifyType?: string; templateKey?: string }) {
+  if (a.type === "CREATE_TASK") return `create task "${a.title}"`;
+  if (a.type === "NOTIFY_STAFF") return `notify staff (${a.notifyType})`;
+  if (a.type === "SEND_MESSAGE") return `send "${a.templateKey}" message`;
+  if (a.type === "ENROLL_SEQUENCE") return `enroll in "${a.sequenceName ?? "default"}" sequence`;
+  return "advance sequence";
+}
+
 export default async function AutomationsPage() {
   await requireScope();
-  const [rules, recentRuns] = await Promise.all([
+  const [rules, recentRuns, templates] = await Promise.all([
     prisma.automationRule.findMany({ orderBy: { order: "asc" } }),
     prisma.automationRun.findMany({ orderBy: { createdAt: "desc" }, take: 20, include: { rule: true } }),
+    prisma.messageTemplate.findMany({ select: { key: true } }),
   ]);
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6 p-4 sm:p-6">
+    <div className="mx-auto max-w-4xl space-y-6 p-4 sm:p-6 lg:p-8">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-[var(--text)]">Automations</h1>
-          <p className="text-[13px] text-[var(--text-muted)]">Rules that create tasks, send notifications, and enroll follow-up sequences automatically.</p>
+          <h1 className="font-display text-3xl font-medium text-[var(--text)]">Automations</h1>
+          <p className="text-[13px] text-[var(--text-muted)]">Rules that create tasks, notify staff, and send messages automatically — with a full audit trail.</p>
         </div>
         <RunChecksButton />
       </div>
 
       <section className="space-y-2.5">
         {rules.map((rule) => {
-          const actions = JSON.parse(rule.actions) as { type: string; title?: string; taskType?: string; sequenceName?: string; notifType?: string }[];
+          const actions = JSON.parse(rule.actions) as { type: string; title?: string; taskType?: string; sequenceName?: string; notifyType?: string; templateKey?: string }[];
           return (
             <div key={rule.id} className="card flex items-center justify-between gap-4 p-4">
               <div className="min-w-0">
                 <p className="text-[13.5px] font-semibold text-[var(--text)]">{rule.name}</p>
                 <p className="mt-0.5 text-[12px] text-[var(--text-muted)]">
-                  WHEN {optionLabel(TRIGGER_EVENTS, rule.triggerEvent)} → {actions.map((a) => a.type === "CREATE_TASK" ? `create task "${a.title}"` : a.type === "NOTIFY" ? `notify "${a.title}"` : a.type === "ENROLL_SEQUENCE" ? `enroll "${a.sequenceName}"` : "advance sequence").join(", ")}
+                  WHEN {optionLabel(TRIGGER_EVENTS, rule.triggerEvent)} → {actions.map(describeAction).join(", ")}
                 </p>
               </div>
               <div className="flex shrink-0 items-center gap-3">
@@ -46,7 +55,7 @@ export default async function AutomationsPage() {
 
       <section className="card p-5">
         <h2 className="mb-4 text-[13.5px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">Create Custom Rule</h2>
-        <NewRuleForm />
+        <NewRuleForm templateKeys={templates.map((t) => t.key)} />
       </section>
 
       <section className="card">

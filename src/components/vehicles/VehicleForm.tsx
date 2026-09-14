@@ -2,29 +2,29 @@
 
 import { useActionState } from "react";
 import { createVehicle, updateVehicle } from "@/lib/actions/vehicles";
-import { BODY_STYLES, DRIVETRAINS, VEHICLE_CONDITIONS, VEHICLE_STATUSES } from "@/lib/constants";
+import { FormSection, Field, TextField, SelectField, ErrorBox } from "@/components/ui/Form";
+import { VEHICLE_TYPES } from "@/lib/constants";
 
 type Vehicle = {
   id: string;
-  stockNumber: string;
+  fleetNumber: string;
+  name: string;
   vin: string;
   year: number;
   make: string;
   model: string;
-  trim: string | null;
-  condition: string;
-  bodyStyle: string | null;
-  drivetrain: string | null;
-  mileage: number;
-  exteriorColor: string | null;
-  interiorColor: string | null;
-  msrp: number | null;
-  sellingPrice: number | null;
-  internetPrice: number | null;
-  status: string;
-  location: string | null;
+  licensePlate: string | null;
+  vehicleType: string;
+  color: string | null;
   seatingCapacity: number | null;
-  description: string | null;
+  currentMileage: number;
+  homeBase: string | null;
+  hourlyRate: number | null;
+  dailyRate: number | null;
+  depositRequirement: number | null;
+  insuranceProvider: string | null;
+  insurancePolicyNo: string | null;
+  notes: string | null;
 };
 
 export function VehicleForm({ vehicle }: { vehicle?: Vehicle }) {
@@ -32,56 +32,60 @@ export function VehicleForm({ vehicle }: { vehicle?: Vehicle }) {
   const [state, formAction, pending] = useActionState(action, null);
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form action={formAction} className="space-y-6">
       {vehicle && <input type="hidden" name="vehicleId" value={vehicle.id} />}
-      {state?.error && <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{state.error}</div>}
+      {state?.error && <ErrorBox>{state.error}</ErrorBox>}
 
-      <div className="grid grid-cols-2 gap-3">
-        <div><label className="label">Stock Number</label><input name="stockNumber" required defaultValue={vehicle?.stockNumber} className="input" /></div>
-        <div><label className="label">VIN</label><input name="vin" required defaultValue={vehicle?.vin} className="input" /></div>
-      </div>
-      <div className="grid grid-cols-4 gap-3">
-        <div><label className="label">Year</label><input name="year" type="number" required defaultValue={vehicle?.year} className="input" /></div>
-        <div><label className="label">Make</label><input name="make" required defaultValue={vehicle?.make} className="input" /></div>
-        <div><label className="label">Model</label><input name="model" required defaultValue={vehicle?.model} className="input" /></div>
-        <div><label className="label">Trim</label><input name="trim" defaultValue={vehicle?.trim ?? ""} className="input" /></div>
-      </div>
-      <div className="grid grid-cols-3 gap-3">
-        <div>
-          <label className="label">Condition</label>
-          <select name="condition" defaultValue={vehicle?.condition ?? "USED"} className="input">{VEHICLE_CONDITIONS.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}</select>
+      <FormSection title="Identity">
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Fleet Number" name="fleetNumber" required defaultValue={vehicle?.fleetNumber} />
+          <Field label="Display Name" name="name" required defaultValue={vehicle?.name} placeholder="e.g. Rolls-Royce Cullinan — Black" />
         </div>
-        <div>
-          <label className="label">Body Style</label>
-          <select name="bodyStyle" defaultValue={vehicle?.bodyStyle ?? ""} className="input"><option value="">—</option>{BODY_STYLES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}</select>
+        <div className="grid grid-cols-3 gap-3">
+          <Field label="Year" name="year" type="number" required defaultValue={vehicle?.year} />
+          <Field label="Make" name="make" required defaultValue={vehicle?.make} />
+          <Field label="Model" name="model" required defaultValue={vehicle?.model} />
         </div>
-        <div>
-          <label className="label">Drivetrain</label>
-          <select name="drivetrain" defaultValue={vehicle?.drivetrain ?? ""} className="input"><option value="">—</option>{DRIVETRAINS.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}</select>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="VIN" name="vin" required defaultValue={vehicle?.vin} />
+          <Field label="License Plate" name="licensePlate" defaultValue={vehicle?.licensePlate ?? ""} />
         </div>
-      </div>
-      <div className="grid grid-cols-3 gap-3">
-        <div><label className="label">Mileage</label><input name="mileage" type="number" defaultValue={vehicle?.mileage} className="input" /></div>
-        <div><label className="label">Exterior Color</label><input name="exteriorColor" defaultValue={vehicle?.exteriorColor ?? ""} className="input" /></div>
-        <div><label className="label">Interior Color</label><input name="interiorColor" defaultValue={vehicle?.interiorColor ?? ""} className="input" /></div>
-      </div>
-      <div className="grid grid-cols-3 gap-3">
-        <div><label className="label">MSRP</label><input name="msrp" type="number" defaultValue={vehicle?.msrp ?? ""} className="input" /></div>
-        <div><label className="label">Selling Price</label><input name="sellingPrice" type="number" defaultValue={vehicle?.sellingPrice ?? ""} className="input" /></div>
-        <div><label className="label">Internet Price</label><input name="internetPrice" type="number" defaultValue={vehicle?.internetPrice ?? ""} className="input" /></div>
-      </div>
-      <div className="grid grid-cols-3 gap-3">
-        <div>
-          <label className="label">Status</label>
-          <select name="status" defaultValue={vehicle?.status ?? "AVAILABLE"} className="input">{VEHICLE_STATUSES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}</select>
+        <div className="grid grid-cols-3 gap-3">
+          <SelectField label="Vehicle Type" name="vehicleType" options={VEHICLE_TYPES} defaultValue={vehicle?.vehicleType ?? "OTHER"} />
+          <Field label="Color" name="color" defaultValue={vehicle?.color ?? ""} />
+          <Field label="Seating Capacity" name="seatingCapacity" type="number" defaultValue={vehicle?.seatingCapacity ?? undefined} />
         </div>
-        <div><label className="label">Location</label><input name="location" defaultValue={vehicle?.location ?? ""} className="input" /></div>
-        <div><label className="label">Seating Capacity</label><input name="seatingCapacity" type="number" defaultValue={vehicle?.seatingCapacity ?? ""} className="input" /></div>
-      </div>
-      <div><label className="label">Description</label><textarea name="description" rows={3} defaultValue={vehicle?.description ?? ""} className="input" /></div>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Current Mileage" name="currentMileage" type="number" defaultValue={vehicle?.currentMileage ?? 0} />
+          <Field label="Home Base" name="homeBase" defaultValue={vehicle?.homeBase ?? ""} placeholder="e.g. Stratos Garage — Downtown LA" />
+        </div>
+      </FormSection>
 
-      <div className="flex justify-end gap-2 pt-2">
-        <button type="submit" disabled={pending} className="btn btn-primary px-6">{pending ? "Saving…" : vehicle ? "Save Changes" : "Add Vehicle"}</button>
+      <FormSection title="Pricing">
+        <div className="grid grid-cols-3 gap-3">
+          <Field label="Hourly Rate" name="hourlyRate" type="number" defaultValue={vehicle?.hourlyRate ?? undefined} />
+          <Field label="Daily Rate" name="dailyRate" type="number" defaultValue={vehicle?.dailyRate ?? undefined} />
+          <Field label="Deposit Requirement" name="depositRequirement" type="number" defaultValue={vehicle?.depositRequirement ?? undefined} />
+        </div>
+      </FormSection>
+
+      <FormSection title="Insurance &amp; Registration">
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Insurance Provider" name="insuranceProvider" defaultValue={vehicle?.insuranceProvider ?? ""} />
+          <Field label="Policy Number" name="insurancePolicyNo" defaultValue={vehicle?.insurancePolicyNo ?? ""} />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Insurance Expires" name="insuranceExpiresAt" type="date" />
+          <Field label="Registration Expires" name="registrationExpiresAt" type="date" />
+        </div>
+      </FormSection>
+
+      <FormSection title="Notes">
+        <TextField label="Notes" name="notes" rows={3} defaultValue={vehicle?.notes ?? ""} />
+      </FormSection>
+
+      <div className="flex justify-end gap-2">
+        <button type="submit" disabled={pending} className="btn btn-primary px-6 py-2.5">{pending ? "Saving…" : vehicle ? "Save Changes" : "Add Vehicle"}</button>
       </div>
     </form>
   );

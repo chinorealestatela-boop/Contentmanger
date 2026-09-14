@@ -27,7 +27,7 @@ export function UserManagement({ users, roles }: { users: UserRow[]; roles: Role
             <div className="flex items-center gap-3">
               <Avatar firstName={u.firstName} lastName={u.lastName} color={u.avatarColor} size="sm" />
               <div>
-                <p className="text-[13.5px] font-semibold text-[var(--text)]">{u.firstName} {u.lastName} {!u.isActive && <Badge variant="lost">Inactive</Badge>}</p>
+                <p className="text-[13.5px] font-semibold text-[var(--text)]">{u.firstName} {u.lastName} {!u.isActive && <Badge variant="neutral">Inactive</Badge>}</p>
                 <p className="text-[12px] text-[var(--text-muted)]">{u.email} {u.title ? `· ${u.title}` : ""}</p>
               </div>
             </div>
@@ -41,7 +41,7 @@ export function UserManagement({ users, roles }: { users: UserRow[]; roles: Role
               </select>
               <button
                 onClick={() => startTransition(() => toggleUserActive(u.id, !u.isActive))}
-                className={cn("relative h-6 w-11 shrink-0 rounded-full transition-colors", u.isActive ? "bg-emerald-500" : "bg-[var(--border)]")}
+                className={cn("relative h-6 w-11 shrink-0 rounded-full transition-colors", u.isActive ? "bg-[var(--success)]" : "bg-white/10")}
               >
                 <span className={cn("absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform", u.isActive ? "translate-x-5" : "translate-x-0.5")} />
               </button>
@@ -53,7 +53,7 @@ export function UserManagement({ users, roles }: { users: UserRow[]; roles: Role
       <div className="card p-5">
         <h3 className="mb-3 text-[13px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">Add Team Member</h3>
         <form ref={formRef} action={formAction} className="space-y-3">
-          {state?.error && <p className="text-xs text-red-600">{state.error}</p>}
+          {state?.error && <p className="text-xs text-[var(--danger)]">{state.error}</p>}
           <div className="grid grid-cols-2 gap-3">
             <input name="firstName" required placeholder="First name" className="input" />
             <input name="lastName" required placeholder="Last name" className="input" />

@@ -1,23 +1,12 @@
 import { cn } from "@/lib/utils";
-import type { Temperature } from "@/lib/constants";
+import { CUSTOMER_TIERS, optionColor, optionLabel } from "@/lib/constants";
 
-const TEMP_CLASS: Record<Temperature, string> = {
-  HOT: "badge-hot",
-  WARM: "badge-warm",
-  COLD: "badge-cold",
-};
-
-const TEMP_DOT: Record<Temperature, string> = {
-  HOT: "🔥",
-  WARM: "☀️",
-  COLD: "❄️",
-};
-
-export function TemperatureBadge({ temperature, className }: { temperature: string; className?: string }) {
-  const t = (temperature as Temperature) in TEMP_CLASS ? (temperature as Temperature) : "COLD";
+export function TierBadge({ tier, className }: { tier: string; className?: string }) {
+  const color = optionColor(CUSTOMER_TIERS, tier);
   return (
-    <span className={cn("badge", TEMP_CLASS[t], className)}>
-      <span aria-hidden>{TEMP_DOT[t]}</span> {t}
+    <span className={cn("badge", className)} style={{ background: `${color}22`, color, borderColor: `${color}55` }}>
+      {tier === "VVIP" && <span aria-hidden>★</span>}
+      {optionLabel(CUSTOMER_TIERS, tier)}
     </span>
   );
 }
@@ -28,10 +17,20 @@ export function Badge({
   className,
 }: {
   children: React.ReactNode;
-  variant?: "hot" | "warm" | "cold" | "overdue" | "appointment" | "sold" | "lost" | "neutral";
+  variant?: "gold" | "success" | "warning" | "danger" | "info" | "neutral";
   className?: string;
 }) {
   return <span className={cn("badge", `badge-${variant}`, className)}>{children}</span>;
+}
+
+export function StatusBadge({ options, value, className }: { options: { value: string; label: string; color?: string }[]; value: string | null | undefined; className?: string }) {
+  const color = optionColor(options, value);
+  return (
+    <span className={cn("badge", className)} style={{ background: `${color}22`, color, borderColor: `${color}55` }}>
+      <span className="badge-dot" style={{ background: color }} />
+      {optionLabel(options, value)}
+    </span>
+  );
 }
 
 export function ColorDot({ color }: { color: string }) {
@@ -40,10 +39,7 @@ export function ColorDot({ color }: { color: string }) {
 
 export function ColorPill({ color, children }: { color: string; children: React.ReactNode }) {
   return (
-    <span
-      className="badge"
-      style={{ background: `${color}1a`, color }}
-    >
+    <span className="badge" style={{ background: `${color}22`, color, borderColor: `${color}55` }}>
       {children}
     </span>
   );

@@ -4,7 +4,7 @@ import { initials } from "@/lib/utils";
 export function Avatar({
   firstName,
   lastName,
-  color = "#2563eb",
+  color = "#c9a24b",
   size = "md",
   className,
 }: {

@@ -1,12 +1,13 @@
-/* eslint-disable no-console */
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import {
   DEFAULT_LEAD_SOURCES,
   DEFAULT_LOST_REASONS,
   DEFAULT_PIPELINE_STAGES,
+  INTEGRATION_PROVIDERS,
 } from "../src/lib/constants";
 import { DEFAULT_PERMISSIONS } from "../src/lib/permissions";
+import { computePricing } from "../src/lib/pricing";
 
 const prisma = new PrismaClient();
 
@@ -20,17 +21,16 @@ function daysAgo(n: number, hour = 9, minute = 0) {
 function daysFromNow(n: number, hour = 9, minute = 0) {
   return daysAgo(-n, hour, minute);
 }
+function todayAt(hour: number, minute = 0) {
+  return daysAgo(0, hour, minute);
+}
 function pick<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
-}
-function pickN<T>(arr: T[], n: number): T[] {
-  const shuffled = [...arr].sort(() => Math.random() - 0.5);
-  return shuffled.slice(0, n);
 }
 function randPhone() {
   const exch = 200 + Math.floor(Math.random() * 700);
   const line = 1000 + Math.floor(Math.random() * 9000);
-  return `(555) ${exch}-${line}`;
+  return `(310) ${exch}-${line}`;
 }
 function randVin() {
   const chars = "ABCDEFGHJKLMNPRSTUVWXYZ0123456789";
@@ -38,40 +38,49 @@ function randVin() {
   for (let i = 0; i < 17; i++) vin += chars[Math.floor(Math.random() * chars.length)];
   return vin;
 }
-function money(n: number) {
-  return Math.round(n / 50) * 50;
+let bookingSeq = 1000;
+function nextBookingNumber() {
+  bookingSeq += 1;
+  return `SX-${bookingSeq}`;
+}
+let quoteSeq = 5000;
+function nextQuoteNumber() {
+  quoteSeq += 1;
+  return `Q-${quoteSeq}`;
 }
 
 async function main() {
-  console.log("🌱 Seeding Automotive Sales CRM…");
+  console.log("🌱 Seeding Stratos Exotics & Lifestyle CRM…");
 
   // ── Roles ────────────────────────────────────────────────────────────
   const roleDefs = [
-    { name: "SALESPERSON", label: "Salesperson", description: "Manages assigned customers and leads." },
-    { name: "MANAGER", label: "Sales Manager", description: "Views team performance and leads." },
+    { name: "OWNER", label: "Owner", description: "Full access to every part of the business." },
     { name: "ADMIN", label: "Administrator", description: "Manages the entire system." },
+    { name: "MANAGER", label: "Manager", description: "Oversees operations, fleet, and staff." },
+    { name: "DISPATCHER", label: "Dispatcher", description: "Assigns drivers and vehicles, manages live trips." },
+    { name: "SALES", label: "Concierge / Sales", description: "Manages assigned leads, quotes, and bookings." },
+    { name: "DRIVER", label: "Chauffeur", description: "Executes assigned trips from the mobile driver view." },
   ];
   const roles: Record<string, { id: string }> = {};
   for (const r of roleDefs) {
     roles[r.name] = await prisma.role.upsert({
       where: { name: r.name },
       update: {},
-      create: {
-        name: r.name,
-        label: r.label,
-        description: r.description,
-        permissions: JSON.stringify(DEFAULT_PERMISSIONS[r.name]),
-      },
+      create: { name: r.name, label: r.label, description: r.description, permissions: JSON.stringify(DEFAULT_PERMISSIONS[r.name]) },
     });
   }
 
-  // ── Users ────────────────────────────────────────────────────────────
+  // ── Employees / Users ──────────────────────────────────────────────────
   const passwordHash = await bcrypt.hash("Password123!", 10);
   const userDefs = [
-    { firstName: "Sam", lastName: "Carter", email: "sam.carter@driveline-motors.com", role: "SALESPERSON", title: "Sales Consultant", color: "#2563eb" },
-    { firstName: "Taylor", lastName: "Nguyen", email: "taylor.nguyen@driveline-motors.com", role: "SALESPERSON", title: "Sales Consultant", color: "#0d9488" },
-    { firstName: "Jordan", lastName: "Blake", email: "jordan.blake@driveline-motors.com", role: "MANAGER", title: "Sales Manager", color: "#7c3aed" },
-    { firstName: "Alex", lastName: "Rivera", email: "alex.rivera@driveline-motors.com", role: "ADMIN", title: "General Manager", color: "#dc2626" },
+    { firstName: "Gene", lastName: "Stratos", email: "chino.realestatela@gmail.com", role: "OWNER", title: "Founder & Owner", color: "#c9a24b" },
+    { firstName: "Alexandra", lastName: "Reyes", email: "alexandra.reyes@stratoslux.com", role: "ADMIN", title: "Operations Director", color: "#7fa8c9" },
+    { firstName: "Jordan", lastName: "Vance", email: "jordan.vance@stratoslux.com", role: "MANAGER", title: "General Manager", color: "#5cb890" },
+    { firstName: "Priya", lastName: "Anand", email: "priya.anand@stratoslux.com", role: "DISPATCHER", title: "Dispatch Lead", color: "#d98a6a" },
+    { firstName: "Sofia", lastName: "Lindqvist", email: "sofia.lindqvist@stratoslux.com", role: "SALES", title: "Concierge Manager", color: "#a98fc9" },
+    { firstName: "Noah", lastName: "Bennett", email: "noah.bennett@stratoslux.com", role: "SALES", title: "Concierge Specialist", color: "#7fa8c9" },
+    { firstName: "Marcus", lastName: "Bell", email: "marcus.bell@stratoslux.com", role: "DRIVER", title: "Lead Chauffeur", color: "#c9a24b" },
+    { firstName: "Daniel", lastName: "Cho", email: "daniel.cho@stratoslux.com", role: "DRIVER", title: "Chauffeur", color: "#7fa8c9" },
   ];
   const users: Record<string, { id: string }> = {};
   for (const u of userDefs) {
@@ -86,682 +95,610 @@ async function main() {
         title: u.title,
         avatarColor: u.color,
         roleId: roles[u.role].id,
-        lastLoginAt: daysAgo(0),
+        phone: randPhone(),
       },
     });
   }
-  const sam = users["sam.carter@driveline-motors.com"];
-  const taylor = users["taylor.nguyen@driveline-motors.com"];
-  const jordan = users["jordan.blake@driveline-motors.com"];
+  const owner = users["chino.realestatela@gmail.com"];
+  const sofia = users["sofia.lindqvist@stratoslux.com"];
+  const noah = users["noah.bennett@stratoslux.com"];
+  const priya = users["priya.anand@stratoslux.com"];
+  const jordan = users["jordan.vance@stratoslux.com"];
 
-  // ── Lead sources ─────────────────────────────────────────────────────
-  const sources: Record<string, { id: string }> = {};
-  for (let i = 0; i < DEFAULT_LEAD_SOURCES.length; i++) {
-    const name = DEFAULT_LEAD_SOURCES[i];
-    sources[name] = await prisma.leadSource.upsert({
-      where: { name },
-      update: {},
-      create: { name, order: i },
+  // ── Drivers (chauffeur profiles) ───────────────────────────────────────
+  const driverDefs = [
+    { firstName: "Marcus", lastName: "Bell", userEmail: "marcus.bell@stratoslux.com", status: "AVAILABLE", rating: 4.98, trips: 412 },
+    { firstName: "Daniel", lastName: "Cho", userEmail: "daniel.cho@stratoslux.com", status: "AVAILABLE", rating: 4.95, trips: 356 },
+    { firstName: "Emilio", lastName: "Torres", userEmail: null, status: "OFF_DUTY", rating: 4.9, trips: 201 },
+    { firstName: "Naomi", lastName: "Park", userEmail: null, status: "AVAILABLE", rating: 4.99, trips: 289 },
+  ];
+  const drivers: Record<string, { id: string }> = {};
+  for (const d of driverDefs) {
+    const existing = await prisma.driver.findFirst({ where: { firstName: d.firstName, lastName: d.lastName } });
+    drivers[d.firstName] =
+      existing ??
+      (await prisma.driver.create({
+        data: {
+          firstName: d.firstName,
+          lastName: d.lastName,
+          userId: d.userEmail ? users[d.userEmail].id : null,
+          phone: randPhone(),
+          email: d.userEmail,
+          licenseNumber: `CDL-${Math.floor(1000000 + Math.random() * 9000000)}`,
+          licenseExpiresAt: daysFromNow(400),
+          certifications: JSON.stringify(["Defensive Driving", "VIP Protection Basics", "First Aid/CPR"]),
+          status: d.status,
+          currentLocation: "Los Angeles, CA",
+          rating: d.rating,
+          completedTrips: d.trips,
+        },
+      }));
+  }
+
+  // ── Fleet ────────────────────────────────────────────────────────────
+  const vehicleDefs = [
+    { fleetNumber: "SX-01", name: "Rolls-Royce Cullinan — Black Badge", make: "Rolls-Royce", model: "Cullinan", year: 2024, type: "ROLLS_ROYCE", color: "Diamond Black", seats: 4, hourly: 495, daily: 3200, deposit: 1500, driver: "Marcus" },
+    { fleetNumber: "SX-02", name: "Rolls-Royce Phantom", make: "Rolls-Royce", model: "Phantom", year: 2023, type: "ROLLS_ROYCE", color: "Arctic White", seats: 4, hourly: 525, daily: 3400, deposit: 1500, driver: null },
+    { fleetNumber: "SX-03", name: "Rolls-Royce Ghost", make: "Rolls-Royce", model: "Ghost", year: 2024, type: "ROLLS_ROYCE", color: "Jet Black", seats: 4, hourly: 460, daily: 3000, deposit: 1500, driver: null },
+    { fleetNumber: "SX-04", name: "Maybach Sprinter — VIP Class", make: "Mercedes-Maybach", model: "Sprinter", year: 2024, type: "MAYBACH", color: "Obsidian Black", seats: 10, hourly: 350, daily: 2600, deposit: 1200, driver: "Marcus" },
+    { fleetNumber: "SX-05", name: "Mercedes Sprinter — Executive", make: "Mercedes-Benz", model: "Sprinter", year: 2023, type: "MERCEDES_SPRINTER", color: "Iridium Silver", seats: 14, hourly: 195, daily: 1450, deposit: 800, driver: null },
+    { fleetNumber: "SX-06", name: "Cadillac Escalade — Platinum", make: "Cadillac", model: "Escalade", year: 2024, type: "CADILLAC_ESCALADE", color: "Black Raven", seats: 6, hourly: 165, daily: 1150, deposit: 600, driver: "Daniel" },
+    { fleetNumber: "SX-07", name: "Cadillac Escalade — Sport", make: "Cadillac", model: "Escalade", year: 2023, type: "CADILLAC_ESCALADE", color: "Satin Steel Grey", seats: 6, hourly: 165, daily: 1150, deposit: 600, driver: null },
+    { fleetNumber: "SX-08", name: "Lamborghini Urus", make: "Lamborghini", model: "Urus", year: 2024, type: "LAMBORGHINI", color: "Giallo Auge", seats: 4, hourly: 425, daily: 2800, deposit: 2000, driver: null },
+    { fleetNumber: "SX-09", name: "Bentley Bentayga", make: "Bentley", model: "Bentayga", year: 2023, type: "BENTLEY", color: "Onyx", seats: 4, hourly: 375, daily: 2500, deposit: 1500, driver: null },
+    { fleetNumber: "SX-10", name: "Bentley Flying Spur", make: "Bentley", model: "Flying Spur", year: 2024, type: "BENTLEY", color: "Glacier White", seats: 4, hourly: 385, daily: 2550, deposit: 1500, driver: null },
+  ];
+  const vehicles: Record<string, { id: string }> = {};
+  const vehicleHourlyRates: Record<string, number> = {};
+  for (const v of vehicleDefs) {
+    vehicleHourlyRates[v.fleetNumber] = v.hourly;
+    const existing = await prisma.vehicle.findUnique({ where: { fleetNumber: v.fleetNumber } });
+    vehicles[v.fleetNumber] =
+      existing ??
+      (await prisma.vehicle.create({
+        data: {
+          fleetNumber: v.fleetNumber,
+          name: v.name,
+          make: v.make,
+          model: v.model,
+          year: v.year,
+          vin: randVin(),
+          licensePlate: `${v.fleetNumber.replace("SX-", "8LUX")}`,
+          vehicleType: v.type,
+          color: v.color,
+          seatingCapacity: v.seats,
+          currentMileage: 2000 + Math.floor(Math.random() * 12000),
+          availability: "AVAILABLE",
+          currentLocation: "Stratos Garage — Downtown LA",
+          homeBase: "Stratos Garage — Downtown LA",
+          assignedDriverId: v.driver ? drivers[v.driver].id : null,
+          hourlyRate: v.hourly,
+          dailyRate: v.daily,
+          depositRequirement: v.deposit,
+          insuranceProvider: "Chubb Private Client",
+          insurancePolicyNo: `CPC-${Math.floor(100000 + Math.random() * 900000)}`,
+          insuranceExpiresAt: daysFromNow(200),
+          registrationExpiresAt: daysFromNow(280),
+          notes: "Detailed and inspected before every reservation.",
+        },
+      }));
+  }
+
+  // Live GPS pings (near LA landmarks) so the fleet map + AI "closest to LAX" query have data
+  const gpsSpots: { key: string; lat: number; lng: number; label: string }[] = [
+    { key: "SX-01", lat: 34.0736, lng: -118.4004, label: "Near Beverly Hills" },
+    { key: "SX-02", lat: 34.0522, lng: -118.2437, label: "Stratos Garage — Downtown LA" },
+    { key: "SX-03", lat: 33.9825, lng: -118.4695, label: "Near Marina del Rey" },
+    { key: "SX-04", lat: 33.9416, lng: -118.4085, label: "Near LAX" },
+    { key: "SX-05", lat: 34.1808, lng: -118.309, label: "Near Burbank Airport" },
+    { key: "SX-06", lat: 34.0195, lng: -118.4912, label: "Near Santa Monica" },
+    { key: "SX-07", lat: 34.0522, lng: -118.2437, label: "Stratos Garage — Downtown LA" },
+    { key: "SX-08", lat: 34.0736, lng: -118.4004, label: "Near Beverly Hills" },
+    { key: "SX-09", lat: 34.0259, lng: -118.7798, label: "Near Malibu" },
+    { key: "SX-10", lat: 34.0522, lng: -118.2437, label: "Stratos Garage — Downtown LA" },
+  ];
+  for (const g of gpsSpots) {
+    await prisma.vehicleGpsPing.create({
+      data: { vehicleId: vehicles[g.key].id, lat: g.lat, lng: g.lng, heading: Math.random() * 360, speedMph: Math.random() * 45, label: g.label },
     });
   }
 
-  // ── Pipeline stages ──────────────────────────────────────────────────
+  // Maintenance records
+  await prisma.maintenanceRecord.createMany({
+    data: [
+      { vehicleId: vehicles["SX-01"].id, type: "DETAIL", description: "Full interior/exterior detail before weekend bookings", status: "SCHEDULED", scheduledDate: daysFromNow(2) },
+      { vehicleId: vehicles["SX-04"].id, type: "SERVICE", description: "30,000-mile scheduled service", status: "SCHEDULED", scheduledDate: daysFromNow(5) },
+      { vehicleId: vehicles["SX-06"].id, type: "TIRE", description: "Rotate & inspect tires", status: "COMPLETED", completedDate: daysAgo(10), cost: 240, vendor: "Beverly Hills Tire Co." },
+      { vehicleId: vehicles["SX-08"].id, type: "INSPECTION", description: "Annual CA smog + safety inspection", status: "SCHEDULED", scheduledDate: daysFromNow(14) },
+    ],
+  });
+
+  // ── Pipeline / Sources / Lost reasons ───────────────────────────────────
   const stages: Record<string, { id: string }> = {};
   for (const s of DEFAULT_PIPELINE_STAGES) {
     stages[s.name] = await prisma.pipelineStage.upsert({
       where: { name: s.name },
       update: {},
-      create: {
-        name: s.name,
-        order: s.order,
-        color: s.color,
-        isClosedWon: !!s.isClosedWon,
-        isClosedLost: !!s.isClosedLost,
+      create: { name: s.name, order: s.order, color: s.color, isClosedWon: !!s.isClosedWon, isClosedLost: !!s.isClosedLost },
+    });
+  }
+  const sources: Record<string, { id: string }> = {};
+  for (let i = 0; i < DEFAULT_LEAD_SOURCES.length; i++) {
+    const name = DEFAULT_LEAD_SOURCES[i];
+    sources[name] = await prisma.leadSource.upsert({ where: { name }, update: {}, create: { name, order: i } });
+  }
+  for (let i = 0; i < DEFAULT_LOST_REASONS.length; i++) {
+    const name = DEFAULT_LOST_REASONS[i];
+    await prisma.lostReason.upsert({ where: { name }, update: {}, create: { name, order: i } });
+  }
+
+  // ── Services & Locations ────────────────────────────────────────────
+  const serviceDefs: { name: string; rate: number }[] = [
+    { name: "Airport Transfer", rate: 195 },
+    { name: "Chauffeured Transportation", rate: 165 },
+    { name: "Self-Drive Rental", rate: 850 },
+    { name: "Point-to-Point Transportation", rate: 175 },
+    { name: "Hourly Service", rate: 195 },
+    { name: "Corporate Transportation", rate: 175 },
+    { name: "Weddings", rate: 495 },
+    { name: "VIP Night Out", rate: 350 },
+    { name: "Events", rate: 275 },
+    { name: "California Transportation", rate: 225 },
+    { name: "Long-Distance Transportation", rate: 650 },
+    { name: "Lifestyle / Concierge Services", rate: 300 },
+  ];
+  for (let i = 0; i < serviceDefs.length; i++) {
+    const s = serviceDefs[i];
+    await prisma.service.upsert({ where: { name: s.name }, update: {}, create: { name: s.name, baseRate: s.rate, order: i } });
+  }
+  const locationDefs: { name: string; address: string; type: string }[] = [
+    { name: "LAX — Los Angeles International Airport", address: "1 World Way, Los Angeles, CA 90045", type: "AIRPORT" },
+    { name: "Burbank Airport (BUR)", address: "2627 N Hollywood Way, Burbank, CA 91505", type: "AIRPORT" },
+    { name: "The Peninsula Beverly Hills", address: "9882 S Santa Monica Blvd, Beverly Hills, CA 90212", type: "HOTEL" },
+    { name: "Malibu Beach House", address: "Malibu, CA 90265", type: "RESIDENCE" },
+    { name: "SoFi Stadium", address: "1001 Stadium Dr, Inglewood, CA 90301", type: "VENUE" },
+    { name: "Downtown LA Convention Center", address: "1201 S Figueroa St, Los Angeles, CA 90015", type: "VENUE" },
+    { name: "Private Residence — Bel Air", address: "Bel Air, CA 90077", type: "RESIDENCE" },
+  ];
+  for (const l of locationDefs) {
+    const existing = await prisma.location.findFirst({ where: { name: l.name } });
+    if (!existing) await prisma.location.create({ data: l });
+  }
+
+  // ── Customers ──────────────────────────────────────────────────────────
+  const customerDefs = [
+    { firstName: "Victor", lastName: "Ashcombe", tier: "VVIP", company: null, owner: sofia },
+    { firstName: "Isabella", lastName: "Marchetti", tier: "VVIP", company: null, owner: sofia },
+    { firstName: "Grant", lastName: "Whitfield", tier: "VIP", company: null, owner: noah },
+    { firstName: "Chloe", lastName: "Nakamura", tier: "VIP", company: null, owner: sofia },
+    { firstName: "Marcus", lastName: "Delgado", tier: "VIP", company: null, owner: noah },
+    { firstName: "Amara", lastName: "Okafor", tier: "STANDARD", company: null, owner: noah },
+    { firstName: "Liam", lastName: "Sorensen", tier: "STANDARD", company: null, owner: sofia },
+    { firstName: "Priscilla", lastName: "Huang", tier: "STANDARD", company: null, owner: noah },
+    { firstName: "Ethan", lastName: "Brightwater", tier: "STANDARD", company: null, owner: sofia },
+    { firstName: "Devon", lastName: "Kessler", tier: "CORPORATE", company: "ABC Executive Group", owner: sofia },
+    { firstName: "Renata", lastName: "Silva", tier: "CORPORATE", company: "Meridian Capital Partners", owner: noah },
+    { firstName: "Harrison", lastName: "Blackwood", tier: "STANDARD", company: null, owner: noah },
+    { firstName: "Yuki", lastName: "Tanaka", tier: "VIP", company: null, owner: sofia },
+    { firstName: "Selena", lastName: "Vance", tier: "STANDARD", company: null, owner: noah },
+  ];
+  const customers: Record<string, { id: string }> = {};
+  for (const c of customerDefs) {
+    const key = `${c.firstName} ${c.lastName}`;
+    const existing = await prisma.customer.findFirst({ where: { firstName: c.firstName, lastName: c.lastName } });
+    customers[key] =
+      existing ??
+      (await prisma.customer.create({
+        data: {
+          firstName: c.firstName,
+          lastName: c.lastName,
+          phone: randPhone(),
+          email: `${c.firstName.toLowerCase()}.${c.lastName.toLowerCase()}@example.com`,
+          company: c.company,
+          city: "Los Angeles",
+          state: "CA",
+          tier: c.tier,
+          preferredContactMethod: pick(["PHONE", "TEXT", "EMAIL"]),
+          ownerId: c.owner.id,
+          referralSource: pick(DEFAULT_LEAD_SOURCES),
+          specialRequests: c.tier === "VVIP" ? "Always stock chilled Dom Pérignon; requires meet & greet sign." : undefined,
+        },
+      }));
+  }
+
+  // ── Leads across the pipeline ───────────────────────────────────────
+  type LeadDef = {
+    customer: string;
+    stage: string;
+    source: string;
+    service: string;
+    pickup: string;
+    dropoff: string;
+    passengers: number;
+    vehicle?: string;
+    isVip?: boolean;
+    days: number; // days from now for serviceDate
+    rawInquiry?: string;
+    aiSummary?: string;
+  };
+  const leadDefs: LeadDef[] = [
+    {
+      customer: "Amara Okafor",
+      stage: "New Lead",
+      source: "Website",
+      service: "Airport Transfer",
+      pickup: "LAX",
+      dropoff: "Malibu",
+      passengers: 8,
+      vehicle: "Mercedes Sprinter",
+      days: 3,
+      rawInquiry: "Hey I need a Sprinter for 8 people from LAX to Malibu Friday around 7pm.",
+      aiSummary: "Airport transfer · Mercedes Sprinter · 8 passengers · LAX → Malibu · Friday 7:00 PM. Awaiting staff pricing & availability confirmation.",
+    },
+    { customer: "Liam Sorensen", stage: "New Lead", source: "Instagram", service: "VIP Night Out", pickup: "The Peninsula Beverly Hills", dropoff: "Downtown LA", passengers: 4, vehicle: "Rolls-Royce Cullinan", days: 6 },
+    { customer: "Priscilla Huang", stage: "Contacted", source: "Google", service: "Hourly Service", pickup: "Beverly Hills", dropoff: "Multiple stops", passengers: 3, days: 5 },
+    { customer: "Ethan Brightwater", stage: "Contacted", source: "Referral", service: "Point-to-Point Transportation", pickup: "Bel Air", dropoff: "SoFi Stadium", passengers: 2, days: 8 },
+    { customer: "Harrison Blackwood", stage: "Qualified", source: "TikTok", service: "Self-Drive Rental", pickup: "Stratos Garage", dropoff: "—", passengers: 1, vehicle: "Lamborghini Urus", days: 10 },
+    { customer: "Selena Vance", stage: "Qualified", source: "Facebook", service: "Events", pickup: "Malibu Beach House", dropoff: "Malibu Beach House", passengers: 6, days: 12 },
+    { customer: "Yuki Tanaka", stage: "Quote Sent", source: "Repeat Client", service: "Weddings", pickup: "Private Residence — Bel Air", dropoff: "The Peninsula Beverly Hills", passengers: 4, vehicle: "Rolls-Royce Phantom", isVip: true, days: 21 },
+    { customer: "Devon Kessler", stage: "Quote Sent", source: "Corporate Client", service: "Corporate Transportation", pickup: "LAX", dropoff: "Downtown LA Convention Center", passengers: 6, vehicle: "Cadillac Escalade", days: 4 },
+    { customer: "Grant Whitfield", stage: "Follow-Up", source: "Phone Call", service: "Long-Distance Transportation", pickup: "Beverly Hills", dropoff: "Napa Valley", passengers: 2, isVip: true, days: 18 },
+    { customer: "Chloe Nakamura", stage: "Follow-Up", source: "Text Message", service: "Lifestyle / Concierge Services", pickup: "The Peninsula Beverly Hills", dropoff: "Rodeo Drive", passengers: 1, isVip: true, days: 7 },
+    { customer: "Isabella Marchetti", stage: "Deposit Requested", source: "Referral", service: "VIP Night Out", pickup: "Bel Air", dropoff: "West Hollywood", passengers: 5, vehicle: "Rolls-Royce Cullinan", isVip: true, days: 9 },
+    { customer: "Marcus Delgado", stage: "Deposit Requested", source: "Website", service: "California Transportation", pickup: "Beverly Hills", dropoff: "Santa Barbara", passengers: 3, isVip: true, days: 15 },
+    { customer: "Renata Silva", stage: "Booked", source: "Corporate Client", service: "Corporate Transportation", pickup: "Burbank Airport (BUR)", dropoff: "Downtown LA", passengers: 4, vehicle: "Cadillac Escalade", days: 1 },
+  ];
+
+  for (const l of leadDefs) {
+    const cust = customers[l.customer];
+    const existing = await prisma.lead.findFirst({ where: { customerId: cust.id, serviceRequested: l.service } });
+    if (existing) continue;
+    await prisma.lead.create({
+      data: {
+        customerId: cust.id,
+        sourceId: sources[l.source]?.id,
+        assigneeId: pick([sofia, noah]).id,
+        stageId: stages[l.stage].id,
+        serviceRequested: l.service,
+        pickupLocation: l.pickup,
+        dropoffLocation: l.dropoff,
+        serviceDate: daysFromNow(l.days),
+        pickupTime: pick(["09:00", "11:30", "14:00", "17:00", "19:00"]),
+        passengers: l.passengers,
+        vehicleRequested: l.vehicle,
+        chauffeurRequested: l.service !== "Self-Drive Rental",
+        estimatedHours: 3,
+        estimatedPrice: 900 + Math.random() * 2500,
+        isVip: !!l.isVip,
+        score: l.isVip ? 82 + Math.floor(Math.random() * 15) : 30 + Math.floor(Math.random() * 50),
+        rawInquiry: l.rawInquiry,
+        aiSummary: l.aiSummary,
+        lastContactedAt: l.stage === "New Lead" ? null : daysAgo(1),
+        nextFollowUpAt: ["New Lead", "Contacted", "Qualified", "Follow-Up"].includes(l.stage) ? daysFromNow(1) : null,
+        notes: l.isVip ? "High-value client — white-glove handling required." : undefined,
       },
     });
   }
 
-  // ── Lost reasons ─────────────────────────────────────────────────────
-  const lostReasons: Record<string, { id: string }> = {};
-  for (let i = 0; i < DEFAULT_LOST_REASONS.length; i++) {
-    const name = DEFAULT_LOST_REASONS[i];
-    lostReasons[name] = await prisma.lostReason.upsert({
-      where: { name },
-      update: {},
-      create: { name, order: i },
+  // ── Bookings — today's operations timeline (matches dashboard example) ──
+  async function createBooking(opts: {
+    customer: string;
+    vehicleKey: string;
+    driverKey?: string;
+    service: string;
+    pickup: string;
+    dropoff: string;
+    date: Date;
+    pickupTime: string;
+    endTime?: string;
+    passengers: number;
+    bookingStatus: string;
+    opsStage: string;
+    paymentStatus: string;
+    hours?: number;
+    flight?: { number: string; airline: string; airport: string; arrival: Date; status: string };
+    specialInstructions?: string;
+  }) {
+    const cust = customers[opts.customer];
+    const vehicle = vehicles[opts.vehicleKey];
+    const driver = opts.driverKey ? drivers[opts.driverKey] : null;
+    const hourly = 250;
+    const hours = opts.hours ?? 3;
+    const pricing = computePricing({
+      baseRate: hourly * hours,
+      driverFee: driver ? 45 * hours : 0,
+      mileageFee: 80,
+      additionalFees: 0,
+      discount: 0,
+    });
+    const depositPaid = opts.paymentStatus !== "PAYMENT_PENDING";
+    const booking = await prisma.booking.create({
+      data: {
+        bookingNumber: nextBookingNumber(),
+        customerId: cust.id,
+        vehicleId: vehicle.id,
+        driverId: driver?.id,
+        serviceType: opts.service,
+        pickupAddress: opts.pickup,
+        dropoffAddress: opts.dropoff,
+        date: opts.date,
+        pickupTime: opts.pickupTime,
+        endTime: opts.endTime,
+        passengers: opts.passengers,
+        flightNumber: opts.flight?.number,
+        flightAirline: opts.flight?.airline,
+        flightAirport: opts.flight?.airport,
+        flightArrivalTime: opts.flight?.arrival,
+        flightStatus: opts.flight?.status,
+        specialInstructions: opts.specialInstructions,
+        amenities: JSON.stringify(["Bottled Water", "Wi-Fi Hotspot"]),
+        baseRate: pricing.baseRate,
+        driverFee: pricing.driverFee,
+        mileageFee: pricing.mileageFee,
+        additionalFees: pricing.additionalFees,
+        taxAmount: pricing.taxAmount,
+        totalPrice: pricing.totalPrice,
+        deposit: depositPaid ? pricing.depositAmount : 0,
+        remainingBalance: opts.paymentStatus === "PAID_IN_FULL" ? 0 : pricing.totalPrice - (depositPaid ? pricing.depositAmount : 0),
+        paymentStatus: opts.paymentStatus,
+        bookingStatus: opts.bookingStatus,
+        opsStage: opts.opsStage,
+      },
+    });
+    if (driver) {
+      await prisma.trip.create({
+        data: {
+          bookingId: booking.id,
+          status:
+            opts.opsStage === "COMPLETED" ? "COMPLETED" : opts.opsStage === "IN_TRANSIT" || opts.opsStage === "PASSENGER_ONBOARD" ? "IN_TRANSIT" : opts.opsStage === "ARRIVED" ? "ARRIVED" : opts.opsStage === "DRIVER_EN_ROUTE" ? "DRIVER_EN_ROUTE" : "SCHEDULED",
+        },
+      });
+    }
+    if (depositPaid) {
+      await prisma.payment.create({
+        data: {
+          customerId: cust.id,
+          bookingId: booking.id,
+          amount: opts.paymentStatus === "PAID_IN_FULL" ? pricing.totalPrice : pricing.depositAmount,
+          type: opts.paymentStatus === "PAID_IN_FULL" ? "FULL" : "DEPOSIT",
+          method: "CARD",
+          status: "SUCCEEDED",
+          processedAt: daysAgo(1),
+        },
+      });
+    }
+    return booking;
+  }
+
+  // Today's operations (exact spec example)
+  await createBooking({
+    customer: "Victor Ashcombe",
+    vehicleKey: "SX-04",
+    driverKey: "Marcus",
+    service: "Airport Transfer",
+    pickup: "LAX",
+    dropoff: "Malibu",
+    date: todayAt(8),
+    pickupTime: "08:00",
+    endTime: "09:30",
+    passengers: 6,
+    bookingStatus: "CONFIRMED",
+    opsStage: "DRIVER_ASSIGNED",
+    paymentStatus: "DEPOSIT_PAID",
+    hours: 2,
+    flight: { number: "AA 118", airline: "American Airlines", airport: "LAX", arrival: todayAt(7, 30), status: "LANDED" },
+  });
+  await createBooking({
+    customer: "Devon Kessler",
+    vehicleKey: "SX-06",
+    driverKey: "Daniel",
+    service: "Corporate Transportation",
+    pickup: "Burbank Airport (BUR)",
+    dropoff: "Downtown LA",
+    date: todayAt(11, 30),
+    pickupTime: "11:30",
+    endTime: "13:00",
+    passengers: 4,
+    bookingStatus: "EN_ROUTE",
+    opsStage: "DRIVER_EN_ROUTE",
+    paymentStatus: "PAID_IN_FULL",
+    hours: 2,
+  });
+  await createBooking({
+    customer: "Isabella Marchetti",
+    vehicleKey: "SX-01",
+    driverKey: "Marcus",
+    service: "VIP Night Out",
+    pickup: "Bel Air",
+    dropoff: "West Hollywood",
+    date: todayAt(19),
+    pickupTime: "19:00",
+    endTime: "23:00",
+    passengers: 5,
+    bookingStatus: "CONFIRMED",
+    opsStage: "UPCOMING",
+    paymentStatus: "DEPOSIT_PAID",
+    hours: 4,
+    specialInstructions: "VVIP — champagne service, red carpet, meet & greet sign with party name.",
+  });
+
+  // A few more today + this week for realistic volume
+  await createBooking({ customer: "Renata Silva", vehicleKey: "SX-07", driverKey: undefined, service: "Corporate Transportation", pickup: "Downtown LA", dropoff: "LAX", date: daysFromNow(1), pickupTime: "06:00", passengers: 3, bookingStatus: "RESERVED", opsStage: "UPCOMING", paymentStatus: "PAYMENT_PENDING" });
+  await createBooking({ customer: "Grant Whitfield", vehicleKey: "SX-09", driverKey: undefined, service: "Long-Distance Transportation", pickup: "Beverly Hills", dropoff: "Napa Valley", date: daysFromNow(3), pickupTime: "07:00", passengers: 2, bookingStatus: "CONFIRMED", opsStage: "UPCOMING", paymentStatus: "DEPOSIT_PAID", hours: 6 });
+  await createBooking({ customer: "Chloe Nakamura", vehicleKey: "SX-10", driverKey: undefined, service: "Lifestyle / Concierge Services", pickup: "The Peninsula Beverly Hills", dropoff: "Rodeo Drive", date: daysFromNow(2), pickupTime: "15:00", passengers: 1, bookingStatus: "CONFIRMED", opsStage: "UPCOMING", paymentStatus: "DEPOSIT_PAID" });
+
+  // Completed trips this month/last month (revenue & repeat-customer history)
+  for (let i = 1; i <= 10; i++) {
+    const cust = pick(Object.keys(customers));
+    const vkey = pick(Object.keys(vehicles));
+    await createBooking({
+      customer: cust,
+      vehicleKey: vkey,
+      driverKey: pick(["Marcus", "Daniel", undefined, undefined]),
+      service: pick(serviceDefs.map((s) => s.name)),
+      pickup: pick(locationDefs.map((l) => l.name)),
+      dropoff: pick(locationDefs.map((l) => l.name)),
+      date: daysAgo(2 + i * 2),
+      pickupTime: pick(["09:00", "12:00", "16:00", "19:00"]),
+      passengers: 1 + Math.floor(Math.random() * 7),
+      bookingStatus: "COMPLETED",
+      opsStage: "COMPLETED",
+      paymentStatus: "PAID_IN_FULL",
+      hours: 2 + Math.floor(Math.random() * 4),
     });
   }
 
-  // ── Integrations (all disabled — optional, added later) ─────────────
-  const integrationDefs = [
-    { provider: "OPENAI", category: "AI" },
-    { provider: "TWILIO", category: "SMS" },
-    { provider: "GMAIL", category: "EMAIL" },
-    { provider: "OUTLOOK", category: "EMAIL" },
-    { provider: "GOOGLE_CALENDAR", category: "CALENDAR" },
-    { provider: "DMS", category: "DMS" },
-    { provider: "INVENTORY_FEED", category: "INVENTORY" },
+  // ── Quotes ─────────────────────────────────────────────────────────────
+  const quoteDefs = [
+    { customer: "Yuki Tanaka", vehicleKey: "SX-02", service: "Weddings", status: "SENT", hours: 8 },
+    { customer: "Devon Kessler", vehicleKey: "SX-06", service: "Corporate Transportation", status: "VIEWED", hours: 3 },
+    { customer: "Marcus Delgado", vehicleKey: "SX-08", service: "California Transportation", status: "ACCEPTED", hours: 10 },
+    { customer: "Liam Sorensen", vehicleKey: "SX-01", service: "VIP Night Out", status: "DRAFT", hours: 4 },
   ];
-  for (const i of integrationDefs) {
-    await prisma.integration.upsert({
-      where: { provider: i.provider },
-      update: {},
-      create: { provider: i.provider, category: i.category, enabled: false },
+  for (const q of quoteDefs) {
+    const cust = customers[q.customer];
+    const vehicle = vehicles[q.vehicleKey];
+    const hourlyRate = vehicleHourlyRates[q.vehicleKey] ?? 300;
+    const pricing = computePricing({ baseRate: hourlyRate * q.hours, driverFee: 45 * q.hours, mileageFee: 90 });
+    await prisma.quote.create({
+      data: {
+        quoteNumber: nextQuoteNumber(),
+        customerId: cust.id,
+        vehicleId: vehicle.id,
+        serviceType: q.service,
+        hours: q.hours,
+        baseRate: pricing.baseRate,
+        driverFee: pricing.driverFee,
+        mileageFee: pricing.mileageFee,
+        taxAmount: pricing.taxAmount,
+        subtotal: pricing.subtotal,
+        totalPrice: pricing.totalPrice,
+        depositAmount: pricing.depositAmount,
+        status: q.status,
+        validUntil: daysFromNow(14),
+        termsText:
+          "50% deposit due at booking; remaining balance due 48 hours before service. Cancellations within 72 hours are non-refundable. Gratuity not included.",
+        sentAt: q.status !== "DRAFT" ? daysAgo(2) : null,
+        createdById: sofia.id,
+      },
     });
   }
 
-  // ── Settings ──────────────────────────────────────────────────────────
+  // ── Tasks ──────────────────────────────────────────────────────────────
+  const taskDefs = [
+    { title: "Call Amara Okafor re: Sprinter LAX → Malibu", type: "CALL", priority: "URGENT", due: daysFromNow(0), assignee: sofia },
+    { title: "Send quote to Devon Kessler (Corporate Transportation)", type: "SEND_QUOTE", priority: "HIGH", due: daysFromNow(0), assignee: sofia },
+    { title: "Collect deposit — Isabella Marchetti VIP Night Out", type: "COLLECT_DEPOSIT", priority: "HIGH", due: daysFromNow(0), assignee: sofia },
+    { title: "Assign driver — Renata Silva airport run", type: "ASSIGN_DRIVER", priority: "NORMAL", due: daysFromNow(1), assignee: priya },
+    { title: "Confirm flight AA 118 — Victor Ashcombe", type: "CONFIRM_FLIGHT", priority: "NORMAL", due: daysFromNow(0), assignee: priya },
+    { title: "Prepare Rolls-Royce Cullinan for tonight's VIP Night Out", type: "PREPARE_VEHICLE", priority: "HIGH", due: daysFromNow(0), assignee: priya },
+    { title: "Send reminder — Grant Whitfield Napa trip", type: "SEND_REMINDER", priority: "NORMAL", due: daysFromNow(2), assignee: noah },
+    { title: "Collect remaining balance — Chloe Nakamura", type: "COLLECT_BALANCE", priority: "NORMAL", due: daysFromNow(1), assignee: sofia },
+    { title: "Request review — completed wedding package", type: "REQUEST_REVIEW", priority: "LOW", due: daysAgo(-1), assignee: noah },
+    { title: "Follow up — Priscilla Huang hourly service quote", type: "FOLLOW_UP", priority: "NORMAL", due: daysAgo(1), assignee: noah },
+  ];
+  for (const t of taskDefs) {
+    await prisma.task.create({
+      data: { title: t.title, type: t.type, priority: t.priority, dueDate: t.due, assigneeId: t.assignee.id, status: "PENDING" },
+    });
+  }
+
+  // ── Message templates ───────────────────────────────────────────────
+  const templateDefs = [
+    { key: "LEAD_CONFIRMATION", name: "New Inquiry Confirmation", channel: "SMS", body: "Thank you for contacting Stratos Exotics & Lifestyle. A concierge specialist will reach out shortly to confirm your reservation details." },
+    { key: "QUOTE_SENT", name: "Quote Sent", channel: "EMAIL", subject: "Your Stratos Exotics Quote", body: "Your personalized quote is ready to review. Tap the link to view pricing, trip details, and accept your reservation." },
+    { key: "BOOKING_CONFIRMED", name: "Booking Confirmed", channel: "SMS", body: "You're confirmed! Your chauffeur and vehicle details will be sent 24 hours before your reservation. — Stratos Exotics" },
+    { key: "DEPOSIT_REQUEST", name: "Deposit Request", channel: "EMAIL", subject: "Secure Your Reservation", body: "To secure your reservation, please submit your deposit using the secure payment link below." },
+    { key: "DRIVER_ASSIGNED", name: "Chauffeur Assigned", channel: "SMS", body: "Your chauffeur {{driverName}} has been assigned and will arrive at {{pickupTime}}. Vehicle: {{vehicleName}}." },
+    { key: "REMINDER_24H", name: "24-Hour Reminder", channel: "SMS", body: "Reminder: your Stratos Exotics reservation is tomorrow at {{pickupTime}}. Reply here with any changes." },
+    { key: "REMINDER_2H", name: "2-Hour Reminder", channel: "SMS", body: "Your chauffeur is preparing for your {{pickupTime}} pickup at {{pickupLocation}}. See you soon!" },
+    { key: "THANK_YOU_REVIEW", name: "Thank You + Review Request", channel: "EMAIL", subject: "Thank You From Stratos Exotics", body: "It was a pleasure serving you. We'd love to hear about your experience — leave us a review when you have a moment." },
+  ];
+  for (const t of templateDefs) {
+    await prisma.messageTemplate.upsert({ where: { key: t.key }, update: {}, create: t });
+  }
+
+  // ── Automation rules ───────────────────────────────────────────────
+  const automationDefs = [
+    { name: "Instant new-lead confirmation", trigger: "NEW_LEAD", actions: [{ type: "SEND_MESSAGE", templateKey: "LEAD_CONFIRMATION" }, { type: "CREATE_TASK", taskType: "CALL", title: "Call new lead within 15 minutes" }] },
+    { name: "Flag & notify on VIP lead", trigger: "HIGH_VALUE_LEAD", actions: [{ type: "NOTIFY_STAFF", notifyType: "HIGH_VALUE_LEAD" }] },
+    { name: "Booking confirmation", trigger: "BOOKING_CONFIRMED", actions: [{ type: "SEND_MESSAGE", templateKey: "BOOKING_CONFIRMED" }] },
+    { name: "24-hour reservation reminder", trigger: "REMINDER_24H", actions: [{ type: "SEND_MESSAGE", templateKey: "REMINDER_24H" }] },
+    { name: "2-hour reservation reminder", trigger: "REMINDER_2H", actions: [{ type: "SEND_MESSAGE", templateKey: "REMINDER_2H" }] },
+    { name: "Post-trip thank-you & review request", trigger: "TRIP_COMPLETED", actions: [{ type: "SEND_MESSAGE", templateKey: "THANK_YOU_REVIEW" }, { type: "CREATE_TASK", taskType: "REQUEST_REVIEW", title: "Follow up on review request" }] },
+    { name: "No response — escalate task", trigger: "NO_CONTACT_X_HOURS", conditions: { hours: 4 }, actions: [{ type: "CREATE_TASK", taskType: "FOLLOW_UP", title: "Lead has not been contacted — follow up now" }] },
+    { name: "Payment received confirmation", trigger: "PAYMENT_RECEIVED", actions: [{ type: "NOTIFY_STAFF", notifyType: "PAYMENT_RECEIVED" }] },
+    { name: "Payment failed alert", trigger: "PAYMENT_FAILED", actions: [{ type: "NOTIFY_STAFF", notifyType: "PAYMENT_FAILED" }] },
+    { name: "Maintenance due alert", trigger: "MAINTENANCE_DUE", actions: [{ type: "NOTIFY_STAFF", notifyType: "MAINTENANCE_DUE" }] },
+  ];
+  for (const a of automationDefs) {
+    const existing = await prisma.automationRule.findFirst({ where: { name: a.name } });
+    if (!existing) {
+      await prisma.automationRule.create({
+        data: { name: a.name, triggerEvent: a.trigger, conditions: a.conditions ? JSON.stringify(a.conditions) : null, actions: JSON.stringify(a.actions), active: true },
+      });
+    }
+  }
+
+  // ── Follow-up sequence ─────────────────────────────────────────────
+  let sequence = await prisma.followUpSequence.findFirst({ where: { name: "New Inquiry Response" } });
+  if (!sequence) {
+    sequence = await prisma.followUpSequence.create({
+      data: { name: "New Inquiry Response", description: "Default cadence for a brand-new lead until they respond or book.", trigger: "NEW_LEAD", isDefault: true },
+    });
+    const steps: { offsetMinutes: number; channel: string; title: string; body: string }[] = [
+      { offsetMinutes: 0, channel: "SMS", title: "Instant thank-you", body: "Thank you for contacting Stratos Exotics & Lifestyle. A concierge specialist will be in touch shortly." },
+      { offsetMinutes: 120, channel: "CALL", title: "First follow-up call", body: "Call if no response within 2 hours." },
+      { offsetMinutes: 960, channel: "SMS", title: "Next-morning follow-up", body: "Just checking in — happy to help you lock in your vehicle and chauffeur." },
+      { offsetMinutes: 2880, channel: "EMAIL", title: "24-hour follow-up", body: "Following up one more time — let us know if your plans have changed." },
+    ];
+    for (let i = 0; i < steps.length; i++) {
+      const s = steps[i];
+      await prisma.followUpStep.create({ data: { sequenceId: sequence.id, offsetMinutes: s.offsetMinutes, channel: s.channel, title: s.title, messageBody: s.body, order: i } });
+    }
+  }
+
+  // ── Notifications ──────────────────────────────────────────────────
+  const notifDefs = [
+    { user: owner, type: "HIGH_VALUE_LEAD", title: "VIP lead: Isabella Marchetti", body: "VIP Night Out request — deposit requested." },
+    { user: sofia, type: "NEW_LEAD", title: "New lead from Website", body: "Amara Okafor — Airport Transfer inquiry." },
+    { user: priya, type: "FOLLOW_UP_DUE", title: "Follow-up due today", body: "3 leads need a follow-up today." },
+    { user: owner, type: "PAYMENT_RECEIVED", title: "Payment received", body: "Deposit received from Victor Ashcombe — $645.00" },
+    { user: jordan, type: "MAINTENANCE_DUE", title: "Maintenance scheduled", body: "Rolls-Royce Cullinan detail scheduled in 2 days." },
+  ];
+  for (const n of notifDefs) {
+    await prisma.notification.create({ data: { userId: n.user.id, type: n.type, title: n.title, body: n.body, link: "/dashboard" } });
+  }
+
+  // ── Integrations (disabled placeholders) ────────────────────────────
+  for (const i of INTEGRATION_PROVIDERS) {
+    await prisma.integration.upsert({ where: { provider: i.provider }, update: {}, create: { provider: i.provider, category: i.category, enabled: false } });
+  }
+
+  // ── Company settings ─────────────────────────────────────────────────
   await prisma.setting.upsert({
-    where: { key: "dealership" },
+    where: { key: "company" },
     update: {},
     create: {
-      key: "dealership",
+      key: "company",
       value: JSON.stringify({
-        name: "Driveline Motors",
-        address: "4820 Commerce Pkwy, Riverbend, TX 75001",
-        phone: "(555) 442-0199",
-        timezone: "America/Chicago",
+        name: "Stratos Exotics & Lifestyle",
+        website: "https://www.stratoslux.com",
+        phone: "(310) 555-0199",
+        email: "concierge@stratoslux.com",
+        address: "8500 Sunset Blvd, West Hollywood, CA 90069",
+        serviceArea: "Los Angeles & Southern California",
+        cancellationPolicy: "Cancellations within 72 hours of service are non-refundable. Deposits are transferable to a future date within 90 days.",
+        bookingPolicy: "All reservations require a valid ID and signed rental agreement. A security deposit hold may apply for self-drive rentals.",
+        termsAndConditions: "By booking with Stratos Exotics & Lifestyle, the client agrees to our standard rental and chauffeur service terms, available upon request.",
+        depositPercent: 30,
+        taxRate: 9.75,
       }),
     },
   });
 
-  // ── Follow-up sequences ──────────────────────────────────────────────
-  const newLeadSeq = await prisma.followUpSequence.create({
-    data: {
-      name: "New Lead — Standard",
-      description: "Default cadence for every new lead: fast first response, then a steady drip through 30 days.",
-      isDefault: true,
-      trigger: "NEW_LEAD",
-      steps: {
-        create: [
-          { dayOffset: 0, type: "CALL", title: "Day 0 — Call new lead", order: 0 },
-          { dayOffset: 0, type: "TEXT", title: "Day 0 — Text new lead", order: 1 },
-          { dayOffset: 1, type: "CALL", title: "Day 1 — Follow-up call", order: 2 },
-          { dayOffset: 2, type: "TEXT", title: "Day 2 — Check-in text", order: 3 },
-          { dayOffset: 4, type: "CALL", title: "Day 4 — Follow-up call", order: 4 },
-          { dayOffset: 7, type: "FOLLOW_UP", title: "Day 7 — Follow-up", order: 5 },
-          { dayOffset: 14, type: "FOLLOW_UP", title: "Day 14 — Re-engagement", order: 6 },
-          { dayOffset: 30, type: "FOLLOW_UP", title: "Day 30 — Long-term follow-up", order: 7 },
-        ],
-      },
-    },
-  });
-
-  const reactivationSeq = await prisma.followUpSequence.create({
-    data: {
-      name: "Reactivation — Win-Back",
-      description: "Cadence for bringing old or lost customers back into an active conversation.",
-      isDefault: true,
-      trigger: "REACTIVATION",
-      steps: {
-        create: [
-          { dayOffset: 0, type: "TEXT", title: "Day 0 — Reactivation text", order: 0 },
-          { dayOffset: 2, type: "CALL", title: "Day 2 — Reactivation call", order: 1 },
-          { dayOffset: 7, type: "EMAIL", title: "Day 7 — Reactivation email", order: 2 },
-          { dayOffset: 21, type: "FOLLOW_UP", title: "Day 21 — Final check-in", order: 3 },
-        ],
-      },
-    },
-  });
-
-  // ── Automation rules ──────────────────────────────────────────────────
-  await prisma.automationRule.createMany({
-    data: [
-      {
-        name: "New lead → start Day 0 follow-up",
-        triggerEvent: "NEW_LEAD",
-        actions: JSON.stringify([
-          { type: "ENROLL_SEQUENCE", sequenceName: "New Lead — Standard" },
-          { type: "NOTIFY", notifType: "NEW_LEAD", title: "New lead assigned to you" },
-        ]),
-        order: 0,
-      },
-      {
-        name: "Lead goes HOT → high-priority task",
-        triggerEvent: "HOT_LEAD",
-        actions: JSON.stringify([
-          { type: "CREATE_TASK", taskType: "CALL", title: "🔥 Hot lead — call immediately", priority: "URGENT", dueInHours: 1 },
-          { type: "NOTIFY", notifType: "HOT_LEAD", title: "Lead just went HOT" },
-        ]),
-        order: 1,
-      },
-      {
-        name: "Appointment created → confirmation task",
-        triggerEvent: "APPOINTMENT_CREATED",
-        actions: JSON.stringify([{ type: "CREATE_TASK", taskType: "CALL", title: "Confirm upcoming appointment", priority: "HIGH", dueInHours: 2 }]),
-        order: 2,
-      },
-      {
-        name: "Appointment tomorrow → reminder",
-        triggerEvent: "APPOINTMENT_TOMORROW",
-        actions: JSON.stringify([
-          { type: "CREATE_TASK", taskType: "TEXT", title: "Send appointment reminder", priority: "HIGH", dueInHours: 4 },
-          { type: "NOTIFY", notifType: "APPOINTMENT_TOMORROW", title: "Appointment tomorrow" },
-        ]),
-        order: 3,
-      },
-      {
-        name: "Appointment completed → follow-up",
-        triggerEvent: "APPOINTMENT_COMPLETED",
-        actions: JSON.stringify([{ type: "CREATE_TASK", taskType: "FOLLOW_UP", title: "Follow up after visit", priority: "NORMAL", dueInHours: 24 }]),
-        order: 4,
-      },
-      {
-        name: "No-show → urgent follow-up",
-        triggerEvent: "APPOINTMENT_NO_SHOW",
-        actions: JSON.stringify([
-          { type: "CREATE_TASK", taskType: "CALL", title: "No-show — urgent follow-up call", priority: "URGENT", dueInHours: 2 },
-          { type: "NOTIFY", notifType: "NO_SHOW", title: "Customer no-showed an appointment" },
-        ]),
-        order: 5,
-      },
-      {
-        name: "No contact in 3 days → task",
-        triggerEvent: "NO_CONTACT_X_DAYS",
-        conditions: JSON.stringify({ days: 3 }),
-        actions: JSON.stringify([{ type: "CREATE_TASK", taskType: "CALL", title: "No contact in 3 days — reach out", priority: "HIGH", dueInHours: 4 }]),
-        order: 6,
-      },
-      {
-        name: "Test drive completed → follow-up",
-        triggerEvent: "TEST_DRIVE_COMPLETED",
-        actions: JSON.stringify([{ type: "CREATE_TASK", taskType: "FOLLOW_UP", title: "Follow up after test drive", priority: "HIGH", dueInHours: 24 }]),
-        order: 7,
-      },
-      {
-        name: "Vehicle of interest sold → alert",
-        triggerEvent: "VEHICLE_SOLD",
-        actions: JSON.stringify([{ type: "NOTIFY", notifType: "VEHICLE_SOLD", title: "A customer's vehicle of interest just sold" }]),
-        order: 8,
-      },
-      {
-        name: "Lead lost → schedule reactivation",
-        triggerEvent: "LEAD_LOST",
-        actions: JSON.stringify([{ type: "CREATE_TASK", taskType: "FOLLOW_UP", title: "Reactivation check-in", priority: "LOW", dueInDays: 45 }]),
-        order: 9,
-      },
-      {
-        name: "Follow-up completed → schedule next step",
-        triggerEvent: "FOLLOW_UP_COMPLETED",
-        actions: JSON.stringify([{ type: "ADVANCE_SEQUENCE" }]),
-        order: 10,
-      },
-    ],
-  });
-
-  // ── Vehicle inventory (15) ───────────────────────────────────────────
-  const vehicleDefs = [
-    { year: 2026, make: "Kestrel", model: "Ranger SUV", trim: "XLT", condition: "NEW", bodyStyle: "SUV", drivetrain: "AWD", mileage: 8, ext: "Alpine White", int: "Black", msrp: 42900, seats: 7 },
-    { year: 2026, make: "Kestrel", model: "Ranger SUV", trim: "Limited", condition: "NEW", bodyStyle: "SUV", drivetrain: "AWD", mileage: 5, ext: "Onyx Black", int: "Tan", msrp: 48500, seats: 7 },
-    { year: 2025, make: "Voltano", model: "Meridian", trim: "SE", condition: "USED", bodyStyle: "SEDAN", drivetrain: "FWD", mileage: 12450, ext: "Silver Steel", int: "Gray", sell: 24900, seats: 5 },
-    { year: 2024, make: "Voltano", model: "Meridian", trim: "SEL", condition: "USED", bodyStyle: "SEDAN", drivetrain: "FWD", mileage: 21830, ext: "Ruby Red", int: "Black", sell: 22400, seats: 5 },
-    { year: 2026, make: "Harrow", model: "Trailhand", trim: "Sport", condition: "NEW", bodyStyle: "TRUCK", drivetrain: "4WD", mileage: 3, ext: "Storm Gray", int: "Black", msrp: 51200, seats: 5 },
-    { year: 2026, make: "Harrow", model: "Trailhand", trim: "Longhorn", condition: "NEW", bodyStyle: "TRUCK", drivetrain: "4WD", mileage: 10, ext: "Deep Blue", int: "Saddle", msrp: 58900, seats: 6 },
-    { year: 2023, make: "Harrow", model: "Trailhand", trim: "XL", condition: "USED", bodyStyle: "TRUCK", drivetrain: "4WD", mileage: 34200, ext: "White", int: "Gray", sell: 39900, seats: 5 },
-    { year: 2026, make: "Solace", model: "Aria", trim: "Touring", condition: "NEW", bodyStyle: "SUV", drivetrain: "AWD", mileage: 6, ext: "Pearl White", int: "Beige", msrp: 44300, seats: 7 },
-    { year: 2025, make: "Solace", model: "Aria", trim: "Base", condition: "CERTIFIED", bodyStyle: "SUV", drivetrain: "AWD", mileage: 15600, ext: "Black", int: "Black", sell: 36700, seats: 7 },
-    { year: 2026, make: "Cobalt", model: "Sprint", trim: "GT", condition: "NEW", bodyStyle: "COUPE", drivetrain: "RWD", mileage: 4, ext: "Racing Yellow", int: "Black", msrp: 39800, seats: 4 },
-    { year: 2024, make: "Cobalt", model: "Sprint", trim: "LX", condition: "USED", bodyStyle: "COUPE", drivetrain: "FWD", mileage: 18900, ext: "Blue", int: "Gray", sell: 26400, seats: 4 },
-    { year: 2026, make: "Harbor", model: "Voyage", trim: "SE", condition: "NEW", bodyStyle: "VAN", drivetrain: "FWD", mileage: 9, ext: "Silver", int: "Gray", msrp: 37600, seats: 8 },
-    { year: 2025, make: "Kestrel", model: "Compass Cross", trim: "SE", condition: "NEW", bodyStyle: "SUV", drivetrain: "AWD", mileage: 2, ext: "Black", int: "Black", msrp: 31200, seats: 5 },
-    { year: 2023, make: "Voltano", model: "Skyline", trim: "Premium", condition: "USED", bodyStyle: "SEDAN", drivetrain: "AWD", mileage: 27100, ext: "Champagne", int: "Tan", sell: 28900, seats: 5 },
-    { year: 2026, make: "Harrow", model: "Basecamp", trim: "SUV Sport", condition: "NEW", bodyStyle: "SUV", drivetrain: "4WD", mileage: 7, ext: "Forest Green", int: "Black", msrp: 46700, seats: 7 },
-  ];
-
-  const vehicles: { id: string; make: string; model: string; bodyStyle: string | null; status: string }[] = [];
-  for (let i = 0; i < vehicleDefs.length; i++) {
-    const v = vehicleDefs[i];
-    const status = i === 2 ? "SOLD" : i === 6 ? "HOLD" : i === 11 ? "IN_TRANSIT" : "AVAILABLE";
-    const sellingPrice = v.sell ?? (v.msrp ? v.msrp - 500 : undefined);
-    const created = await prisma.vehicle.create({
-      data: {
-        stockNumber: `DL${(1000 + i).toString()}`,
-        vin: randVin(),
-        year: v.year,
-        make: v.make,
-        model: v.model,
-        trim: v.trim,
-        condition: v.condition,
-        bodyStyle: v.bodyStyle,
-        drivetrain: v.drivetrain,
-        mileage: v.mileage,
-        exteriorColor: v.ext,
-        interiorColor: v.int,
-        msrp: v.msrp ?? null,
-        sellingPrice: sellingPrice ?? null,
-        internetPrice: sellingPrice ? sellingPrice - 300 : null,
-        status,
-        location: pick(["Front Lot", "Showroom", "Back Lot", "Service Overflow"]),
-        seatingCapacity: v.seats,
-        description: `${v.year} ${v.make} ${v.model} ${v.trim} — ${v.condition === "NEW" ? "brand new" : "well-maintained"} with ${v.drivetrain} and a clean history.`,
-        photos: JSON.stringify([]),
-      },
-    });
-    vehicles.push({ id: created.id, make: v.make, model: v.model, bodyStyle: v.bodyStyle, status });
-  }
-
-  // ── Customers + Leads ─────────────────────────────────────────────────
-  const firstNames = ["Michael", "Jessica", "David", "Ashley", "Chris", "Amanda", "Brian", "Megan", "Kevin", "Laura", "Jason", "Stephanie", "Ryan", "Nicole", "Eric", "Rachel", "Justin", "Kayla", "Brandon", "Emily", "Marcus", "Devon"];
-  const lastNames = ["Thompson", "Martinez", "Johnson", "Lee", "Anderson", "Walker", "Young", "Scott", "Hernandez", "Torres", "Bennett", "Foster", "Bryant", "Chavez", "Reed", "Coleman", "Sullivan", "Ward", "Griffin", "Hayes", "Patterson", "Simmons"];
-
-  type CustomerPlan = {
-    temperature: "HOT" | "WARM" | "COLD";
-    stage: string;
-    status: string;
-    score: number;
-    timeframe: string;
-    lastContactDaysAgo: number;
-    nextFollowUpDaysOffset: number | null; // negative = overdue
-    financeType: string;
-    creditApp: string;
-    hasTrade: boolean;
-    vehicleIdx: number;
-    source: string;
-  };
-
-  const plans: CustomerPlan[] = [
-    { temperature: "HOT", stage: "Negotiating", status: "ACTIVE", score: 92, timeframe: "IMMEDIATE", lastContactDaysAgo: 0, nextFollowUpDaysOffset: 0, financeType: "FINANCE", creditApp: "APPROVED", hasTrade: true, vehicleIdx: 4, source: "Website" },
-    { temperature: "HOT", stage: "Appointment Confirmed", status: "ACTIVE", score: 88, timeframe: "IMMEDIATE", lastContactDaysAgo: 1, nextFollowUpDaysOffset: 0, financeType: "FINANCE", creditApp: "SUBMITTED", hasTrade: false, vehicleIdx: 0, source: "Walk-In" },
-    { temperature: "HOT", stage: "Test Drive", status: "ACTIVE", score: 85, timeframe: "THIS_WEEK", lastContactDaysAgo: 0, nextFollowUpDaysOffset: -1, financeType: "CASH", creditApp: "NOT_STARTED", hasTrade: false, vehicleIdx: 7, source: "Referral" },
-    { temperature: "HOT", stage: "Credit Application", status: "ACTIVE", score: 83, timeframe: "IMMEDIATE", lastContactDaysAgo: 2, nextFollowUpDaysOffset: -2, financeType: "FINANCE", creditApp: "PENDING", hasTrade: true, vehicleIdx: 5, source: "Autotrader" },
-    { temperature: "WARM", stage: "Appointment Set", status: "ACTIVE", score: 72, timeframe: "THIS_WEEK", lastContactDaysAgo: 1, nextFollowUpDaysOffset: 1, financeType: "FINANCE", creditApp: "NOT_STARTED", hasTrade: true, vehicleIdx: 8, source: "Cars.com" },
-    { temperature: "WARM", stage: "Engaged", status: "ACTIVE", score: 68, timeframe: "THIS_MONTH", lastContactDaysAgo: 2, nextFollowUpDaysOffset: 0, financeType: "LEASE", creditApp: "NOT_STARTED", hasTrade: false, vehicleIdx: 9, source: "Facebook Marketplace" },
-    { temperature: "WARM", stage: "Contacted", status: "ACTIVE", score: 63, timeframe: "THIS_MONTH", lastContactDaysAgo: 3, nextFollowUpDaysOffset: -1, financeType: "FINANCE", creditApp: "NOT_STARTED", hasTrade: true, vehicleIdx: 12, source: "CarGurus" },
-    { temperature: "WARM", stage: "Showed", status: "ACTIVE", score: 66, timeframe: "THIS_WEEK", lastContactDaysAgo: 4, nextFollowUpDaysOffset: 2, financeType: "CASH", creditApp: "NOT_STARTED", hasTrade: false, vehicleIdx: 1, source: "Google Ads" },
-    { temperature: "WARM", stage: "Engaged", status: "ACTIVE", score: 58, timeframe: "THIS_QUARTER", lastContactDaysAgo: 2, nextFollowUpDaysOffset: 3, financeType: "FINANCE", creditApp: "NOT_STARTED", hasTrade: false, vehicleIdx: 13, source: "Repeat Customer" },
-    { temperature: "WARM", stage: "Contacted", status: "ACTIVE", score: 55, timeframe: "THIS_MONTH", lastContactDaysAgo: 5, nextFollowUpDaysOffset: -3, financeType: "FINANCE", creditApp: "NOT_STARTED", hasTrade: true, vehicleIdx: 14, source: "Third-Party Lead Provider" },
-    { temperature: "COLD", stage: "New Lead", status: "ACTIVE", score: 35, timeframe: "THIS_QUARTER", lastContactDaysAgo: 0, nextFollowUpDaysOffset: 0, financeType: "FINANCE", creditApp: "NOT_STARTED", hasTrade: false, vehicleIdx: 2, source: "Website" },
-    { temperature: "COLD", stage: "New Lead", status: "ACTIVE", score: 28, timeframe: "RESEARCHING", lastContactDaysAgo: 0, nextFollowUpDaysOffset: 0, financeType: "FINANCE", creditApp: "NOT_STARTED", hasTrade: false, vehicleIdx: 3, source: "Cars.com" },
-    { temperature: "COLD", stage: "Contacted", status: "ACTIVE", score: 40, timeframe: "THIS_QUARTER", lastContactDaysAgo: 6, nextFollowUpDaysOffset: -4, financeType: "FINANCE", creditApp: "NOT_STARTED", hasTrade: false, vehicleIdx: 10, source: "Autotrader" },
-    { temperature: "COLD", stage: "Contacted", status: "ACTIVE", score: 22, timeframe: "RESEARCHING", lastContactDaysAgo: 8, nextFollowUpDaysOffset: -6, financeType: "CASH", creditApp: "NOT_STARTED", hasTrade: false, vehicleIdx: 11, source: "Trade Show / Event" },
-    { temperature: "COLD", stage: "Engaged", status: "ACTIVE", score: 45, timeframe: "THIS_QUARTER", lastContactDaysAgo: 3, nextFollowUpDaysOffset: 5, financeType: "FINANCE", creditApp: "NOT_STARTED", hasTrade: true, vehicleIdx: 0, source: "Phone Up" },
-    { temperature: "COLD", stage: "New Lead", status: "ACTIVE", score: 18, timeframe: "RESEARCHING", lastContactDaysAgo: 1, nextFollowUpDaysOffset: 1, financeType: "FINANCE", creditApp: "NOT_STARTED", hasTrade: false, vehicleIdx: 1, source: "Website" },
-    { temperature: "COLD", stage: "Lost", status: "LOST", score: 15, timeframe: "RESEARCHING", lastContactDaysAgo: 22, nextFollowUpDaysOffset: null, financeType: "FINANCE", creditApp: "NOT_STARTED", hasTrade: false, vehicleIdx: 2, source: "Autotrader" },
-    { temperature: "COLD", stage: "Lost", status: "LOST", score: 12, timeframe: "RESEARCHING", lastContactDaysAgo: 45, nextFollowUpDaysOffset: null, financeType: "FINANCE", creditApp: "NOT_STARTED", hasTrade: false, vehicleIdx: 3, source: "CarGurus" },
-    { temperature: "COLD", stage: "Lost", status: "LOST", score: 10, timeframe: "RESEARCHING", lastContactDaysAgo: 70, nextFollowUpDaysOffset: null, financeType: "FINANCE", creditApp: "NOT_STARTED", hasTrade: false, vehicleIdx: 12, source: "Facebook Marketplace" },
-    { temperature: "COLD", stage: "Lost", status: "LOST", score: 8, timeframe: "RESEARCHING", lastContactDaysAgo: 120, nextFollowUpDaysOffset: null, financeType: "CASH", creditApp: "NOT_STARTED", hasTrade: false, vehicleIdx: 13, source: "Referral" },
-  ];
-
-  const lostReasonNames = Object.keys(lostReasons);
-  const salesReps = [sam, sam, sam, taylor, taylor, jordan];
-  let activityCount = 0;
-
-  async function logActivity(customerId: string, leadId: string | null, type: string, description: string, actorId: string | null, createdAt: Date) {
-    activityCount++;
-    await prisma.activity.create({
-      data: { customerId, leadId, type, description, actorId, createdAt },
-    });
-  }
-
-  const createdCustomers: { id: string; name: string; ownerId: string }[] = [];
-  const createdLeads: { id: string; customerId: string; temperature: string; stageName: string }[] = [];
-
-  for (let i = 0; i < plans.length; i++) {
-    const plan = plans[i];
-    const firstName = firstNames[i];
-    const lastName = lastNames[i];
-    const owner = salesReps[i % salesReps.length];
-    const vehicle = vehicles[plan.vehicleIdx];
-
-    const customer = await prisma.customer.create({
-      data: {
-        firstName,
-        lastName,
-        phone: randPhone(),
-        email: `${firstName.toLowerCase()}.${lastName.toLowerCase()}@example.com`,
-        address: `${100 + i * 7} ${pick(["Maple", "Oak", "Cedar", "Birch", "Elm", "Pine"])} St`,
-        city: pick(["Riverbend", "Fairview", "Oakdale", "Millbrook", "Ashton"]),
-        state: "TX",
-        zip: `750${(10 + i).toString().slice(-2)}`,
-        preferredContactMethod: pick(["PHONE", "TEXT", "EMAIL"]),
-        bestContactTime: pick(["MORNING", "AFTERNOON", "EVENING", "ANYTIME"]),
-        ownerId: owner.id,
-        createdAt: daysAgo(plan.lastContactDaysAgo + Math.floor(Math.random() * 10) + 1),
-      },
-    });
-    createdCustomers.push({ id: customer.id, name: `${firstName} ${lastName}`, ownerId: owner.id });
-
-    const isLost = plan.status === "LOST";
-    const lostReasonName = isLost ? pick(lostReasonNames) : null;
-
-    const lead = await prisma.lead.create({
-      data: {
-        customerId: customer.id,
-        sourceId: sources[plan.source]?.id,
-        assigneeId: owner.id,
-        stageId: stages[plan.stage].id,
-        stageEnteredAt: daysAgo(Math.min(plan.lastContactDaysAgo, 5)),
-        status: plan.status,
-        temperature: plan.temperature,
-        score: plan.score,
-        purchaseTimeframe: plan.timeframe,
-        dateReceived: daysAgo(plan.lastContactDaysAgo + Math.floor(Math.random() * 10) + 1),
-        financeType: plan.financeType,
-        desiredPayment: plan.financeType !== "CASH" ? money(350 + Math.random() * 350) : null,
-        downPayment: plan.financeType !== "CASH" ? money(1000 + Math.random() * 4000) : null,
-        creditAppStatus: plan.creditApp,
-        hasCoBuyer: Math.random() > 0.75,
-        prefBodyStyle: vehicle.bodyStyle,
-        prefMaxPrice: money(25000 + Math.random() * 30000),
-        prefDrivetrain: pick(["FWD", "AWD", "4WD"]),
-        prefThirdRow: Math.random() > 0.6,
-        prefColor: pick(["White", "Black", "Silver", "Blue", "Red", "No preference"]),
-        customerNeeds: pick([
-          "Needs reliable daily commuter with good fuel economy.",
-          "Growing family — needs more cargo and passenger space.",
-          "Wants something more capable for towing a small trailer.",
-          "Looking to upgrade from an older vehicle with rising repair costs.",
-          "Wants a fun weekend car with a bit more style.",
-        ]),
-        customerWants: pick([
-          "Would like heated seats and a sunroof if possible.",
-          "Prefers a specific exterior color but flexible on trim.",
-          "Wants the latest safety tech / adaptive cruise.",
-          "Interested in a low-mileage certified option.",
-        ]),
-        objections: plan.temperature === "COLD" ? pick(["Price is higher than expected.", "Wants to shop around first.", "Not ready to commit yet.", ""]) : null,
-        preferences: "Prefers text for quick updates, calls for anything detailed.",
-        salesNotes: `Met via ${plan.source}. ${plan.temperature === "HOT" ? "Highly engaged, moving fast." : plan.temperature === "WARM" ? "Engaged, needs consistent follow-up." : "Early stage, nurturing."}`,
-        lastContactedAt: daysAgo(plan.lastContactDaysAgo),
-        nextFollowUpAt: plan.nextFollowUpDaysOffset === null ? null : daysFromNow(plan.nextFollowUpDaysOffset, pick([9, 10, 11, 13, 14, 15, 16])),
-        lostReasonId: lostReasonName ? lostReasons[lostReasonName].id : null,
-        lostAt: isLost ? daysAgo(plan.lastContactDaysAgo) : null,
-        lostNotes: isLost ? "No longer responding to outreach." : null,
-      },
-    });
-    createdLeads.push({ id: lead.id, customerId: customer.id, temperature: plan.temperature, stageName: plan.stage });
-
-    await prisma.leadScoreEvent.create({
-      data: { leadId: lead.id, points: plan.score, reason: "Initial seed score" },
-    });
-
-    await prisma.customerVehicle.create({
-      data: {
-        customerId: customer.id,
-        leadId: lead.id,
-        vehicleId: vehicle.id,
-        isPrimary: true,
-        interestLevel: plan.stage === "Sold" ? "PURCHASED" : plan.temperature === "HOT" ? "STRONG" : "INTERESTED",
-      },
-    });
-
-    await logActivity(customer.id, lead.id, "LEAD_CREATED", `Lead created from ${plan.source}.`, owner.id, daysAgo(plan.lastContactDaysAgo + 5));
-    await logActivity(customer.id, lead.id, "STAGE_CHANGE", `Stage set to ${plan.stage}.`, owner.id, daysAgo(plan.lastContactDaysAgo));
-
-    // Trade-in for customers with one
-    if (plan.hasTrade) {
-      const payoff = money(4000 + Math.random() * 12000);
-      const est = money(6000 + Math.random() * 15000);
-      await prisma.tradeIn.create({
-        data: {
-          customerId: customer.id,
-          year: 2015 + Math.floor(Math.random() * 8),
-          make: pick(["Voltano", "Kestrel", "Harrow", "Cobalt"]),
-          model: pick(["Meridian", "Ranger SUV", "Trailhand", "Sprint"]),
-          trim: pick(["Base", "SE", "LX", "Sport"]),
-          vin: randVin(),
-          mileage: 40000 + Math.floor(Math.random() * 80000),
-          payoff,
-          estimatedValue: est,
-          desiredValue: est + money(500 + Math.random() * 1000),
-          appraisalStatus: pick(["PENDING", "APPRAISED", "ACCEPTED"]),
-          notes: est > payoff ? "Positive equity — good trade candidate." : "Negative equity — will need to roll into new payment.",
-        },
-      });
-    }
-
-    // Communications — a handful per active lead
-    if (!isLost) {
-      const commCount = 2 + Math.floor(Math.random() * 3);
-      for (let c = 0; c < commCount; c++) {
-        const daysBack = Math.max(0, plan.lastContactDaysAgo + c);
-        const type = pick(["CALL", "TEXT", "EMAIL", "VOICEMAIL"]);
-        const summary = pick([
-          "Discussed vehicle options and pricing.",
-          "Confirmed appointment details.",
-          "Answered questions about financing.",
-          "Left a voicemail checking in.",
-          "Sent follow-up with vehicle info.",
-          "Discussed trade-in value.",
-        ]);
-        const occurredAt = daysAgo(daysBack, 9 + c, 15);
-        await prisma.communication.create({
-          data: { customerId: customer.id, type, direction: Math.random() > 0.3 ? "OUTBOUND" : "INBOUND", summary, actorId: owner.id, occurredAt },
-        });
-        await logActivity(customer.id, lead.id, "COMMUNICATION_LOGGED", `${type} logged: ${summary}`, owner.id, occurredAt);
-      }
-    }
-
-    // Notes
-    await prisma.note.create({
-      data: {
-        customerId: customer.id,
-        leadId: lead.id,
-        body: plan.temperature === "HOT" ? "Ready to move — keep momentum, don't let this go cold." : "Continue nurturing per standard cadence.",
-        authorId: owner.id,
-        createdAt: daysAgo(plan.lastContactDaysAgo),
-      },
-    });
-
-    // Offers for negotiating customers
-    if (plan.stage === "Negotiating" || plan.stage === "Credit Application") {
-      await prisma.offer.create({
-        data: {
-          customerId: customer.id,
-          vehicleId: vehicle.id,
-          offerPrice: money((vehicle as unknown as { sellingPrice?: number }).sellingPrice ?? 35000),
-          monthlyPayment: money(420 + Math.random() * 200),
-          term: pick([48, 60, 72]),
-          downPayment: money(2000 + Math.random() * 3000),
-          status: pick(["PENDING", "COUNTERED"]),
-          notes: "Working numbers with the desk.",
-        },
-      });
-    }
-
-    // Sequence enrollment for active, non-lost leads
-    if (!isLost) {
-      await prisma.followUpEnrollment.create({
-        data: {
-          customerId: customer.id,
-          leadId: lead.id,
-          sequenceId: newLeadSeq.id,
-          currentStepIndex: Math.min(3, Math.floor(Math.random() * 5)),
-          status: "ACTIVE",
-        },
-      });
-    } else {
-      await prisma.followUpEnrollment.create({
-        data: {
-          customerId: customer.id,
-          leadId: lead.id,
-          sequenceId: reactivationSeq.id,
-          currentStepIndex: 0,
-          status: "CANCELLED",
-        },
-      });
-    }
-  }
-
-  // ── A couple of SOLD deals for reporting/dashboard realism ──────────
-  const soldPlans = [
-    { firstName: "Patricia", lastName: "Nguyen", vehicleIdx: 2, price: 24200, finance: "FINANCE" },
-    { firstName: "Daniel", lastName: "Ortiz", vehicleIdx: 8, price: 36200, finance: "LEASE" },
-  ];
-  for (const sp of soldPlans) {
-    const owner = pick([sam, taylor]);
-    const vehicle = vehicles[sp.vehicleIdx];
-    const customer = await prisma.customer.create({
-      data: {
-        firstName: sp.firstName,
-        lastName: sp.lastName,
-        phone: randPhone(),
-        email: `${sp.firstName.toLowerCase()}.${sp.lastName.toLowerCase()}@example.com`,
-        address: `${400 + Math.floor(Math.random() * 200)} Willow Ave`,
-        city: "Riverbend",
-        state: "TX",
-        zip: "75012",
-        preferredContactMethod: "PHONE",
-        ownerId: owner.id,
-        createdAt: daysAgo(21),
-      },
-    });
-    const lead = await prisma.lead.create({
-      data: {
-        customerId: customer.id,
-        sourceId: sources["Referral"].id,
-        assigneeId: owner.id,
-        stageId: stages["Sold"].id,
-        status: "SOLD",
-        temperature: "HOT",
-        score: 100,
-        purchaseTimeframe: "IMMEDIATE",
-        dateReceived: daysAgo(21),
-        financeType: sp.finance,
-        creditAppStatus: sp.finance === "CASH" ? "NOT_STARTED" : "APPROVED",
-        lastContactedAt: daysAgo(1),
-        soldAt: daysAgo(1),
-        salesNotes: "Deal closed — delivered vehicle.",
-      },
-    });
-    await prisma.customerVehicle.create({
-      data: { customerId: customer.id, leadId: lead.id, vehicleId: vehicle.id, isPrimary: true, interestLevel: "PURCHASED" },
-    });
-    await prisma.sale.create({
-      data: {
-        customerId: customer.id,
-        leadId: lead.id,
-        vehicleId: vehicle.id,
-        salePrice: sp.price,
-        financeType: sp.finance,
-        saleDate: daysAgo(1),
-        salespersonId: owner.id,
-        notes: "Smooth close, customer very satisfied.",
-      },
-    });
-    await logActivity(customer.id, lead.id, "SOLD", `Deal closed on ${vehicle.make} ${vehicle.model}.`, owner.id, daysAgo(1));
-  }
-
-  // ── Appointments (10) ────────────────────────────────────────────────
-  const apptPlans = [
-    { customerIdx: 0, type: "TEST_DRIVE", status: "CONFIRMED", dayOffset: 0, time: "14:00" },
-    { customerIdx: 1, type: "SHOWROOM_VISIT", status: "CONFIRMED", dayOffset: 0, time: "16:30" },
-    { customerIdx: 2, type: "CREDIT_APPLICATION", status: "SCHEDULED", dayOffset: 1, time: "10:00" },
-    { customerIdx: 3, type: "TRADE_APPRAISAL", status: "SCHEDULED", dayOffset: 1, time: "13:00" },
-    { customerIdx: 4, type: "SHOWROOM_VISIT", status: "SCHEDULED", dayOffset: 2, time: "11:00" },
-    { customerIdx: 5, type: "TEST_DRIVE", status: "SCHEDULED", dayOffset: 3, time: "15:00" },
-    { customerIdx: 6, type: "SHOWROOM_VISIT", status: "SHOWED", dayOffset: -2, time: "10:30" },
-    { customerIdx: 7, type: "TEST_DRIVE", status: "NO_SHOW", dayOffset: -1, time: "17:00" },
-    { customerIdx: 8, type: "VEHICLE_DELIVERY", status: "COMPLETED", dayOffset: -4, time: "12:00" },
-    { customerIdx: 9, type: "FOLLOW_UP", status: "CANCELLED", dayOffset: -3, time: "09:30" },
-  ];
-  for (const ap of apptPlans) {
-    const cust = createdCustomers[ap.customerIdx];
-    const lead = createdLeads[ap.customerIdx];
-    const vehicle = vehicles[plans[ap.customerIdx].vehicleIdx];
-    const appt = await prisma.appointment.create({
-      data: {
-        customerId: cust.id,
-        vehicleId: vehicle.id,
-        salespersonId: cust.ownerId,
-        date: daysFromNow(ap.dayOffset, 0, 0),
-        time: ap.time,
-        type: ap.type,
-        status: ap.status,
-        notes: ap.status === "NO_SHOW" ? "Customer did not show. Attempting to reschedule." : "Standard appointment.",
-      },
-    });
-    await logActivity(cust.id, lead.id, "APPOINTMENT", `${ap.type.replace("_", " ")} appointment ${ap.status.toLowerCase()} for ${ap.time}.`, cust.ownerId, daysFromNow(Math.min(ap.dayOffset, 0)));
-
-    if (ap.type === "TEST_DRIVE" && (ap.status === "SHOWED" || ap.status === "COMPLETED")) {
-      await prisma.testDrive.create({
-        data: {
-          customerId: cust.id,
-          vehicleId: vehicle.id,
-          appointmentId: appt.id,
-          salespersonId: cust.ownerId,
-          date: daysFromNow(ap.dayOffset),
-          startTime: ap.time,
-          endTime: "15:00",
-          customerReaction: "POSITIVE",
-          notes: "Loved the ride quality and tech features.",
-          nextStep: "Send pricing worksheet and follow up tomorrow.",
-        },
-      });
-    }
-  }
-
-  // A few extra completed test drives beyond the appointment set (for pipeline realism)
-  const extraTestDriveIdxs = [2, 3, 5];
-  for (const idx of extraTestDriveIdxs) {
-    const cust = createdCustomers[idx];
-    const vehicle = vehicles[plans[idx].vehicleIdx];
-    await prisma.testDrive.create({
-      data: {
-        customerId: cust.id,
-        vehicleId: vehicle.id,
-        salespersonId: cust.ownerId,
-        date: daysAgo(2),
-        startTime: "13:00",
-        endTime: "13:30",
-        customerReaction: pick(["POSITIVE", "NEUTRAL"]),
-        objections: pick(["Payment a bit higher than hoped.", "", "Wants to compare with one more model."]),
-        notes: "Test drive completed, customer engaged well with the vehicle.",
-        nextStep: "Follow up with numbers.",
-      },
-    });
-  }
-
-  // ── Tasks (10+) ───────────────────────────────────────────────────────
-  const taskPlans = [
-    { idx: 2, title: "Call — vehicle sold, needs alternative", type: "CALL", priority: "URGENT", dueOffset: -2 },
-    { idx: 3, title: "Follow up on credit application status", type: "CREDIT", priority: "URGENT", dueOffset: -2 },
-    { idx: 6, title: "Check in — no response in days", type: "CALL", priority: "HIGH", dueOffset: -1 },
-    { idx: 9, title: "Send follow-up text with pricing", type: "TEXT", priority: "HIGH", dueOffset: -3 },
-    { idx: 0, title: "Confirm 2pm test drive today", type: "TEXT", priority: "URGENT", dueOffset: 0 },
-    { idx: 1, title: "Prep paperwork for showroom visit", type: "OTHER", priority: "HIGH", dueOffset: 0 },
-    { idx: 5, title: "Call to confirm Thursday test drive", type: "CALL", priority: "NORMAL", dueOffset: 1 },
-    { idx: 4, title: "Send new inventory matches", type: "EMAIL", priority: "NORMAL", dueOffset: 1 },
-    { idx: 8, title: "Follow up on trade-in decision", type: "TRADE", priority: "NORMAL", dueOffset: 3 },
-    { idx: 7, title: "Reschedule missed test drive", type: "APPOINTMENT", priority: "HIGH", dueOffset: 0 },
-    { idx: 10, title: "Welcome call for new lead", type: "CALL", priority: "NORMAL", dueOffset: -5, status: "COMPLETED" },
-    { idx: 11, title: "Send intro email", type: "EMAIL", priority: "LOW", dueOffset: -6, status: "COMPLETED" },
-  ];
-  for (const tp of taskPlans) {
-    const cust = createdCustomers[tp.idx];
-    const lead = createdLeads[tp.idx];
-    await prisma.task.create({
-      data: {
-        customerId: cust.id,
-        leadId: lead.id,
-        title: tp.title,
-        type: tp.type,
-        priority: tp.priority,
-        dueDate: daysFromNow(tp.dueOffset, 0, 0),
-        dueTime: pick(["09:00", "10:30", "13:00", "15:30", "17:00"]),
-        status: tp.status ?? "PENDING",
-        assigneeId: cust.ownerId,
-        source: "MANUAL",
-        completedAt: tp.status === "COMPLETED" ? daysFromNow(tp.dueOffset) : null,
-      },
-    });
-  }
-
-  // ── Notifications for Sam (primary demo login) ───────────────────────
-  const notifPlans = [
-    { type: "HOT_LEAD", title: "Lead just went HOT", body: `${createdCustomers[0].name} is showing strong buying signals.` },
-    { type: "OVERDUE_FOLLOW_UP", title: "Overdue follow-up", body: `${createdCustomers[2].name} has an overdue follow-up.` },
-    { type: "APPOINTMENT_TOMORROW", title: "Appointment tomorrow", body: `${createdCustomers[4].name} has an appointment tomorrow at 11:00 AM.` },
-    { type: "NO_SHOW", title: "No-show recorded", body: `${createdCustomers[7].name} did not show for their test drive.` },
-    { type: "NEW_LEAD", title: "New lead assigned", body: `${createdCustomers[15].name} was just assigned to you.` },
-  ];
-  for (const n of notifPlans) {
-    await prisma.notification.create({
-      data: { userId: sam.id, type: n.type, title: n.title, body: n.body },
-    });
-  }
-
-  console.log(`✅ Seed complete: ${createdCustomers.length + soldPlans.length} customers, ${createdLeads.length + soldPlans.length} leads, ${vehicles.length} vehicles, ${apptPlans.length} appointments, ${taskPlans.length} tasks, ${activityCount} activity entries.`);
+  console.log("✅ Seed complete.");
+  console.log("   Owner login: chino.realestatela@gmail.com / Password123!");
 }
 
 main()

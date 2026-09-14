@@ -2,60 +2,65 @@ import { prisma } from "@/lib/prisma";
 import type { Scope } from "@/lib/queries/scope";
 import { followUpDateTime } from "@/lib/followups";
 
-/** Unified shape the Calendar tab renders — one item per Appointment
- * (calendar event) and per FollowUp, normalized so month/week/day views
- * don't need to know which table something came from. */
+/** Unified shape the Calendar tab renders — one item per Booking and per
+ * FollowUp, normalized so month/week/day/fleet/driver views don't need to
+ * know which table something came from. */
 export type CalendarEvent = {
   id: string;
-  kind: "appointment" | "followup";
+  kind: "booking" | "followup";
   customerId: string;
   customerName: string;
   customerPhone: string | null;
   leadId: string | null;
+  vehicleId: string | null;
+  driverId: string | null;
   title: string;
   subtitle: string | null;
   date: Date;
   time: string;
   endTime: string | null;
-  location: string | null;
-  type: string; // appointment type, or "FOLLOW_UP" for follow-ups
   status: string;
   notes: string | null;
 };
 
-export async function getCalendarEvents(scope: Scope, range: { start: Date; end: Date }): Promise<CalendarEvent[]> {
-  const salespersonWhere = scope.viewAll ? undefined : scope.userId;
-
-  const [appointments, followUps] = await Promise.all([
-    prisma.appointment.findMany({
-      where: { salespersonId: salespersonWhere, date: { gte: range.start, lte: range.end } },
-      include: { customer: { select: { firstName: true, lastName: true, phone: true } }, vehicle: { select: { year: true, make: true, model: true } } },
-      orderBy: { time: "asc" },
+export async function getCalendarEvents(scope: Scope, range: { start: Date; end: Date }, filters: { vehicleId?: string; driverId?: string } = {}): Promise<CalendarEvent[]> {
+  const [bookings, followUps] = await Promise.all([
+    prisma.booking.findMany({
+      where: {
+        date: { gte: range.start, lte: range.end },
+        bookingStatus: { notIn: ["CANCELLED"] },
+        ...(filters.vehicleId ? { vehicleId: filters.vehicleId } : {}),
+        ...(filters.driverId ? { driverId: filters.driverId } : {}),
+      },
+      include: { customer: { select: { firstName: true, lastName: true, phone: true } }, vehicle: { select: { name: true } }, driver: { select: { firstName: true, lastName: true } } },
+      orderBy: { pickupTime: "asc" },
     }),
-    prisma.followUp.findMany({
-      where: { assigneeId: salespersonWhere, followUpDate: { gte: range.start, lte: range.end } },
-      include: { customer: { select: { firstName: true, lastName: true, phone: true } } },
-      orderBy: { followUpTime: "asc" },
-    }),
+    filters.vehicleId
+      ? Promise.resolve([])
+      : prisma.followUp.findMany({
+          where: { assigneeId: scope.viewAll ? undefined : scope.userId, followUpDate: { gte: range.start, lte: range.end } },
+          include: { customer: { select: { firstName: true, lastName: true, phone: true } } },
+          orderBy: { followUpTime: "asc" },
+        }),
   ]);
 
   const events: CalendarEvent[] = [
-    ...appointments.map((a): CalendarEvent => ({
-      id: a.id,
-      kind: "appointment",
-      customerId: a.customerId,
-      customerName: `${a.customer.firstName} ${a.customer.lastName}`,
-      customerPhone: a.customer.phone,
-      leadId: a.leadId,
-      title: a.type.replace(/_/g, " "),
-      subtitle: a.vehicle ? `${a.vehicle.year} ${a.vehicle.make} ${a.vehicle.model}` : a.location,
-      date: a.date,
-      time: a.time,
-      endTime: a.endTime,
-      location: a.location,
-      type: a.type,
-      status: a.status,
-      notes: a.notes,
+    ...bookings.map((b): CalendarEvent => ({
+      id: b.id,
+      kind: "booking",
+      customerId: b.customerId,
+      customerName: `${b.customer.firstName} ${b.customer.lastName}`,
+      customerPhone: b.customer.phone,
+      leadId: b.leadId,
+      vehicleId: b.vehicleId,
+      driverId: b.driverId,
+      title: b.serviceType.replace(/_/g, " "),
+      subtitle: [b.vehicle?.name, b.driver ? `${b.driver.firstName} ${b.driver.lastName}` : null].filter(Boolean).join(" · ") || null,
+      date: b.date,
+      time: b.pickupTime,
+      endTime: b.endTime,
+      status: b.bookingStatus,
+      notes: b.specialInstructions,
     })),
     ...followUps.map((f): CalendarEvent => ({
       id: f.id,
@@ -64,53 +69,17 @@ export async function getCalendarEvents(scope: Scope, range: { start: Date; end:
       customerName: `${f.customer.firstName} ${f.customer.lastName}`,
       customerPhone: f.customer.phone,
       leadId: f.leadId,
+      vehicleId: null,
+      driverId: null,
       title: f.topic,
       subtitle: "Follow-Up Call",
       date: f.followUpDate,
       time: f.followUpTime,
       endTime: null,
-      location: null,
-      type: "FOLLOW_UP",
       status: f.status,
       notes: f.notes,
     })),
   ];
 
   return events.sort((a, b) => followUpDateTime(a.date, a.time).getTime() - followUpDateTime(b.date, b.time).getTime());
-}
-
-export async function getPastEvents(scope: Scope, limit = 30): Promise<CalendarEvent[]> {
-  const now = new Date();
-  const salespersonWhere = scope.viewAll ? undefined : scope.userId;
-
-  const [appointments, followUps] = await Promise.all([
-    prisma.appointment.findMany({
-      where: { salespersonId: salespersonWhere, date: { lt: now } },
-      include: { customer: { select: { firstName: true, lastName: true, phone: true } }, vehicle: { select: { year: true, make: true, model: true } } },
-      orderBy: { date: "desc" },
-      take: limit,
-    }),
-    prisma.followUp.findMany({
-      where: { assigneeId: salespersonWhere, followUpDate: { lt: now }, status: { in: ["COMPLETED", "MISSED", "CANCELLED"] } },
-      include: { customer: { select: { firstName: true, lastName: true, phone: true } } },
-      orderBy: { followUpDate: "desc" },
-      take: limit,
-    }),
-  ]);
-
-  const events: CalendarEvent[] = [
-    ...appointments.map((a): CalendarEvent => ({
-      id: a.id, kind: "appointment", customerId: a.customerId, customerName: `${a.customer.firstName} ${a.customer.lastName}`,
-      customerPhone: a.customer.phone, leadId: a.leadId, title: a.type.replace(/_/g, " "),
-      subtitle: a.vehicle ? `${a.vehicle.year} ${a.vehicle.make} ${a.vehicle.model}` : a.location,
-      date: a.date, time: a.time, endTime: a.endTime, location: a.location, type: a.type, status: a.status, notes: a.notes,
-    })),
-    ...followUps.map((f): CalendarEvent => ({
-      id: f.id, kind: "followup", customerId: f.customerId, customerName: `${f.customer.firstName} ${f.customer.lastName}`,
-      customerPhone: f.customer.phone, leadId: f.leadId, title: f.topic, subtitle: "Follow-Up Call",
-      date: f.followUpDate, time: f.followUpTime, endTime: null, location: null, type: "FOLLOW_UP", status: f.status, notes: f.notes,
-    })),
-  ];
-
-  return events.sort((a, b) => followUpDateTime(b.date, b.time).getTime() - followUpDateTime(a.date, a.time).getTime()).slice(0, limit);
 }

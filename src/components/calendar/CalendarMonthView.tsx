@@ -45,19 +45,19 @@ export function CalendarMonthView({ year, month, events }: { year: number; month
             <Link
               key={key}
               href={`/calendar?view=day&year=${day.getFullYear()}&month=${day.getMonth()}&day=${day.getDate()}`}
-              className={cn("block min-h-[92px] border-b border-r border-[var(--border)] p-1.5 hover:bg-[var(--bg-subtle)]", !inMonth && "bg-[var(--bg-subtle)]")}
+              className={cn("block min-h-[92px] border-b border-r border-[var(--border)] p-1.5 hover:bg-white/[0.03]", !inMonth && "bg-white/[0.015]")}
             >
-              <p className={cn("text-[11px] font-semibold", isToday(day) ? "flex h-5 w-5 items-center justify-center rounded-full bg-[var(--brand)] text-white" : inMonth ? "text-[var(--text)]" : "text-[var(--text-faint)]")}>
+              <p className={cn("text-[11px] font-semibold", isToday(day) ? "flex h-5 w-5 items-center justify-center rounded-full bg-[var(--brand)] text-[#14120a]" : inMonth ? "text-[var(--text)]" : "text-[var(--text-faint)]")}>
                 {format(day, "d")}
               </p>
               <div className="mt-1 space-y-0.5">
                 {dayEvents.slice(0, 3).map((e) => {
-                  const color = eventColor(e.type);
+                  const color = eventColor(e);
                   return (
                     <span
                       key={e.id}
                       className="block truncate rounded px-1 py-0.5 text-[10px] font-medium"
-                      style={{ background: `${color}1a`, color }}
+                      style={{ background: `${color}22`, color }}
                       title={`${formatTime12h(e.time)} ${e.customerName}`}
                     >
                       {formatTime12h(e.time)} {e.customerName}

@@ -14,7 +14,7 @@ export default async function NotificationSettingsPage() {
   }
 
   return (
-    <SettingsShell isAdmin={scope.role === "ADMIN"} title="Notifications" subtitle="Choose which events notify you in-app.">
+    <SettingsShell isAdmin={["OWNER", "ADMIN"].includes(scope.role)} title="Notifications" subtitle="Choose which events notify you in-app.">
       <div className="card max-w-lg p-5"><NotificationPrefsForm initial={prefs} /></div>
     </SettingsShell>
   );

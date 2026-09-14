@@ -30,14 +30,14 @@ export function NotificationPrefsForm({ initial }: { initial: Record<string, boo
             <button
               disabled={pending}
               onClick={() => toggle(t.value)}
-              className={cn("relative h-6 w-11 shrink-0 rounded-full transition-colors", active ? "bg-emerald-500" : "bg-[var(--border)]")}
+              className={cn("relative h-6 w-11 shrink-0 rounded-full transition-colors", active ? "bg-[var(--success)]" : "bg-white/10")}
             >
               <span className={cn("absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform", active ? "translate-x-5" : "translate-x-0.5")} />
             </button>
           </div>
         );
       })}
-      {saved && <p className="pt-2 text-xs text-emerald-600">Saved.</p>}
+      {saved && <p className="pt-2 text-xs text-[var(--success)]">Saved.</p>}
     </div>
   );
 }

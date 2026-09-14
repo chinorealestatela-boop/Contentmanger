@@ -9,7 +9,7 @@ export default async function LostReasonsSettingsPage() {
   const reasons = await prisma.lostReason.findMany({ orderBy: { order: "asc" } });
 
   return (
-    <SettingsShell isAdmin={scope.role === "ADMIN"} title="Lost Reasons" subtitle="Reasons available when marking a lead lost.">
+    <SettingsShell isAdmin={["OWNER", "ADMIN"].includes(scope.role)} title="Lost Reasons" subtitle="Reasons available when marking a lead lost.">
       <ToggleListSettings items={reasons} createAction={createLostReason} toggleAction={toggleLostReason} placeholder="New lost reason" />
     </SettingsShell>
   );

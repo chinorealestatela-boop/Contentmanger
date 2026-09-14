@@ -4,8 +4,8 @@ import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, type DragEndEvent, type DragStartEvent } from "@dnd-kit/core";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
+import { Star } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
-import { TemperatureBadge, Badge } from "@/components/ui/Badge";
 import { formatTimeAgo, daysBetween } from "@/lib/format";
 import { changeLeadStage } from "@/lib/actions/leads";
 import { cn } from "@/lib/utils";
@@ -15,13 +15,12 @@ type LeadCardData = {
   id: string;
   stageId: string;
   score: number;
-  temperature: string;
+  isVip: boolean;
   lastContactedAt: string | null;
-  nextFollowUpAt: string | null;
   stageEnteredAt: string;
-  customer: { id: string; firstName: string; lastName: string };
-  vehicle: string | null;
-  hasAppointment: boolean;
+  customer: { id: string; firstName: string; lastName: string; tier: string };
+  serviceRequested: string | null;
+  vehicleRequested: string | null;
 };
 
 export function KanbanBoard({ stages, leads: initialLeads }: { stages: Stage[]; leads: LeadCardData[] }) {
@@ -71,13 +70,13 @@ export function KanbanBoard({ stages, leads: initialLeads }: { stages: Stage[]; 
 function Column({ stage, leads }: { stage: Stage; leads: LeadCardData[] }) {
   const { setNodeRef, isOver } = useDroppable({ id: stage.id });
   return (
-    <div ref={setNodeRef} className={cn("flex w-72 shrink-0 flex-col rounded-xl border border-[var(--border)] bg-[var(--bg-subtle)]", isOver && "ring-2 ring-[var(--brand)]")}>
+    <div ref={setNodeRef} className={cn("flex w-72 shrink-0 flex-col rounded-xl border border-[var(--border)] bg-white/[0.02]", isOver && "ring-2 ring-[var(--brand-line)]")}>
       <div className="flex items-center justify-between px-3 py-2.5">
         <div className="flex items-center gap-2">
           <span className="h-2 w-2 rounded-full" style={{ background: stage.color }} />
           <span className="text-[12.5px] font-semibold text-[var(--text)]">{stage.name}</span>
         </div>
-        <span className="rounded-full bg-[var(--bg-elevated)] px-1.5 py-0.5 text-[10.5px] font-bold text-[var(--text-muted)]">{leads.length}</span>
+        <span className="rounded-full bg-white/[0.06] px-1.5 py-0.5 text-[10.5px] font-bold text-[var(--text-muted)]">{leads.length}</span>
       </div>
       <div className="min-h-[80px] space-y-2 overflow-y-auto px-2 pb-3" style={{ maxHeight: "calc(100vh - 260px)" }}>
         {leads.map((lead) => (
@@ -103,19 +102,19 @@ function LeadCard({ lead, dragging }: { lead: LeadCardData; dragging?: boolean }
   const daysInStage = daysBetween(lead.stageEnteredAt);
   return (
     <Link
-      href={`/customers/${lead.customer.id}`}
+      href={`/leads/${lead.id}`}
       onClick={(e) => dragging && e.preventDefault()}
-      className={cn("block cursor-grab rounded-lg border border-[var(--border)] bg-[var(--bg-elevated)] p-3 shadow-sm hover:shadow-md active:cursor-grabbing", dragging && "rotate-2 shadow-xl")}
+      className={cn("card block cursor-grab p-3 hover:border-[var(--border-strong)] active:cursor-grabbing", dragging && "rotate-2 shadow-xl")}
     >
       <div className="flex items-center gap-2">
         <Avatar firstName={lead.customer.firstName} lastName={lead.customer.lastName} size="xs" />
         <p className="truncate text-[12.5px] font-semibold text-[var(--text)]">{lead.customer.firstName} {lead.customer.lastName}</p>
+        {lead.isVip && <Star size={11} className="ml-auto shrink-0 text-[var(--brand-bright)]" fill="currentColor" />}
       </div>
-      <p className="mt-1.5 truncate text-[11px] text-[var(--text-muted)]">{lead.vehicle ?? "No vehicle noted"}</p>
+      <p className="mt-1.5 truncate text-[11px] text-[var(--text-muted)]">{lead.serviceRequested ?? "Inquiry"} {lead.vehicleRequested ? `· ${lead.vehicleRequested}` : ""}</p>
       <div className="mt-2 flex flex-wrap items-center gap-1">
-        <TemperatureBadge temperature={lead.temperature} className="!text-[9px] !px-1.5 !py-0.5" />
-        {lead.hasAppointment && <Badge variant="appointment" className="!text-[9px] !px-1.5 !py-0.5">Appt</Badge>}
-        <span className="badge badge-neutral !text-[9px] !px-1.5 !py-0.5">{lead.score}</span>
+        {lead.customer.tier !== "STANDARD" && <span className="badge badge-gold !text-[9px] !px-1.5 !py-0.5">{lead.customer.tier}</span>}
+        <span className="badge badge-neutral !text-[9px] !px-1.5 !py-0.5">score {lead.score}</span>
       </div>
       <div className="mt-2 flex items-center justify-between text-[10px] text-[var(--text-faint)]">
         <span>{lead.lastContactedAt ? formatTimeAgo(lead.lastContactedAt) : "Never contacted"}</span>

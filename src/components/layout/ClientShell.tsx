@@ -22,7 +22,7 @@ export function ClientShell({
   const [assistantOpen, setAssistantOpen] = useState(false);
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex h-screen overflow-hidden" style={{ background: "var(--bg-app)" }}>
       <aside className="hidden w-64 shrink-0 lg:block">
         <Sidebar onOpenAssistant={() => setAssistantOpen(true)} />
       </aside>
@@ -32,15 +32,18 @@ export function ClientShell({
           <div className="w-72 shrink-0">
             <Sidebar onNavigate={() => setDrawerOpen(false)} onOpenAssistant={() => { setAssistantOpen(true); setDrawerOpen(false); }} />
           </div>
-          <button aria-label="Close menu" className="flex-1 bg-black/30" onClick={() => setDrawerOpen(false)}>
+          <button aria-label="Close menu" className="flex-1 bg-black/50" onClick={() => setDrawerOpen(false)}>
             <X className="m-4 text-white" size={20} />
           </button>
         </div>
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-16 shrink-0 items-center gap-3 border-b border-[var(--border)] bg-[var(--bg-elevated)] px-4 sm:px-6">
-          <button className="rounded-lg p-1.5 hover:bg-[var(--bg-subtle)] lg:hidden" onClick={() => setDrawerOpen(true)} aria-label="Open menu">
+        <header
+          className="flex h-16 shrink-0 items-center gap-3 px-4 sm:px-6"
+          style={{ background: "rgba(10,10,11,0.6)", backdropFilter: "blur(20px) saturate(140%)", borderBottom: "1px solid var(--border)" }}
+        >
+          <button className="rounded-lg p-1.5 hover:bg-white/[0.06] lg:hidden" onClick={() => setDrawerOpen(true)} aria-label="Open menu">
             <Menu size={20} />
           </button>
           <div className="min-w-0 flex-1 sm:max-w-md">

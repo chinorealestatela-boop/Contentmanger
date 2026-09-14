@@ -7,25 +7,32 @@ export type NavItem = {
 export const NAV_ITEMS: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: "LayoutDashboard" },
   { label: "Leads", href: "/leads", icon: "UserPlus" },
-  { label: "Customers", href: "/customers", icon: "Users" },
   { label: "Pipeline", href: "/pipeline", icon: "Kanban" },
+  { label: "Clients", href: "/customers", icon: "Users" },
+  { label: "Bookings", href: "/bookings", icon: "CalendarCheck" },
+  { label: "Quotes", href: "/quotes", icon: "FileText" },
+  { label: "Operations", href: "/operations", icon: "Radar" },
   { label: "Calendar", href: "/calendar", icon: "CalendarClock" },
+  { label: "Fleet", href: "/fleet", icon: "Car" },
+  { label: "Live Map", href: "/live-map", icon: "MapPin" },
+  { label: "Drivers", href: "/drivers", icon: "IdCard" },
+  { label: "Payments", href: "/payments", icon: "CreditCard" },
   { label: "Tasks", href: "/tasks", icon: "CheckSquare" },
-  { label: "Vehicles", href: "/vehicles", icon: "Car" },
-  { label: "Trade-Ins", href: "/trade-ins", icon: "ArrowLeftRight" },
-  { label: "Communications", href: "/communications", icon: "MessageSquare" },
-  { label: "Follow-Up Sequences", href: "/follow-up-sequences", icon: "Workflow" },
-  { label: "Lost Leads", href: "/lost-leads", icon: "XCircle" },
-  { label: "Reactivation", href: "/reactivation", icon: "RefreshCcw" },
-  { label: "Reports", href: "/reports", icon: "BarChart3" },
+  { label: "Follow-Ups", href: "/follow-ups", icon: "Workflow" },
+  { label: "Analytics", href: "/analytics", icon: "BarChart3" },
   { label: "Automations", href: "/automations", icon: "Zap" },
+  { label: "AI Assistant", href: "/assistant", icon: "Sparkles" },
   { label: "Settings", href: "/settings", icon: "Settings" },
 ];
 
 export const MOBILE_NAV_ITEMS: NavItem[] = [
   { label: "Today", href: "/dashboard", icon: "LayoutDashboard" },
-  { label: "Pipeline", href: "/pipeline", icon: "Kanban" },
-  { label: "Tasks", href: "/tasks", icon: "CheckSquare" },
-  { label: "Customers", href: "/customers", icon: "Users" },
+  { label: "Leads", href: "/leads", icon: "UserPlus" },
+  { label: "Bookings", href: "/bookings", icon: "CalendarCheck" },
+  { label: "Fleet", href: "/fleet", icon: "Car" },
   { label: "More", href: "/more", icon: "Menu" },
+];
+
+export const DRIVER_NAV_ITEMS: NavItem[] = [
+  { label: "My Trips", href: "/driver", icon: "Route" },
 ];

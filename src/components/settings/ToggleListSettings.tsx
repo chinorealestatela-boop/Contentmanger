@@ -32,7 +32,7 @@ export function ToggleListSettings({
             <span className={cn("text-[13.5px]", !item.active && "text-[var(--text-faint)] line-through")}>{item.name}</span>
             <button
               onClick={() => startTransition(() => toggleAction(item.id, !item.active))}
-              className={cn("relative h-6 w-11 shrink-0 rounded-full transition-colors", item.active ? "bg-emerald-500" : "bg-[var(--border)]")}
+              className={cn("relative h-6 w-11 shrink-0 rounded-full transition-colors", item.active ? "bg-[var(--success)]" : "bg-white/10")}
             >
               <span className={cn("absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform", item.active ? "translate-x-5" : "translate-x-0.5")} />
             </button>
@@ -44,7 +44,7 @@ export function ToggleListSettings({
         <input name="name" required placeholder={placeholder} className="input" />
         <button type="submit" disabled={pending} className="btn btn-primary shrink-0"><Plus size={14} /> Add</button>
       </form>
-      {state?.error && <p className="mt-2 text-xs text-red-600">{state.error}</p>}
+      {state?.error && <p className="mt-2 text-xs text-[var(--danger)]">{state.error}</p>}
     </div>
   );
 }

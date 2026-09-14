@@ -6,11 +6,14 @@ import { parsePermissions, type Permissions } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 
 const BOOL_FIELDS: { key: keyof Permissions; label: string }[] = [
-  { key: "viewAllCustomers", label: "View all customers (not just own)" },
+  { key: "viewAllCustomers", label: "View all clients (not just own)" },
   { key: "manageTeam", label: "Manage team / assign leads" },
-  { key: "manageUsers", label: "Manage users & roles" },
+  { key: "manageUsers", label: "Manage employees & roles" },
   { key: "manageSettings", label: "Manage settings (stages, sources, automations)" },
-  { key: "manageInventory", label: "Manage vehicle inventory" },
+  { key: "manageFleet", label: "Manage fleet & maintenance" },
+  { key: "manageDrivers", label: "Manage chauffeurs" },
+  { key: "manageFinance", label: "Manage payments & refunds" },
+  { key: "driverView", label: "Default to mobile driver console" },
 ];
 
 export function RolePermissionsForm({ role }: { role: { id: string; label: string; permissions: string } }) {
@@ -31,7 +34,7 @@ export function RolePermissionsForm({ role }: { role: { id: string; label: strin
             <button
               disabled={pending}
               onClick={() => update({ ...perms, [f.key]: !perms[f.key] })}
-              className={cn("relative h-6 w-11 shrink-0 rounded-full transition-colors", perms[f.key] ? "bg-emerald-500" : "bg-[var(--border)]")}
+              className={cn("relative h-6 w-11 shrink-0 rounded-full transition-colors", perms[f.key] ? "bg-[var(--success)]" : "bg-white/10")}
             >
               <span className={cn("absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform", perms[f.key] ? "translate-x-5" : "translate-x-0.5")} />
             </button>

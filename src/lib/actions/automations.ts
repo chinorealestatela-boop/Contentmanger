@@ -25,13 +25,14 @@ export async function runAutomationChecksNow() {
 const createRuleSchema = z.object({
   name: z.string().min(1, "Name is required."),
   triggerEvent: z.string().min(1),
-  days: z.string().optional(),
-  actionType: z.enum(["CREATE_TASK", "NOTIFY"]),
+  hours: z.string().optional(),
+  actionType: z.enum(["CREATE_TASK", "NOTIFY_STAFF", "SEND_MESSAGE"]),
   taskType: z.string().optional(),
   taskTitle: z.string().optional(),
   taskPriority: z.string().optional(),
   dueInHours: z.string().optional(),
-  notifTitle: z.string().optional(),
+  notifyType: z.string().optional(),
+  templateKey: z.string().optional(),
 });
 
 export async function createAutomationRule(_prev: SimpleActionState, formData: FormData): Promise<SimpleActionState> {
@@ -43,7 +44,9 @@ export async function createAutomationRule(_prev: SimpleActionState, formData: F
   const action =
     d.actionType === "CREATE_TASK"
       ? { type: "CREATE_TASK", taskType: d.taskType || "OTHER", title: d.taskTitle || "Follow up", priority: d.taskPriority || "NORMAL", dueInHours: d.dueInHours ? Number(d.dueInHours) : 4 }
-      : { type: "NOTIFY", notifType: "AUTOMATION", title: d.notifTitle || "Automation triggered" };
+      : d.actionType === "SEND_MESSAGE"
+      ? { type: "SEND_MESSAGE", templateKey: d.templateKey || "LEAD_CONFIRMATION" }
+      : { type: "NOTIFY_STAFF", notifyType: d.notifyType || "NEW_LEAD" };
 
   const count = await prisma.automationRule.count();
 
@@ -51,7 +54,7 @@ export async function createAutomationRule(_prev: SimpleActionState, formData: F
     data: {
       name: d.name,
       triggerEvent: d.triggerEvent,
-      conditions: d.triggerEvent === "NO_CONTACT_X_DAYS" ? JSON.stringify({ days: d.days ? Number(d.days) : 3 }) : null,
+      conditions: d.triggerEvent === "NO_CONTACT_X_HOURS" ? JSON.stringify({ hours: d.hours ? Number(d.hours) : 4 }) : null,
       actions: JSON.stringify([action]),
       order: count,
     },

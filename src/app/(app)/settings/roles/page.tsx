@@ -6,7 +6,7 @@ import { RolePermissionsForm } from "@/components/settings/RolePermissionsForm";
 
 export default async function RolesSettingsPage() {
   const scope = await requireScope();
-  if (scope.role !== "ADMIN") redirect("/settings");
+  if (!["OWNER", "ADMIN"].includes(scope.role)) redirect("/settings");
 
   const roles = await prisma.role.findMany({ orderBy: { name: "asc" } });
 

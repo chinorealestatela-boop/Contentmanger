@@ -22,7 +22,7 @@ export function GlobalSearchBar({ className }: { className?: string }) {
           value={q}
           onChange={(e) => setQ(e.target.value)}
           type="search"
-          placeholder="Search customers, phone, VIN, stock #…"
+          placeholder="Search clients, leads, bookings, vehicles, drivers…"
           className="input pl-9"
         />
       </div>

@@ -40,22 +40,22 @@ export function CalendarWeekView({ anchor, events }: { anchor: Date; events: Cal
             <div key={key} className="min-h-[140px]">
               <Link
                 href={`/calendar?view=day&year=${day.getFullYear()}&month=${day.getMonth()}&day=${day.getDate()}`}
-                className={cn("flex items-center justify-between border-b border-[var(--border)] px-2 py-2 hover:bg-[var(--bg-subtle)]", isToday(day) && "bg-[var(--brand-soft)]")}
+                className={cn("flex items-center justify-between border-b border-[var(--border)] px-2 py-2 hover:bg-white/[0.03]", isToday(day) && "bg-[var(--brand-soft)]")}
               >
                 <span className="text-[11px] font-semibold text-[var(--text-faint)]">{format(day, "EEE")}</span>
-                <span className={cn("flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-semibold", isToday(day) ? "bg-[var(--brand)] text-white" : "text-[var(--text)]")}>{format(day, "d")}</span>
+                <span className={cn("flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-semibold", isToday(day) ? "bg-[var(--brand)] text-[#14120a]" : "text-[var(--text)]")}>{format(day, "d")}</span>
               </Link>
               <div className="space-y-1 p-1.5">
                 {dayEvents.length === 0 && <p className="px-1 py-2 text-center text-[10.5px] text-[var(--text-faint)]">—</p>}
                 {dayEvents.map((e) => {
-                  const Icon = eventIcon(e.type);
-                  const color = eventColor(e.type);
+                  const Icon = eventIcon(e.kind);
+                  const color = eventColor(e);
                   return (
                     <Link
                       key={e.id}
-                      href={`/customers/${e.customerId}`}
+                      href={e.kind === "booking" ? `/bookings/${e.id}` : `/customers/${e.customerId}`}
                       className="flex items-start gap-1 rounded px-1.5 py-1 text-[10.5px] leading-tight hover:opacity-80"
-                      style={{ background: `${color}1a`, color }}
+                      style={{ background: `${color}22`, color }}
                     >
                       <Icon size={11} className="mt-0.5 shrink-0" />
                       <span className="min-w-0">

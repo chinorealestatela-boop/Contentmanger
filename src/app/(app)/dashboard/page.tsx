@@ -1,37 +1,42 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import {
-  UserPlus,
-  Flame,
-  Clock,
-  AlertTriangle,
   CalendarClock,
   CalendarDays,
+  Radar,
   Car,
-  Handshake,
-  Trophy,
-  XCircle,
-  Users,
+  CarFront,
+  Wrench,
+  UserPlus,
+  PhoneMissed,
+  FileText,
+  BadgeCheck,
+  DollarSign,
+  TrendingUp,
+  Wallet,
   Sparkles,
+  Star,
 } from "lucide-react";
 import { requireScope } from "@/lib/queries/scope";
-import { getDashboardMetrics, getActionCenter, getHotLeads, getUpcomingActivities } from "@/lib/queries/dashboard";
-import { ensureFollowUpsFresh, getFollowUpsDueToday } from "@/lib/queries/followups";
+import { getDashboardMetrics, getTodaysOperations, getHighValueLeads, getTasksDueToday, getMaintenanceAlerts } from "@/lib/queries/dashboard";
+import { ensureFollowUpsFresh } from "@/lib/queries/followups";
 import { StatCard } from "@/components/dashboard/StatCard";
-import { ActionCard } from "@/components/dashboard/ActionCard";
-import { HotLeadRow } from "@/components/dashboard/HotLeadRow";
-import { EventRow } from "@/components/calendar/EventRow";
-import { formatTime12h } from "@/lib/format";
+import { OperationsRow } from "@/components/dashboard/OperationsRow";
+import { VipLeadRow } from "@/components/dashboard/VipLeadRow";
+import { TaskRow } from "@/components/dashboard/TaskRow";
+import { formatCurrency, formatDate } from "@/lib/format";
 import { prisma } from "@/lib/prisma";
 
 export default async function DashboardPage() {
   const scope = await requireScope();
+  if (scope.role === "DRIVER") redirect("/driver");
   await ensureFollowUpsFresh();
-  const [metrics, actionItems, hotLeads, upcoming, followUpsDueToday, user] = await Promise.all([
+  const [metrics, operations, vipLeads, tasks, maintenance, user] = await Promise.all([
     getDashboardMetrics(scope),
-    getActionCenter(scope, 12),
-    getHotLeads(scope, 8),
-    getUpcomingActivities(scope),
-    getFollowUpsDueToday(scope, 5),
+    getTodaysOperations(),
+    getHighValueLeads(scope, 6),
+    getTasksDueToday(scope, 8),
+    getMaintenanceAlerts(4),
     prisma.user.findUnique({ where: { id: scope.userId } }),
   ]);
 
@@ -39,28 +44,32 @@ export default async function DashboardPage() {
   const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
 
   const stats = [
-    { label: "Total Leads", value: metrics.totalLeads, icon: UserPlus, href: "/leads", tone: "default" as const },
-    { label: "Active Leads", value: metrics.activeLeads, icon: Users, href: "/leads", tone: "default" as const },
-    { label: "Customers", value: metrics.totalCustomers, icon: Users, href: "/customers", tone: "default" as const },
-    { label: "Hot Leads", value: metrics.hotLeads, icon: Flame, href: "/leads?temperature=HOT", tone: "hot" as const },
-    { label: "Follow-Ups Due Today", value: metrics.followUpCallsDueToday, icon: Clock, href: "/calendar?view=today", tone: "warm" as const },
-    { label: "Overdue Follow-Ups", value: metrics.overdueFollowUps, icon: AlertTriangle, href: "/tasks?view=overdue", tone: "overdue" as const },
-    { label: "Appointments Today", value: metrics.appointmentsToday, icon: CalendarClock, href: "/calendar?view=today", tone: "appointment" as const },
-    { label: "Appointments Tomorrow", value: metrics.appointmentsTomorrow, icon: CalendarDays, href: "/calendar", tone: "appointment" as const },
-    { label: "Test Drives", value: metrics.testDrives, icon: Car, href: "/pipeline", tone: "default" as const },
-    { label: "Negotiations", value: metrics.negotiations, icon: Handshake, href: "/pipeline", tone: "warm" as const },
-    { label: "Sales This Month", value: metrics.salesThisMonth, icon: Trophy, href: "/reports", tone: "sold" as const },
-    { label: "Lost", value: metrics.lost, icon: XCircle, href: "/lost-leads", tone: "lost" as const },
+    { label: "Today's Reservations", value: metrics.todaysReservations, icon: CalendarClock, href: "/bookings", tone: "default" as const },
+    { label: "Upcoming Reservations", value: metrics.upcomingReservations, icon: CalendarDays, href: "/bookings", tone: "default" as const },
+    { label: "Active Trips", value: metrics.activeTrips, icon: Radar, href: "/operations", tone: "info" as const },
+    { label: "Available Vehicles", value: metrics.availableVehicles, icon: Car, href: "/fleet", tone: "success" as const },
+    { label: "Vehicles Out", value: metrics.vehiclesOut, icon: CarFront, href: "/fleet", tone: "warning" as const },
+    { label: "Needs Maintenance", value: metrics.vehiclesMaintenance, icon: Wrench, href: "/fleet", tone: "danger" as const },
+    { label: "New Leads Today", value: metrics.newLeads, icon: UserPlus, href: "/leads", tone: "default" as const },
+    { label: "Uncontacted Leads", value: metrics.uncontactedLeads, icon: PhoneMissed, href: "/leads", tone: "danger" as const },
+    { label: "Quotes Awaiting Response", value: metrics.quotesAwaiting, icon: FileText, href: "/quotes", tone: "warning" as const },
+    { label: "Confirmed Bookings", value: metrics.confirmedBookings, icon: BadgeCheck, href: "/bookings", tone: "success" as const },
+    { label: "Revenue Today", value: formatCurrency(metrics.revenueToday), icon: DollarSign, href: "/analytics", tone: "success" as const },
+    { label: "Revenue This Week", value: formatCurrency(metrics.revenueWeek), icon: TrendingUp, href: "/analytics", tone: "success" as const },
+    { label: "Revenue This Month", value: formatCurrency(metrics.revenueMonth), icon: TrendingUp, href: "/analytics", tone: "success" as const },
+    { label: "Outstanding Payments", value: formatCurrency(metrics.outstandingPayments), icon: Wallet, href: "/payments", tone: "warning" as const },
   ];
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold text-[var(--text)]">{greeting}, {user?.firstName ?? "there"}.</h1>
-        <p className="text-[13.5px] text-[var(--text-muted)]">Here&rsquo;s who needs you today.</p>
+    <div className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6 lg:p-8">
+      <div className="flex flex-col gap-1.5">
+        <h1 className="font-display text-4xl font-medium leading-tight text-[var(--text)]">
+          {greeting}, <span className="text-gradient-gold">{user?.firstName ?? "there"}</span>.
+        </h1>
+        <p className="text-[14px] text-[var(--text-muted)]">Here&rsquo;s what&rsquo;s happening with Stratos today — {formatDate(new Date(), "EEEE, MMMM d")}.</p>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
         {stats.map((s) => (
           <StatCard key={s.label} {...s} />
         ))}
@@ -71,21 +80,34 @@ export default async function DashboardPage() {
           <section className="card">
             <div className="flex items-center justify-between border-b border-[var(--border)] px-5 py-4">
               <div>
-                <h2 className="text-[15px] font-semibold text-[var(--text)]">Today&rsquo;s Actions</h2>
-                <p className="text-[12px] text-[var(--text-muted)]">Overdue and due-today items across your book, most urgent first.</p>
+                <h2 className="font-display text-xl font-medium text-[var(--text)]">Today&rsquo;s Operations</h2>
+                <p className="text-[12px] text-[var(--text-muted)]">Every reservation moving through the fleet today, in order.</p>
               </div>
-              <Link href="/tasks" className="text-xs font-semibold text-[var(--brand)] hover:underline">View all tasks</Link>
+              <Link href="/operations" className="text-xs font-semibold text-[var(--brand-bright)] hover:underline">Operations board</Link>
             </div>
-            <div className="space-y-3 p-4">
-              {actionItems.length === 0 && (
-                <div className="flex flex-col items-center gap-2 py-10 text-center">
-                  <Sparkles className="text-emerald-500" size={22} />
-                  <p className="text-sm font-medium text-[var(--text)]">You&rsquo;re all caught up</p>
-                  <p className="text-xs text-[var(--text-muted)]">No overdue or due-today items. Check Hot Leads for a proactive touch.</p>
+            <div className="space-y-0.5 p-3">
+              {operations.length === 0 && (
+                <div className="flex flex-col items-center gap-2 py-12 text-center">
+                  <Sparkles className="text-[var(--brand-bright)]" size={22} />
+                  <p className="text-sm font-medium text-[var(--text)]">Nothing scheduled today</p>
+                  <p className="text-xs text-[var(--text-muted)]">New reservations will appear here as they come in.</p>
                 </div>
               )}
-              {actionItems.map((item) => (
-                <ActionCard key={`${item.source}-${item.id}`} item={item} />
+              {operations.map((b) => (
+                <OperationsRow key={b.id} booking={b} />
+              ))}
+            </div>
+          </section>
+
+          <section className="card">
+            <div className="flex items-center justify-between border-b border-[var(--border)] px-5 py-4">
+              <h2 className="font-display text-xl font-medium text-[var(--text)]">Your Tasks Today</h2>
+              <Link href="/tasks" className="text-xs font-semibold text-[var(--brand-bright)] hover:underline">View all tasks</Link>
+            </div>
+            <div className="space-y-0.5 p-3">
+              {tasks.length === 0 && <p className="py-8 text-center text-sm text-[var(--text-muted)]">You&rsquo;re all caught up — nothing due today.</p>}
+              {tasks.map((t) => (
+                <TaskRow key={t.id} task={t} />
               ))}
             </div>
           </section>
@@ -95,65 +117,36 @@ export default async function DashboardPage() {
           <section className="card">
             <div className="flex items-center justify-between border-b border-[var(--border)] px-5 py-4">
               <div className="flex items-center gap-1.5">
-                <Flame size={16} className="text-red-500" />
-                <h2 className="text-[15px] font-semibold text-[var(--text)]">Hot Leads</h2>
+                <Star size={15} className="text-[var(--brand-bright)]" />
+                <h2 className="font-display text-lg font-medium text-[var(--text)]">VIP &amp; High-Value Leads</h2>
               </div>
-              <Link href="/leads?temperature=HOT" className="text-xs font-semibold text-[var(--brand)] hover:underline">See all</Link>
+              <Link href="/leads" className="text-xs font-semibold text-[var(--brand-bright)] hover:underline">See all</Link>
             </div>
             <div>
-              {hotLeads.length === 0 && <p className="px-5 py-8 text-center text-sm text-[var(--text-muted)]">No hot leads right now.</p>}
-              {hotLeads.map((item, i) => (
-                <HotLeadRow key={item.leadId} item={item} rank={i + 1} />
+              {vipLeads.length === 0 && <p className="px-5 py-8 text-center text-sm text-[var(--text-muted)]">No VIP leads flagged right now.</p>}
+              {vipLeads.map((l, i) => (
+                <VipLeadRow key={l.id} lead={l} rank={i + 1} />
               ))}
             </div>
           </section>
 
-          <section className="card">
-            <div className="flex items-center justify-between border-b border-[var(--border)] px-5 py-4">
-              <div className="flex items-center gap-1.5">
-                <CalendarClock size={16} className="text-[var(--appointment)]" />
-                <h2 className="text-[15px] font-semibold text-[var(--text)]">Upcoming Activities</h2>
-              </div>
-              <Link href="/calendar" className="text-xs font-semibold text-[var(--brand)] hover:underline">Full Calendar</Link>
-            </div>
-            {upcoming.today.length === 0 && upcoming.tomorrow.length === 0 && (
-              <p className="px-5 py-8 text-center text-sm text-[var(--text-muted)]">Nothing on the calendar today or tomorrow.</p>
-            )}
-            {upcoming.today.length > 0 && (
-              <div>
-                <p className="border-b border-[var(--border)] bg-[var(--bg-subtle)] px-5 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-faint)]">Today</p>
-                <div className="divide-y divide-[var(--border)]">
-                  {upcoming.today.map((e) => <EventRow key={e.id} event={e} />)}
-                </div>
-              </div>
-            )}
-            {upcoming.tomorrow.length > 0 && (
-              <div>
-                <p className="border-b border-[var(--border)] bg-[var(--bg-subtle)] px-5 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-faint)]">Tomorrow</p>
-                <div className="divide-y divide-[var(--border)]">
-                  {upcoming.tomorrow.map((e) => <EventRow key={e.id} event={e} />)}
-                </div>
-              </div>
-            )}
-          </section>
-
-          {followUpsDueToday.length > 0 && (
-            <section className="card border-amber-200">
-              <div className="flex items-center justify-between border-b border-amber-200 bg-amber-50 px-5 py-4">
+          {maintenance.length > 0 && (
+            <section className="card">
+              <div className="flex items-center justify-between border-b border-[var(--border)] px-5 py-4">
                 <div className="flex items-center gap-1.5">
-                  <Clock size={16} className="text-amber-600" />
-                  <h2 className="text-[15px] font-semibold text-amber-900">Follow-Ups Due Today</h2>
+                  <Wrench size={15} className="text-[var(--warning)]" />
+                  <h2 className="font-display text-lg font-medium text-[var(--text)]">Maintenance</h2>
                 </div>
-                <span className="badge bg-amber-100 text-amber-800">{followUpsDueToday.length}</span>
+                <Link href="/fleet" className="text-xs font-semibold text-[var(--brand-bright)] hover:underline">Fleet</Link>
               </div>
               <div className="divide-y divide-[var(--border)]">
-                {followUpsDueToday.map((f) => (
-                  <Link key={f.id} href={`/customers/${f.customerId}`} className="flex items-center justify-between px-5 py-3 hover:bg-[var(--bg-subtle)]">
+                {maintenance.map((m) => (
+                  <Link key={m.id} href={`/fleet/${m.vehicleId}`} className="flex items-center justify-between px-5 py-3 hover:bg-white/[0.03]">
                     <div className="min-w-0">
-                      <p className="truncate text-[13px] font-semibold text-[var(--text)]">{f.customer.firstName} {f.customer.lastName}</p>
-                      <p className="truncate text-[11.5px] text-[var(--text-muted)]">{f.topic}</p>
+                      <p className="truncate text-[13px] font-semibold text-[var(--text)]">{m.vehicle.name}</p>
+                      <p className="truncate text-[11.5px] text-[var(--text-muted)]">{m.description}</p>
                     </div>
-                    <span className="shrink-0 text-[12px] font-semibold text-[var(--text)]">{formatTime12h(f.followUpTime)}</span>
+                    <span className="shrink-0 text-[11px] text-[var(--text-faint)]">{m.scheduledDate ? formatDate(m.scheduledDate, "MMM d") : "—"}</span>
                   </Link>
                 ))}
               </div>

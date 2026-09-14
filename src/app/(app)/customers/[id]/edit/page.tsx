@@ -10,9 +10,9 @@ export default async function EditCustomerPage({ params }: { params: Promise<{ i
   if (!customer) notFound();
 
   return (
-    <div className="mx-auto max-w-xl space-y-5 p-4 sm:p-6">
+    <div className="mx-auto max-w-xl space-y-5 p-4 sm:p-6 lg:p-8">
       <div>
-        <h1 className="text-2xl font-semibold text-[var(--text)]">Edit Customer</h1>
+        <h1 className="font-display text-3xl font-medium text-[var(--text)]">Edit Client</h1>
         <p className="text-[13px] text-[var(--text-muted)]">Update contact information for {customer.firstName} {customer.lastName}.</p>
       </div>
       <div className="card p-5">

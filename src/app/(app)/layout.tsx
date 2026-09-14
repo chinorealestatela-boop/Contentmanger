@@ -16,7 +16,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         firstName: user?.firstName ?? scope.userName.split(" ")[0],
         lastName: user?.lastName ?? "",
         role: scope.role,
-        avatarColor: user?.avatarColor ?? "#2563eb",
+        avatarColor: user?.avatarColor ?? "#c9a24b",
         title: user?.title ?? undefined,
       }}
       notifications={notifications.map((n) => ({ ...n, createdAt: n.createdAt.toISOString() }))}

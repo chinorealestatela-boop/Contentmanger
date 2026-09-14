@@ -6,7 +6,7 @@ import { UserManagement } from "@/components/settings/UserManagement";
 
 export default async function UsersSettingsPage() {
   const scope = await requireScope();
-  if (scope.role !== "ADMIN") redirect("/settings");
+  if (!["OWNER", "ADMIN"].includes(scope.role)) redirect("/settings");
 
   const [users, roles] = await Promise.all([
     prisma.user.findMany({ include: { role: true }, orderBy: { firstName: "asc" } }),

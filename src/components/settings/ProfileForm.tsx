@@ -10,11 +10,11 @@ export function ProfileForm({ user }: { user: { firstName: string; lastName: str
 
   return (
     <form action={formAction} className="space-y-4">
-      {state?.error && <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{state.error}</div>}
-      {state?.success && <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{state.success}</div>}
+      {state?.error && <div className="rounded-lg border border-[var(--danger)]/40 bg-[var(--danger-soft)] px-3 py-2 text-sm text-[var(--danger)]">{state.error}</div>}
+      {state?.success && <div className="rounded-lg border border-[var(--success)]/40 bg-[var(--success-soft)] px-3 py-2 text-sm text-[var(--success)]">{state.success}</div>}
       <div>
         <label className="label">Email</label>
-        <input value={user.email} disabled className="input bg-[var(--bg-subtle)] text-[var(--text-faint)]" />
+        <input value={user.email} disabled className="input bg-white/[0.03] text-[var(--text-faint)]" />
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div><label className="label">First Name</label><input name="firstName" required defaultValue={user.firstName} className="input" /></div>

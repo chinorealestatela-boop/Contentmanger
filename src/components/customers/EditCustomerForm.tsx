@@ -1,10 +1,10 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
 import { updateCustomer } from "@/lib/actions/customers";
-import { CONTACT_METHODS, CONTACT_TIMES } from "@/lib/constants";
+import { Field, SelectField, TextField, ErrorBox } from "@/components/ui/Form";
+import { CONTACT_METHODS } from "@/lib/constants";
 
 type Customer = {
   id: string;
@@ -12,12 +12,14 @@ type Customer = {
   lastName: string;
   phone: string | null;
   email: string | null;
+  company: string | null;
   address: string | null;
   city: string | null;
   state: string | null;
   zip: string | null;
   preferredContactMethod: string;
-  bestContactTime: string | null;
+  specialRequests: string | null;
+  notes: string | null;
 };
 
 export function EditCustomerForm({ customer }: { customer: Customer }) {
@@ -31,36 +33,25 @@ export function EditCustomerForm({ customer }: { customer: Customer }) {
   return (
     <form action={formAction} className="space-y-4">
       <input type="hidden" name="customerId" value={customer.id} />
-      {state?.error && <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{state.error}</div>}
+      {state?.error && <ErrorBox>{state.error}</ErrorBox>}
       <div className="grid grid-cols-2 gap-3">
-        <div><label className="label">First Name</label><input name="firstName" required defaultValue={customer.firstName} className="input" /></div>
-        <div><label className="label">Last Name</label><input name="lastName" required defaultValue={customer.lastName} className="input" /></div>
+        <Field label="First Name" name="firstName" required defaultValue={customer.firstName} />
+        <Field label="Last Name" name="lastName" required defaultValue={customer.lastName} />
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <div><label className="label">Phone</label><input name="phone" defaultValue={customer.phone ?? ""} className="input" /></div>
-        <div><label className="label">Email</label><input name="email" type="email" defaultValue={customer.email ?? ""} className="input" /></div>
+        <Field label="Phone" name="phone" defaultValue={customer.phone ?? ""} />
+        <Field label="Email" name="email" type="email" defaultValue={customer.email ?? ""} />
       </div>
-      <div><label className="label">Address</label><input name="address" defaultValue={customer.address ?? ""} className="input" /></div>
+      <Field label="Company (optional)" name="company" defaultValue={customer.company ?? ""} />
+      <Field label="Address" name="address" defaultValue={customer.address ?? ""} />
       <div className="grid grid-cols-3 gap-3">
-        <div><label className="label">City</label><input name="city" defaultValue={customer.city ?? ""} className="input" /></div>
-        <div><label className="label">State</label><input name="state" defaultValue={customer.state ?? ""} className="input" /></div>
-        <div><label className="label">Zip</label><input name="zip" defaultValue={customer.zip ?? ""} className="input" /></div>
+        <Field label="City" name="city" defaultValue={customer.city ?? ""} />
+        <Field label="State" name="state" defaultValue={customer.state ?? ""} />
+        <Field label="Zip" name="zip" defaultValue={customer.zip ?? ""} />
       </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="label">Preferred Contact</label>
-          <select name="preferredContactMethod" defaultValue={customer.preferredContactMethod} className="input">
-            {CONTACT_METHODS.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className="label">Best Contact Time</label>
-          <select name="bestContactTime" defaultValue={customer.bestContactTime ?? ""} className="input">
-            <option value="">—</option>
-            {CONTACT_TIMES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
-          </select>
-        </div>
-      </div>
+      <SelectField label="Preferred Contact Method" name="preferredContactMethod" options={CONTACT_METHODS} defaultValue={customer.preferredContactMethod} />
+      <TextField label="Special Requests" name="specialRequests" defaultValue={customer.specialRequests ?? ""} placeholder="e.g. Always stock chilled champagne, prefers Marcus as chauffeur" />
+      <TextField label="Notes" name="notes" defaultValue={customer.notes ?? ""} />
       <div className="flex justify-end gap-2 pt-2">
         <button type="submit" disabled={pending} className="btn btn-primary">{pending ? "Saving…" : "Save Changes"}</button>
       </div>

@@ -6,13 +6,13 @@ import { requireScope } from "@/lib/queries/scope";
 import { logActivity } from "@/lib/activity";
 import { revalidatePath } from "next/cache";
 import type { SimpleActionState } from "@/lib/actions/communications";
-import { runAutomation } from "@/lib/automation/engine";
 
 export type TaskActionState = (SimpleActionState & { taskId?: string }) | null;
 
 const createSchema = z.object({
   customerId: z.string().optional(),
   leadId: z.string().optional(),
+  bookingId: z.string().optional(),
   title: z.string().min(1, "Title is required."),
   type: z.string().default("OTHER"),
   priority: z.string().default("NORMAL"),
@@ -27,6 +27,7 @@ export async function createTask(_prev: TaskActionState, formData: FormData): Pr
   const parsed = createSchema.safeParse({
     customerId: formData.get("customerId") || undefined,
     leadId: formData.get("leadId") || undefined,
+    bookingId: formData.get("bookingId") || undefined,
     title: formData.get("title"),
     type: formData.get("type") || "OTHER",
     priority: formData.get("priority") || "NORMAL",
@@ -41,6 +42,7 @@ export async function createTask(_prev: TaskActionState, formData: FormData): Pr
     data: {
       customerId: parsed.data.customerId,
       leadId: parsed.data.leadId,
+      bookingId: parsed.data.bookingId,
       title: parsed.data.title,
       type: parsed.data.type,
       priority: parsed.data.priority,
@@ -83,9 +85,6 @@ export async function completeTask(taskId: string) {
       description: `Task completed: ${task.title}`,
       actorId: scope.userId,
     });
-    if (task.type === "FOLLOW_UP" || task.source === "SEQUENCE") {
-      await runAutomation("FOLLOW_UP_COMPLETED", { customerId: task.customerId, leadId: task.leadId, actorId: scope.userId });
-    }
   }
 
   revalidatePath("/tasks");

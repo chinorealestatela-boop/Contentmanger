@@ -8,7 +8,7 @@ export default async function ProfileSettingsPage() {
   const user = await prisma.user.findUniqueOrThrow({ where: { id: scope.userId } });
 
   return (
-    <SettingsShell isAdmin={scope.role === "ADMIN"} title="My Profile" subtitle="Update your personal information.">
+    <SettingsShell isAdmin={["OWNER", "ADMIN"].includes(scope.role)} title="My Profile" subtitle="Update your personal information.">
       <div className="card max-w-lg p-5"><ProfileForm user={user} /></div>
     </SettingsShell>
   );

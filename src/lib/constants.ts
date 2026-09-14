@@ -5,195 +5,247 @@
 export type Option<T extends string = string> = {
   value: T;
   label: string;
-  color?: string; // tailwind-ish hex used for badges/pills
+  color?: string; // hex used for badges/pills/status dots
 };
 
 // ── Roles ──────────────────────────────────────────────────────────────
-export const ROLES = ["SALESPERSON", "MANAGER", "ADMIN"] as const;
+export const ROLES = ["OWNER", "ADMIN", "MANAGER", "DISPATCHER", "SALES", "DRIVER"] as const;
 export type RoleName = (typeof ROLES)[number];
 
-// ── Lead temperature ──────────────────────────────────────────────────
-export const TEMPERATURES: Option[] = [
-  { value: "HOT", label: "Hot", color: "#dc2626" },
-  { value: "WARM", label: "Warm", color: "#ea580c" },
-  { value: "COLD", label: "Cold", color: "#2563eb" },
-];
-export type Temperature = "HOT" | "WARM" | "COLD";
+export const ROLE_LABELS: Record<RoleName, string> = {
+  OWNER: "Owner",
+  ADMIN: "Administrator",
+  MANAGER: "Manager",
+  DISPATCHER: "Dispatcher",
+  SALES: "Concierge / Sales",
+  DRIVER: "Chauffeur",
+};
 
-// ── Lead status ────────────────────────────────────────────────────────
-export const LEAD_STATUSES: Option[] = [
-  { value: "ACTIVE", label: "Active", color: "#16a34a" },
-  { value: "ON_HOLD", label: "On Hold", color: "#a16207" },
-  { value: "SOLD", label: "Sold", color: "#7c3aed" },
-  { value: "LOST", label: "Lost", color: "#64748b" },
-];
-
-// ── Purchase timeframe ────────────────────────────────────────────────
-export const PURCHASE_TIMEFRAMES: Option[] = [
-  { value: "IMMEDIATE", label: "Immediate (0-3 days)" },
-  { value: "THIS_WEEK", label: "This Week" },
-  { value: "THIS_MONTH", label: "This Month" },
-  { value: "THIS_QUARTER", label: "This Quarter" },
-  { value: "RESEARCHING", label: "Just Researching" },
+// ── Customer tiers ────────────────────────────────────────────────────
+export const CUSTOMER_TIERS: Option[] = [
+  { value: "STANDARD", label: "Standard", color: "#8a8a8a" },
+  { value: "VIP", label: "VIP", color: "#c9a24b" },
+  { value: "VVIP", label: "VVIP", color: "#e8c874" },
+  { value: "CORPORATE", label: "Corporate", color: "#7fa8c9" },
 ];
 
 // ── Contact method ────────────────────────────────────────────────────
 export const CONTACT_METHODS: Option[] = [
   { value: "PHONE", label: "Phone Call" },
-  { value: "TEXT", label: "Text" },
+  { value: "TEXT", label: "Text Message" },
   { value: "EMAIL", label: "Email" },
 ];
 
-export const CONTACT_TIMES: Option[] = [
-  { value: "MORNING", label: "Morning" },
-  { value: "AFTERNOON", label: "Afternoon" },
-  { value: "EVENING", label: "Evening" },
-  { value: "ANYTIME", label: "Anytime" },
+// ── Lead sources ──────────────────────────────────────────────────────
+export const DEFAULT_LEAD_SOURCES = [
+  "Website",
+  "Instagram",
+  "TikTok",
+  "Facebook",
+  "Google",
+  "Referral",
+  "Phone Call",
+  "Text Message",
+  "Repeat Client",
+  "Corporate Client",
+  "Other",
 ];
 
-// ── Financing ──────────────────────────────────────────────────────────
-export const FINANCE_TYPES: Option[] = [
+// ── Lead status ────────────────────────────────────────────────────────
+export const LEAD_STATUSES: Option[] = [
+  { value: "ACTIVE", label: "Active", color: "#3fae6a" },
+  { value: "ON_HOLD", label: "On Hold", color: "#c9a24b" },
+  { value: "BOOKED", label: "Booked", color: "#7fa8c9" },
+  { value: "LOST", label: "Lost", color: "#8a8a8a" },
+];
+
+// ── Pipeline (seeded, editable in Settings) ─────────────────────────────
+export const DEFAULT_PIPELINE_STAGES: { name: string; order: number; color: string; isClosedWon?: boolean; isClosedLost?: boolean }[] = [
+  { name: "New Lead", order: 0, color: "#7fa8c9" },
+  { name: "Contacted", order: 1, color: "#6fb0c9" },
+  { name: "Qualified", order: 2, color: "#5fbfa8" },
+  { name: "Quote Sent", order: 3, color: "#c9a24b" },
+  { name: "Follow-Up", order: 4, color: "#d4b05e" },
+  { name: "Deposit Requested", order: 5, color: "#e0955a" },
+  { name: "Booked", order: 6, color: "#3fae6a", isClosedWon: true },
+  { name: "Completed", order: 7, color: "#3f8f5a", isClosedWon: true },
+  { name: "Lost", order: 8, color: "#8a8a8a", isClosedLost: true },
+];
+
+export const DEFAULT_LOST_REASONS = [
+  "Booked With Competitor",
+  "Price / Budget",
+  "Vehicle Unavailable",
+  "Date/Time Unavailable",
+  "No Response",
+  "Changed Plans",
+  "Duplicate Inquiry",
+  "Other",
+];
+
+// ── Service types ─────────────────────────────────────────────────────
+export const SERVICE_TYPES: Option[] = [
+  { value: "AIRPORT_TRANSFER", label: "Airport Transfer" },
+  { value: "CHAUFFEURED_TRANSPORTATION", label: "Chauffeured Transportation" },
+  { value: "SELF_DRIVE_RENTAL", label: "Self-Drive Rental" },
+  { value: "POINT_TO_POINT", label: "Point-to-Point Transportation" },
+  { value: "HOURLY_SERVICE", label: "Hourly Service" },
+  { value: "CORPORATE_TRANSPORTATION", label: "Corporate Transportation" },
+  { value: "WEDDINGS", label: "Weddings" },
+  { value: "VIP_NIGHT_OUT", label: "VIP Night Out" },
+  { value: "EVENTS", label: "Events" },
+  { value: "CALIFORNIA_TRANSPORTATION", label: "California Transportation" },
+  { value: "LONG_DISTANCE", label: "Long-Distance Transportation" },
+  { value: "LIFESTYLE_CONCIERGE", label: "Lifestyle / Concierge Services" },
+];
+
+// ── Vehicles / Fleet ──────────────────────────────────────────────────
+export const VEHICLE_TYPES: Option[] = [
+  { value: "ROLLS_ROYCE", label: "Rolls-Royce" },
+  { value: "BENTLEY", label: "Bentley" },
+  { value: "MAYBACH", label: "Maybach" },
+  { value: "MERCEDES_SPRINTER", label: "Mercedes Sprinter" },
+  { value: "CADILLAC_ESCALADE", label: "Cadillac Escalade" },
+  { value: "LAMBORGHINI", label: "Lamborghini" },
+  { value: "EXOTIC", label: "Exotic / Supercar" },
+  { value: "SEDAN", label: "Luxury Sedan" },
+  { value: "SUV", label: "Luxury SUV" },
+  { value: "OTHER", label: "Other" },
+];
+
+export const VEHICLE_AVAILABILITY: Option[] = [
+  { value: "AVAILABLE", label: "Available", color: "#3fae6a" },
+  { value: "RESERVED", label: "Reserved", color: "#c9a24b" },
+  { value: "ON_TRIP", label: "On Trip", color: "#e0955a" },
+  { value: "MAINTENANCE", label: "Maintenance", color: "#c9605c" },
+  { value: "OFFLINE", label: "Offline", color: "#6a6a6a" },
+];
+
+export const MAINTENANCE_TYPES: Option[] = [
+  { value: "SERVICE", label: "Scheduled Service" },
+  { value: "REPAIR", label: "Repair" },
+  { value: "INSPECTION", label: "Inspection" },
+  { value: "DETAIL", label: "Detail" },
+  { value: "TIRE", label: "Tires" },
+  { value: "OIL_CHANGE", label: "Oil Change" },
+  { value: "OTHER", label: "Other" },
+];
+
+export const MAINTENANCE_STATUSES: Option[] = [
+  { value: "SCHEDULED", label: "Scheduled", color: "#c9a24b" },
+  { value: "IN_PROGRESS", label: "In Progress", color: "#7fa8c9" },
+  { value: "COMPLETED", label: "Completed", color: "#3fae6a" },
+  { value: "CANCELLED", label: "Cancelled", color: "#6a6a6a" },
+];
+
+// ── Drivers / Chauffeurs ─────────────────────────────────────────────
+export const DRIVER_STATUSES: Option[] = [
+  { value: "AVAILABLE", label: "Available", color: "#3fae6a" },
+  { value: "ASSIGNED", label: "Assigned", color: "#7fa8c9" },
+  { value: "EN_ROUTE", label: "En Route", color: "#c9a24b" },
+  { value: "WITH_CLIENT", label: "With Client", color: "#d4855e" },
+  { value: "COMPLETED", label: "Completed", color: "#8a8a8a" },
+  { value: "OFF_DUTY", label: "Off Duty", color: "#5a5a5a" },
+];
+
+// ── Bookings ───────────────────────────────────────────────────────────
+export const BOOKING_STATUSES: Option[] = [
+  { value: "RESERVED", label: "Reserved", color: "#8a8a8a" },
+  { value: "CONFIRMED", label: "Confirmed", color: "#7fa8c9" },
+  { value: "DRIVER_ASSIGNED", label: "Driver Assigned", color: "#6fb0c9" },
+  { value: "EN_ROUTE", label: "En Route", color: "#c9a24b" },
+  { value: "PASSENGER_PICKED_UP", label: "Passenger Picked Up", color: "#d4855e" },
+  { value: "COMPLETED", label: "Completed", color: "#3fae6a" },
+  { value: "CANCELLED", label: "Cancelled", color: "#8a4a4a" },
+];
+
+export const PAYMENT_STATUSES: Option[] = [
+  { value: "PAYMENT_PENDING", label: "Payment Pending", color: "#c9605c" },
+  { value: "DEPOSIT_PAID", label: "Deposit Paid", color: "#c9a24b" },
+  { value: "PAID_IN_FULL", label: "Paid in Full", color: "#3fae6a" },
+  { value: "REFUNDED", label: "Refunded", color: "#7fa8c9" },
+  { value: "FAILED", label: "Failed", color: "#8a4a4a" },
+];
+
+// Operations Board columns (trip execution lifecycle)
+export const OPS_STAGES: Option[] = [
+  { value: "UPCOMING", label: "Upcoming", color: "#8a8a8a" },
+  { value: "DRIVER_ASSIGNED", label: "Driver Assigned", color: "#7fa8c9" },
+  { value: "DRIVER_EN_ROUTE", label: "Driver En Route", color: "#6fb0c9" },
+  { value: "ARRIVED", label: "Arrived", color: "#c9a24b" },
+  { value: "PASSENGER_ONBOARD", label: "Passenger Onboard", color: "#d4855e" },
+  { value: "IN_TRANSIT", label: "In Transit", color: "#c98a5e" },
+  { value: "COMPLETED", label: "Completed", color: "#3fae6a" },
+];
+
+export const FLIGHT_STATUSES: Option[] = [
+  { value: "ON_TIME", label: "On Time", color: "#3fae6a" },
+  { value: "DELAYED", label: "Delayed", color: "#c9a24b" },
+  { value: "LANDED", label: "Landed", color: "#7fa8c9" },
+  { value: "CANCELLED", label: "Cancelled", color: "#8a4a4a" },
+];
+
+// ── Quotes ─────────────────────────────────────────────────────────────
+export const QUOTE_STATUSES: Option[] = [
+  { value: "DRAFT", label: "Draft", color: "#8a8a8a" },
+  { value: "SENT", label: "Sent", color: "#7fa8c9" },
+  { value: "VIEWED", label: "Viewed", color: "#6fb0c9" },
+  { value: "ACCEPTED", label: "Accepted", color: "#3fae6a" },
+  { value: "DECLINED", label: "Declined", color: "#8a4a4a" },
+  { value: "EXPIRED", label: "Expired", color: "#5a5a5a" },
+  { value: "CONVERTED", label: "Converted to Booking", color: "#c9a24b" },
+];
+
+// ── Payments (ledger) ────────────────────────────────────────────────
+export const PAYMENT_TYPES: Option[] = [
+  { value: "DEPOSIT", label: "Deposit" },
+  { value: "BALANCE", label: "Balance" },
+  { value: "FULL", label: "Paid in Full" },
+  { value: "REFUND", label: "Refund" },
+];
+
+export const PAYMENT_METHODS: Option[] = [
+  { value: "CARD", label: "Card" },
   { value: "CASH", label: "Cash" },
-  { value: "FINANCE", label: "Finance" },
-  { value: "LEASE", label: "Lease" },
+  { value: "CHECK", label: "Check" },
+  { value: "WIRE", label: "Wire Transfer" },
+  { value: "OTHER", label: "Other" },
 ];
 
-export const CREDIT_APP_STATUSES: Option[] = [
-  { value: "NOT_STARTED", label: "Not Started", color: "#64748b" },
-  { value: "PENDING", label: "Pending", color: "#a16207" },
-  { value: "SUBMITTED", label: "Submitted", color: "#2563eb" },
-  { value: "APPROVED", label: "Approved", color: "#16a34a" },
-  { value: "DECLINED", label: "Declined", color: "#dc2626" },
-];
-
-// ── Vehicles ───────────────────────────────────────────────────────────
-export const VEHICLE_CONDITIONS: Option[] = [
-  { value: "NEW", label: "New" },
-  { value: "USED", label: "Used" },
-  { value: "CERTIFIED", label: "Certified Pre-Owned" },
-];
-
-export const VEHICLE_STATUSES: Option[] = [
-  { value: "AVAILABLE", label: "Available", color: "#16a34a" },
-  { value: "HOLD", label: "On Hold", color: "#a16207" },
-  { value: "SOLD", label: "Sold", color: "#7c3aed" },
-  { value: "IN_TRANSIT", label: "In Transit", color: "#2563eb" },
-  { value: "UNAVAILABLE", label: "Unavailable", color: "#64748b" },
-];
-
-export const BODY_STYLES: Option[] = [
-  { value: "SEDAN", label: "Sedan" },
-  { value: "SUV", label: "SUV" },
-  { value: "TRUCK", label: "Truck" },
-  { value: "COUPE", label: "Coupe" },
-  { value: "VAN", label: "Minivan" },
-  { value: "CONVERTIBLE", label: "Convertible" },
-  { value: "HATCHBACK", label: "Hatchback" },
-  { value: "WAGON", label: "Wagon" },
-];
-
-export const DRIVETRAINS: Option[] = [
-  { value: "FWD", label: "FWD" },
-  { value: "RWD", label: "RWD" },
-  { value: "AWD", label: "AWD" },
-  { value: "4WD", label: "4WD" },
-];
-
-export const INTEREST_LEVELS: Option[] = [
-  { value: "INTERESTED", label: "Interested" },
-  { value: "STRONG", label: "Strong Interest" },
-  { value: "PURCHASED", label: "Purchased" },
-  { value: "PASSED", label: "Passed" },
-];
-
-// ── Trade-ins ──────────────────────────────────────────────────────────
-export const APPRAISAL_STATUSES: Option[] = [
-  { value: "PENDING", label: "Pending", color: "#a16207" },
-  { value: "APPRAISED", label: "Appraised", color: "#2563eb" },
-  { value: "ACCEPTED", label: "Accepted", color: "#16a34a" },
-  { value: "DECLINED", label: "Declined", color: "#dc2626" },
-];
-
-// ── Appointments / Calendar events ────────────────────────────────────
-// This list also drives the Calendar tab's event-type badges/icons (see
-// src/components/calendar/eventMeta.ts for the icon+color mapping).
-export const APPOINTMENT_TYPES: Option[] = [
-  { value: "CUSTOMER_CALL", label: "Customer Call", color: "#2563eb" },
-  { value: "FOLLOW_UP_CALL", label: "Follow-Up Call", color: "#0891b2" },
-  { value: "TEST_DRIVE", label: "Test Drive", color: "#ea580c" },
-  { value: "DEALERSHIP_APPOINTMENT", label: "Dealership Appointment", color: "#7c3aed" },
-  { value: "VEHICLE_WALKAROUND", label: "Vehicle Walkaround", color: "#0d9488" },
-  { value: "FINANCING_DISCUSSION", label: "Financing Discussion", color: "#a16207" },
-  { value: "TRADE_IN_EVALUATION", label: "Trade-In Evaluation", color: "#16a34a" },
-  { value: "SALES_APPOINTMENT", label: "Sales Appointment", color: "#db2777" },
-  { value: "DELIVERY", label: "Delivery", color: "#4f46e5" },
-  { value: "OTHER", label: "Other", color: "#64748b" },
-];
-
-export const APPOINTMENT_STATUSES: Option[] = [
-  { value: "SCHEDULED", label: "Scheduled", color: "#2563eb" },
-  { value: "CONFIRMED", label: "Confirmed", color: "#0d9488" },
-  { value: "SHOWED", label: "Showed", color: "#16a34a" },
-  { value: "NO_SHOW", label: "No-Show", color: "#dc2626" },
-  { value: "CANCELLED", label: "Cancelled", color: "#64748b" },
-  { value: "COMPLETED", label: "Completed", color: "#7c3aed" },
-];
-
-// ── Follow-ups ─────────────────────────────────────────────────────────
-export const FOLLOWUP_STATUSES: Option[] = [
-  { value: "SCHEDULED", label: "Scheduled", color: "#2563eb" },
-  { value: "COMPLETED", label: "Completed", color: "#16a34a" },
-  { value: "RESCHEDULED", label: "Rescheduled", color: "#a16207" },
-  { value: "CANCELLED", label: "Cancelled", color: "#64748b" },
-  { value: "MISSED", label: "Missed", color: "#dc2626" },
-];
-
-// Not a stored status — SCHEDULED + followUpDate == today. Included here
-// only so status filter dropdowns can offer it as a value.
-export const FOLLOWUP_STATUS_FILTERS: Option[] = [
-  { value: "ALL", label: "All" },
-  ...FOLLOWUP_STATUSES,
-  { value: "DUE_TODAY", label: "Due Today", color: "#ea580c" },
-];
-
-// Stored as reminderOffsetMinutes (minutes before the follow-up time).
-// "CUSTOM" isn't a stored value — the UI swaps in a number input when
-// selected and stores whatever minute count the user enters.
-export const FOLLOWUP_REMINDER_OPTIONS: Option[] = [
-  { value: "NONE", label: "No reminder" },
-  { value: "0", label: "At the scheduled time" },
-  { value: "15", label: "15 minutes before" },
-  { value: "30", label: "30 minutes before" },
-  { value: "60", label: "1 hour before" },
-  { value: "1440", label: "1 day before" },
-  { value: "CUSTOM", label: "Custom…" },
+export const PAYMENT_RECORD_STATUSES: Option[] = [
+  { value: "PENDING", label: "Pending", color: "#c9a24b" },
+  { value: "SUCCEEDED", label: "Succeeded", color: "#3fae6a" },
+  { value: "FAILED", label: "Failed", color: "#8a4a4a" },
+  { value: "REFUNDED", label: "Refunded", color: "#7fa8c9" },
 ];
 
 // ── Tasks ──────────────────────────────────────────────────────────────
 export const TASK_TYPES: Option[] = [
-  { value: "CALL", label: "Call" },
-  { value: "TEXT", label: "Text" },
-  { value: "EMAIL", label: "Email" },
-  { value: "FOLLOW_UP", label: "Follow-Up" },
-  { value: "APPOINTMENT", label: "Appointment" },
-  { value: "TRADE", label: "Trade" },
-  { value: "CREDIT", label: "Credit" },
-  { value: "DELIVERY", label: "Delivery" },
+  { value: "CALL", label: "Call Lead" },
+  { value: "FOLLOW_UP", label: "Follow Up" },
+  { value: "SEND_QUOTE", label: "Send Quote" },
+  { value: "COLLECT_DEPOSIT", label: "Collect Deposit" },
+  { value: "ASSIGN_DRIVER", label: "Assign Driver" },
+  { value: "CONFIRM_FLIGHT", label: "Confirm Flight" },
+  { value: "PREPARE_VEHICLE", label: "Prepare Vehicle" },
+  { value: "SEND_REMINDER", label: "Send Customer Reminder" },
+  { value: "COLLECT_BALANCE", label: "Collect Remaining Balance" },
+  { value: "REQUEST_REVIEW", label: "Request Review" },
   { value: "OTHER", label: "Other" },
 ];
 
 export const TASK_PRIORITIES: Option[] = [
-  { value: "LOW", label: "Low", color: "#64748b" },
-  { value: "NORMAL", label: "Normal", color: "#2563eb" },
-  { value: "HIGH", label: "High", color: "#ea580c" },
-  { value: "URGENT", label: "Urgent", color: "#dc2626" },
+  { value: "LOW", label: "Low", color: "#8a8a8a" },
+  { value: "NORMAL", label: "Normal", color: "#7fa8c9" },
+  { value: "HIGH", label: "High", color: "#c9a24b" },
+  { value: "URGENT", label: "Urgent", color: "#c9605c" },
 ];
 
 export const TASK_STATUSES: Option[] = [
-  { value: "PENDING", label: "Pending", color: "#a16207" },
-  { value: "COMPLETED", label: "Completed", color: "#16a34a" },
-  { value: "SNOOZED", label: "Snoozed", color: "#64748b" },
-  { value: "CANCELLED", label: "Cancelled", color: "#94a3b8" },
+  { value: "PENDING", label: "Pending", color: "#c9a24b" },
+  { value: "COMPLETED", label: "Completed", color: "#3fae6a" },
+  { value: "SNOOZED", label: "Snoozed", color: "#8a8a8a" },
+  { value: "CANCELLED", label: "Cancelled", color: "#5a5a5a" },
 ];
 
 // ── Communications ────────────────────────────────────────────────────
@@ -206,80 +258,97 @@ export const COMMUNICATION_TYPES: Option[] = [
   { value: "OTHER", label: "Other" },
 ];
 
-// ── Offers ─────────────────────────────────────────────────────────────
-export const OFFER_STATUSES: Option[] = [
-  { value: "PENDING", label: "Pending", color: "#a16207" },
-  { value: "COUNTERED", label: "Countered", color: "#2563eb" },
-  { value: "ACCEPTED", label: "Accepted", color: "#16a34a" },
-  { value: "REJECTED", label: "Rejected", color: "#dc2626" },
+// ── Follow-ups ─────────────────────────────────────────────────────────
+export const FOLLOWUP_STATUSES: Option[] = [
+  { value: "SCHEDULED", label: "Scheduled", color: "#7fa8c9" },
+  { value: "COMPLETED", label: "Completed", color: "#3fae6a" },
+  { value: "RESCHEDULED", label: "Rescheduled", color: "#c9a24b" },
+  { value: "CANCELLED", label: "Cancelled", color: "#5a5a5a" },
+  { value: "MISSED", label: "Missed", color: "#c9605c" },
 ];
 
-// ── Test Drives ────────────────────────────────────────────────────────
-export const CUSTOMER_REACTIONS: Option[] = [
-  { value: "POSITIVE", label: "Positive", color: "#16a34a" },
-  { value: "NEUTRAL", label: "Neutral", color: "#a16207" },
-  { value: "NEGATIVE", label: "Negative", color: "#dc2626" },
+export const FOLLOWUP_STATUS_FILTERS: Option[] = [
+  { value: "ALL", label: "All" },
+  ...FOLLOWUP_STATUSES,
+  { value: "DUE_TODAY", label: "Due Today", color: "#e0955a" },
 ];
 
-// ── Default pipeline stages (seeded, editable in Settings) ─────────────
-export const DEFAULT_PIPELINE_STAGES: { name: string; order: number; color: string; isClosedWon?: boolean; isClosedLost?: boolean }[] = [
-  { name: "New Lead", order: 0, color: "#2563eb" },
-  { name: "Contacted", order: 1, color: "#0891b2" },
-  { name: "Engaged", order: 2, color: "#0d9488" },
-  { name: "Appointment Set", order: 3, color: "#7c3aed" },
-  { name: "Appointment Confirmed", order: 4, color: "#8b5cf6" },
-  { name: "Showed", order: 5, color: "#d946ef" },
-  { name: "Test Drive", order: 6, color: "#ea580c" },
-  { name: "Negotiating", order: 7, color: "#f59e0b" },
-  { name: "Credit Application", order: 8, color: "#eab308" },
-  { name: "Pending Delivery", order: 9, color: "#84cc16" },
-  { name: "Sold", order: 10, color: "#16a34a", isClosedWon: true },
-  { name: "Lost", order: 11, color: "#64748b", isClosedLost: true },
+export const FOLLOWUP_REMINDER_OPTIONS: Option[] = [
+  { value: "NONE", label: "No reminder" },
+  { value: "0", label: "At the scheduled time" },
+  { value: "15", label: "15 minutes before" },
+  { value: "30", label: "30 minutes before" },
+  { value: "60", label: "1 hour before" },
+  { value: "1440", label: "1 day before" },
+  { value: "CUSTOM", label: "Custom…" },
 ];
 
-// ── Default lead sources ────────────────────────────────────────────────
-export const DEFAULT_LEAD_SOURCES = [
-  "Walk-In",
-  "Phone Up",
-  "Website",
-  "Autotrader",
-  "Cars.com",
-  "CarGurus",
-  "Facebook Marketplace",
-  "Google Ads",
-  "Referral",
-  "Repeat Customer",
-  "Third-Party Lead Provider",
-  "Trade Show / Event",
+// ── Documents ──────────────────────────────────────────────────────────
+export const DOCUMENT_TYPES: Option[] = [
+  { value: "ID", label: "ID" },
+  { value: "LICENSE", label: "License" },
+  { value: "INSURANCE", label: "Insurance" },
+  { value: "REGISTRATION", label: "Registration" },
+  { value: "CONTRACT", label: "Contract / Agreement" },
+  { value: "RECEIPT", label: "Receipt" },
+  { value: "OTHER", label: "Other" },
 ];
 
-// ── Default lost reasons ────────────────────────────────────────────────
-export const DEFAULT_LOST_REASONS = [
-  "Bought Elsewhere",
-  "Price",
-  "Payment",
-  "Credit",
-  "No Response",
-  "Vehicle Unavailable",
-  "Trade",
-  "Waiting",
-  "Changed Mind",
-  "Other",
+// ── Automation triggers ──────────────────────────────────────────────
+export const TRIGGER_EVENTS: Option[] = [
+  { value: "NEW_LEAD", label: "New lead is created" },
+  { value: "HIGH_VALUE_LEAD", label: "Lead is flagged VIP / high-value" },
+  { value: "STAGE_CHANGE", label: "Lead changes pipeline stage" },
+  { value: "QUOTE_SENT", label: "Quote is sent" },
+  { value: "BOOKING_CONFIRMED", label: "Booking is confirmed" },
+  { value: "REMINDER_24H", label: "24 hours before reservation" },
+  { value: "REMINDER_2H", label: "2 hours before reservation" },
+  { value: "TRIP_COMPLETED", label: "Trip is completed" },
+  { value: "NO_CONTACT_X_HOURS", label: "No contact for X hours" },
+  { value: "PAYMENT_RECEIVED", label: "Payment is received" },
+  { value: "PAYMENT_FAILED", label: "Payment fails" },
+  { value: "MAINTENANCE_DUE", label: "Vehicle maintenance is due" },
 ];
 
 // ── Notification types ──────────────────────────────────────────────────
 export const NOTIFICATION_TYPES: Option[] = [
   { value: "NEW_LEAD", label: "New Lead" },
-  { value: "HOT_LEAD", label: "Hot Lead" },
-  { value: "OVERDUE_FOLLOW_UP", label: "Overdue Follow-Up" },
-  { value: "FOLLOW_UP_REMINDER", label: "Follow-Up Reminder" },
-  { value: "APPOINTMENT", label: "Appointment" },
-  { value: "APPOINTMENT_TOMORROW", label: "Appointment Tomorrow" },
-  { value: "NO_SHOW", label: "No-Show" },
-  { value: "CUSTOMER_ACTIVITY", label: "Customer Activity" },
-  { value: "VEHICLE_SOLD", label: "Vehicle Sold" },
-  { value: "IMPORTANT_TASK", label: "Important Task" },
-  { value: "AUTOMATION", label: "Automation" },
+  { value: "HIGH_VALUE_LEAD", label: "High-Value Lead" },
+  { value: "NEW_BOOKING", label: "New Booking" },
+  { value: "PAYMENT_RECEIVED", label: "Payment Received" },
+  { value: "PAYMENT_FAILED", label: "Payment Failed" },
+  { value: "DRIVER_LATE", label: "Driver Late" },
+  { value: "VEHICLE_UNAVAILABLE", label: "Vehicle Unavailable" },
+  { value: "BOOKING_CONFLICT", label: "Booking Conflict" },
+  { value: "CUSTOMER_RESPONDED", label: "Customer Responded" },
+  { value: "FOLLOW_UP_DUE", label: "Follow-Up Due" },
+  { value: "MAINTENANCE_DUE", label: "Maintenance Due" },
+];
+
+// ── Amenities (quote / booking add-ons) ─────────────────────────────────
+export const AMENITY_OPTIONS = [
+  "Champagne Service",
+  "Bottled Water",
+  "Red Carpet",
+  "Child Safety Seat",
+  "Wi-Fi Hotspot",
+  "Privacy Partition",
+  "Decorations (Wedding/Event)",
+  "Meet & Greet Sign",
+  "Extra Stop",
+  "Luggage Assistance",
+];
+
+// ── Integrations ──────────────────────────────────────────────────────
+export const INTEGRATION_PROVIDERS: { provider: string; category: string; label: string }[] = [
+  { provider: "TWILIO", category: "SMS", label: "Twilio (SMS)" },
+  { provider: "SENDGRID", category: "EMAIL", label: "SendGrid (Email)" },
+  { provider: "RESEND", category: "EMAIL", label: "Resend (Email)" },
+  { provider: "STRIPE", category: "PAYMENTS", label: "Stripe (Payments)" },
+  { provider: "GOOGLE_CALENDAR", category: "CALENDAR", label: "Google Calendar" },
+  { provider: "GPS_TELEMATICS", category: "GPS", label: "GPS / Telematics Provider" },
+  { provider: "FLIGHT_TRACKING", category: "FLIGHTS", label: "Flight Tracking API" },
+  { provider: "OPENAI", category: "AI", label: "AI Provider (LLM)" },
 ];
 
 // ── Helpers ───────────────────────────────────────────────────────────
@@ -289,29 +358,6 @@ export function optionLabel(options: Option[], value: string | null | undefined)
 }
 
 export function optionColor(options: Option[], value: string | null | undefined): string {
-  if (!value) return "#64748b";
-  return options.find((o) => o.value === value)?.color ?? "#64748b";
+  if (!value) return "#8a8a8a";
+  return options.find((o) => o.value === value)?.color ?? "#8a8a8a";
 }
-
-export const TRIGGER_EVENTS: Option[] = [
-  { value: "NEW_LEAD", label: "New lead is created" },
-  { value: "STAGE_CHANGE", label: "Lead changes pipeline stage" },
-  { value: "HOT_LEAD", label: "Lead becomes HOT" },
-  { value: "APPOINTMENT_CREATED", label: "Appointment is created" },
-  { value: "APPOINTMENT_TOMORROW", label: "Appointment is tomorrow" },
-  { value: "APPOINTMENT_NO_SHOW", label: "Appointment is a no-show" },
-  { value: "APPOINTMENT_COMPLETED", label: "Appointment is completed" },
-  { value: "NO_CONTACT_X_DAYS", label: "No contact for X days" },
-  { value: "TEST_DRIVE_COMPLETED", label: "Test drive is completed" },
-  { value: "VEHICLE_SOLD", label: "Customer's vehicle of interest is sold" },
-  { value: "LEAD_LOST", label: "Lead becomes LOST" },
-  { value: "FOLLOW_UP_COMPLETED", label: "Follow-up task is completed" },
-];
-
-export const REACTIVATION_WINDOWS: Option[] = [
-  { value: "30", label: "30 Days" },
-  { value: "60", label: "60 Days" },
-  { value: "90", label: "90 Days" },
-  { value: "180", label: "6 Months" },
-  { value: "365", label: "12 Months" },
-];

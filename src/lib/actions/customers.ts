@@ -13,12 +13,14 @@ const schema = z.object({
   lastName: z.string().min(1, "Last name is required."),
   phone: z.string().optional(),
   email: z.string().optional(),
+  company: z.string().optional(),
   address: z.string().optional(),
   city: z.string().optional(),
   state: z.string().optional(),
   zip: z.string().optional(),
   preferredContactMethod: z.string().default("PHONE"),
-  bestContactTime: z.string().optional(),
+  specialRequests: z.string().optional(),
+  notes: z.string().optional(),
 });
 
 export async function updateCustomer(_prev: SimpleActionState, formData: FormData): Promise<SimpleActionState> {
@@ -35,11 +37,19 @@ export async function updateCustomer(_prev: SimpleActionState, formData: FormDat
   return { success: "Saved." };
 }
 
+export async function setCustomerTier(customerId: string, tier: string) {
+  const scope = await requireScope();
+  await prisma.customer.update({ where: { id: customerId }, data: { tier } });
+  await logActivity({ customerId, type: "CUSTOMER_UPDATED", description: `Client tier changed to ${tier}.`, actorId: scope.userId });
+  revalidatePath(`/customers/${customerId}`);
+  revalidatePath("/customers");
+}
+
 export async function reassignCustomer(customerId: string, ownerId: string) {
   const scope = await requireScope();
   await prisma.customer.update({ where: { id: customerId }, data: { ownerId } });
   await prisma.lead.updateMany({ where: { customerId, status: "ACTIVE" }, data: { assigneeId: ownerId } });
-  await logActivity({ customerId, type: "REASSIGNED", description: "Customer reassigned.", actorId: scope.userId });
+  await logActivity({ customerId, type: "REASSIGNED", description: "Client reassigned.", actorId: scope.userId });
   revalidatePath(`/customers/${customerId}`);
   revalidatePath("/customers");
   revalidatePath("/leads");

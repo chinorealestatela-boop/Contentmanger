@@ -11,7 +11,7 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[var(--bg)] p-6 text-center">
-      <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-red-50 text-red-600">
+      <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--danger-soft)] text-[var(--danger)]">
         <AlertTriangle size={26} />
       </span>
       <div>

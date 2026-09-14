@@ -15,7 +15,7 @@ function ResetPasswordForm() {
   if (state?.success) {
     return (
       <div className="space-y-4">
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{state.success}</div>
+        <div className="rounded-lg border border-[var(--success)]/40 bg-[var(--success-soft)] px-3 py-2 text-sm text-[var(--success)]">{state.success}</div>
         <Link href="/login" className="btn btn-primary w-full py-2.5">Go to login</Link>
       </div>
     );
@@ -25,10 +25,10 @@ function ResetPasswordForm() {
     <form action={formAction} className="space-y-4">
       <input type="hidden" name="token" value={token} />
       {state?.error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{state.error}</div>
+        <div className="rounded-lg border border-[var(--danger)]/40 bg-[var(--danger-soft)] px-3 py-2 text-sm text-[var(--danger)]">{state.error}</div>
       )}
       {!token && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
+        <div className="rounded-lg border border-[var(--warning)]/40 bg-[var(--warning-soft)] px-3 py-2 text-sm text-[var(--warning)]">
           Missing reset token — use the link from the forgot password page.
         </div>
       )}
@@ -49,7 +49,7 @@ export default function ResetPasswordPage() {
       title="Set a new password"
       subtitle="Choose a new password for your account."
       footer={
-        <Link href="/login" className="font-semibold text-[var(--brand)] hover:underline">
+        <Link href="/login" className="font-semibold text-[var(--brand-bright)] hover:underline">
           Back to log in
         </Link>
       }

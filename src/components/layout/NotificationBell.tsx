@@ -27,12 +27,12 @@ export function NotificationBell({ initial }: { initial: NotificationDTO[] }) {
     <div className="relative">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="relative flex h-9 w-9 items-center justify-center rounded-lg text-[var(--text-muted)] hover:bg-[var(--bg-subtle)] hover:text-[var(--text)]"
+        className="relative flex h-9 w-9 items-center justify-center rounded-lg text-[var(--text-muted)] hover:bg-white/[0.05] hover:text-[var(--text)]"
         aria-label="Notifications"
       >
-        <Bell size={18} />
+        <Bell size={18} strokeWidth={1.75} />
         {unread > 0 && (
-          <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white">
+          <span className="absolute right-0 top-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--danger)] px-1 text-[10px] font-bold text-white">
             {unread > 9 ? "9+" : unread}
           </span>
         )}
@@ -41,12 +41,12 @@ export function NotificationBell({ initial }: { initial: NotificationDTO[] }) {
       {open && (
         <>
           <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} />
-          <div className="animate-fade-in absolute right-0 z-40 mt-2 w-80 max-w-[90vw] rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)] shadow-lg">
+          <div className="animate-fade-in card absolute right-0 z-40 mt-2 w-80 max-w-[90vw]">
             <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
               <span className="text-sm font-semibold">Notifications</span>
               {unread > 0 && (
                 <button
-                  className="text-xs font-medium text-[var(--brand)] hover:underline"
+                  className="text-xs font-medium text-[var(--brand-bright)] hover:underline"
                   onClick={() => {
                     setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
                     startTransition(() => markAllNotificationsRead());
@@ -69,10 +69,10 @@ export function NotificationBell({ initial }: { initial: NotificationDTO[] }) {
                     startTransition(() => markNotificationRead(n.id));
                     setOpen(false);
                   }}
-                  className={cn("block border-b border-[var(--border)] px-4 py-3 last:border-0 hover:bg-[var(--bg-subtle)]", !n.isRead && "bg-[var(--brand-soft)]/40")}
+                  className={cn("block border-b border-[var(--border)] px-4 py-3 last:border-0 hover:bg-white/[0.04]", !n.isRead && "bg-[var(--brand-soft)]/40")}
                 >
                   <div className="flex items-start gap-2">
-                    {!n.isRead && <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--brand)]" />}
+                    {!n.isRead && <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--brand-bright)]" />}
                     <div className={cn("min-w-0", n.isRead && "pl-3.5")}>
                       <p className="text-[13px] font-semibold text-[var(--text)]">{n.title}</p>
                       {n.body && <p className="mt-0.5 truncate text-xs text-[var(--text-muted)]">{n.body}</p>}
@@ -81,6 +81,11 @@ export function NotificationBell({ initial }: { initial: NotificationDTO[] }) {
                   </div>
                 </Link>
               ))}
+            </div>
+            <div className="border-t border-[var(--border)] px-4 py-2.5 text-center">
+              <Link href="/notifications" onClick={() => setOpen(false)} className="text-xs font-medium text-[var(--text-muted)] hover:text-[var(--brand-bright)]">
+                View all notifications
+              </Link>
             </div>
           </div>
         </>
