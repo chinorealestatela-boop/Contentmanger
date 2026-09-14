@@ -89,6 +89,36 @@ Two rule categories, handled differently since this is a stateless web app with 
 
 Configurable day-by-day cadences (`FollowUpSequence` / `FollowUpStep`). Enrolling a lead pre-creates every step's task at its scheduled offset (day 0, 1, 2, 4, 7, 14, 30, ...) so nothing depends on a background scheduler running exactly on time.
 
+### TikTok AI Assistant
+
+A confidence-gated messaging assistant for TikTok DMs, under **TikTok AI** in the sidebar (`/tiktok`). Its guiding rule: **no response beats a wrong response** — every inbound message is understood, classified, and scored for confidence before the AI is even allowed to attempt a reply, and it never states a price, payment, credit, or policy fact it can't verify against the CRM's own Vehicle data or the Training Center.
+
+Architecture (`src/lib/tiktok/`), each piece independently testable and swappable:
+
+| Module | Responsibility |
+|---|---|
+| `normalize.ts` / `entities.ts` | Expand slang/shorthand, extract dollar amounts, vehicle mentions, vague referents, hard triggers (anger, legal threats, "let me talk to a human") |
+| `intent-engine.ts` | Classifies into the intent taxonomy (`TIKTOK_INTENTS` in `src/lib/constants.ts`) — rule-based today, swappable for an LLM later |
+| `understanding-engine.ts` | Builds a plain-English paraphrase of what the AI thinks the customer means, and what's missing to answer confidently |
+| `confidence-engine.ts` | 0-100 score; capped (never boosted) by ambiguity — a well-matched pattern on an unresolved "how much for it" still can't clear the auto-send bar |
+| `knowledge-base.ts` | The only source of truth the AI is allowed to state facts from — real inventory (`Vehicle` table) and Training Center entries, never invented |
+| `voice-engine.ts` | "Chino Voice" style guidance from Training Center voice examples/preferred phrases/do-not-say list |
+| `response-generator.ts` | Produces an answer, a clarifying question, an escalation, or silence — never a guess |
+| `safety-guard.ts` | Blocks any draft with an unverified dollar amount/percentage/approval claim, or a banned phrase, before it can be sent |
+| `pipeline.ts` | Orchestrates all of the above per spec's "accuracy over speed" hierarchy |
+| `connector.ts` | Swappable messaging provider — see below |
+
+The Inbox, conversation threads, Human Review queue, Training Center, and Settings are all under `/tiktok`. Draft/Auto/Off modes are configurable globally and per-conversation.
+
+**TikTok integration.** TikTok does not offer a public API for reading/sending a creator's own DMs — only approved TikTok Business Messaging partners get one, via an application through TikTok for Developers. This app does not scrape TikTok or automate the consumer app to work around that. Until real API access is granted:
+
+- Inbound messages are logged manually from the Inbox ("Log a TikTok DM") or a conversation ("Log another message").
+- AI replies that clear the confidence bar are marked "ready to send" for the salesperson to copy into TikTok by hand.
+
+`src/lib/tiktok/connector.ts` (outbound) and `src/app/api/tiktok/webhook/route.ts` (inbound) are the two seams a real TikTok Business Messaging integration plugs into later — same pattern as the AI Sales Assistant's `AssistantProvider` seam — with no changes needed to the pipeline, database, or UI. The same architecture is designed to support Instagram, Messenger, SMS, or website chat as additional connectors down the line.
+
+Run `npx tsx scripts/tiktok-ai-eval.ts` to see the rule-based engine's classification/confidence/escalation decisions against 100+ realistic slang/typo/ambiguous examples.
+
 ## Running in production
 
 ```bash
@@ -111,6 +141,7 @@ Nothing below is required to use the app. Each is a placeholder row in the `Inte
 | Email | Same shape as SMS |
 | Google/Outlook Calendar | Sync layer on top of the `Appointment` model |
 | Inventory feed / DMS | Batch importer writing into the `Vehicle` / `Customer` models |
+| TikTok Business Messaging API | Implement `MessagingConnector` (`src/lib/tiktok/connector.ts`) for outbound, POST to `src/app/api/tiktok/webhook/route.ts` for inbound — see "TikTok AI Assistant" above |
 
 ## Scripts
 

@@ -57,6 +57,11 @@ model User {
   resetTokens    PasswordResetToken[]
   sessions       Session[]
   followUps      FollowUp[]           @relation("FollowUpAssignee")
+
+  tiktokConversations      TikTokConversation[] @relation("TikTokConversationAssignee")
+  tiktokEscalationsHandled TikTokEscalation[]   @relation("TikTokEscalationResolver")
+  tiktokKnowledgeAdded     TikTokKnowledge[]    @relation("TikTokKnowledgeAuthor")
+  tiktokMessagesSent       TikTokMessage[]      @relation("TikTokMessageHuman")
 }
 
 model Session {
@@ -114,6 +119,7 @@ model Customer {
   activities          Activity[]
   followUpEnrollments FollowUpEnrollment[]
   followUps           FollowUp[]
+  tiktokConversations TikTokConversation[]
 
   @@index([lastName, firstName])
 }
@@ -214,6 +220,7 @@ model Lead {
   sales               Sale[]
   followUps           FollowUp[]
   appointments        Appointment[]
+  tiktokConversations TikTokConversation[]
 
   @@index([assigneeId, status])
   @@index([temperature])
@@ -337,8 +344,8 @@ model Appointment {
   time     String // start time, "HH:mm"
   endTime  String? // "HH:mm"
   location String?
-  type     String @default("SALES_APPOINTMENT") // CUSTOMER_CALL | FOLLOW_UP_CALL | TEST_DRIVE | DEALERSHIP_APPOINTMENT | VEHICLE_WALKAROUND | FINANCING_DISCUSSION | TRADE_IN_EVALUATION | SALES_APPOINTMENT | DELIVERY | OTHER
-  status   String @default("SCHEDULED") // SCHEDULED | CONFIRMED | SHOWED | NO_SHOW | CANCELLED | COMPLETED
+  type     String   @default("SALES_APPOINTMENT") // CUSTOMER_CALL | FOLLOW_UP_CALL | TEST_DRIVE | DEALERSHIP_APPOINTMENT | VEHICLE_WALKAROUND | FINANCING_DISCUSSION | TRADE_IN_EVALUATION | SALES_APPOINTMENT | DELIVERY | OTHER
+  status   String   @default("SCHEDULED") // SCHEDULED | CONFIRMED | SHOWED | NO_SHOW | CANCELLED | COMPLETED
   notes    String?
 
   // Reminder: minutes before start to surface an in-app reminder
@@ -659,10 +666,209 @@ model Setting {
 // for v1 functionality.
 model Integration {
   id        String   @id @default(cuid())
-  provider  String   @unique // OPENAI | TWILIO | GMAIL | OUTLOOK | GOOGLE_CALENDAR | DMS | INVENTORY_FEED
-  category  String // AI | SMS | EMAIL | CALENDAR | INVENTORY | LEADS | DMS
+  provider  String   @unique // OPENAI | ANTHROPIC | TWILIO | GMAIL | OUTLOOK | GOOGLE_CALENDAR | DMS | INVENTORY_FEED | TIKTOK
+  category  String // AI | SMS | EMAIL | CALENDAR | INVENTORY | LEADS | DMS | MESSAGING
   enabled   Boolean  @default(false)
   config    String? // JSON-encoded, non-secret config only
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// TIKTOK AI MESSAGING ASSISTANT
+//
+// A conversation-understanding + confidence-gated response system for
+// TikTok DMs. Built provider-agnostic on purpose (see src/lib/tiktok/) so
+// the same pipeline can eventually drive Instagram, Messenger, SMS, or
+// website chat — TikTok is just the first connector.
+//
+// TikTok does not offer a general public API for reading/sending a
+// creator's own DMs; only approved Business Messaging partners get one
+// (see README's "TikTok integration" section). Until that access is
+// granted, TikTokMessage rows are populated by manually pasting in
+// customer messages, and AI-drafted replies are copied out and sent by
+// hand (or auto-marked SENT once approved) — the data model and pipeline
+// underneath is already wired for a live webhook (see
+// src/app/api/tiktok/webhook/route.ts) so plugging in real API access
+// later requires no schema or UI changes.
+// ─────────────────────────────────────────────────────────────────────────
+
+// One row per TikTok DM thread == one customer profile (see spec section
+// 13). Deliberately separate from the CRM's own Customer/Lead model so the
+// TikTok assistant works standalone; `customerId`/`leadId` are populated
+// once a conversation is qualified and converted into a real CRM lead.
+model TikTokConversation {
+  id                String  @id @default(cuid())
+  tiktokUsername    String  @unique
+  tiktokDisplayName String?
+
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  leadId     String?
+
+  assigneeId String?
+  assignee   User?   @relation("TikTokConversationAssignee", fields: [assigneeId], references: [id])
+
+  // Operating mode for this specific thread. Falls back to the global
+  // default in TikTokAISettings when null (see src/lib/tiktok/pipeline.ts).
+  mode String? // AUTO | DRAFT | OFF
+
+  status      String @default("OPEN") // OPEN | HUMAN_REVIEW | CLOSED
+  temperature String @default("COLD") // HOT | WARM | COLD | UNQUALIFIED | HUMAN_REVIEW
+
+  // ── Collected profile (section 13) — populated gradually, never asked
+  // for all at once (section 7: "no interrogating customers"). ──────────
+  customerName          String?
+  phone                 String?
+  vehicleInterest       String? // free-text description ("BMW 3 Series", "reliable SUV")
+  vehicleId             String? // set once matched to a real Vehicle
+  desiredDownPayment    Float?
+  desiredMonthlyPayment Float?
+  creditNotes           String? // whatever the customer volunteers, verbatim — never inferred
+  hasTradeIn            Boolean?
+  tradeInNotes          String?
+  hasLicense            Boolean?
+  employmentStatus      String?
+  applicationStatus     String    @default("NOT_STARTED") // NOT_STARTED | STARTED | SUBMITTED | COMPLETED
+  appointmentRequested  Boolean   @default(false)
+  appointmentAt         DateTime?
+
+  // Freeform extracted facts that don't have a typed column yet (section
+  // 12, context memory) — JSON array of {fact, sourceMessageId, at}.
+  memory String?
+
+  lastConfidence  Int?
+  humanTakeoverAt DateTime?
+  lastInboundAt   DateTime?
+  lastOutboundAt  DateTime?
+  unread          Boolean   @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  messages    TikTokMessage[]
+  escalations TikTokEscalation[]
+  lead        Lead?              @relation(fields: [leadId], references: [id])
+
+  @@index([status])
+  @@index([temperature])
+  @@index([lastInboundAt])
+}
+
+model TikTokMessage {
+  id             String             @id @default(cuid())
+  conversationId String
+  conversation   TikTokConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  direction  String // IN | OUT
+  senderType String // CUSTOMER | AI | HUMAN | SYSTEM
+
+  rawBody String // exactly as received/typed, before normalization
+  body    String // final text (== rawBody for inbound; the actual sent/drafted text for outbound)
+
+  // ── Understanding Engine output (inbound only) ──────────────────────
+  understanding    String? // JSON: { paraphrase, entities, referents, questions[] }
+  intent           String? // see TIKTOK_INTENTS in src/lib/constants.ts
+  confidence       Int? // 0-100, see src/lib/tiktok/confidence-engine.ts
+  requiresHuman    Boolean @default(false)
+  escalationReason String?
+
+  // ── Outbound-only bookkeeping ────────────────────────────────────────
+  status        String    @default("RECEIVED") // RECEIVED | DRAFT | QUEUED | SENT | BLOCKED
+  aiGenerated   Boolean   @default(false)
+  editedByHuman Boolean   @default(false)
+  originalDraft String? // the AI's draft, kept even after a human edits it
+  sentAt        DateTime?
+
+  humanActorId String?
+  humanActor   User?   @relation("TikTokMessageHuman", fields: [humanActorId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  triggeredEscalations TikTokEscalation[]
+
+  @@index([conversationId, createdAt])
+}
+
+// "HUMAN REVIEW REQUIRED" queue (spec section 9).
+model TikTokEscalation {
+  id             String             @id @default(cuid())
+  conversationId String
+  conversation   TikTokConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  messageId      String?
+  message        TikTokMessage?     @relation(fields: [messageId], references: [id], onDelete: SetNull)
+
+  reason             String // LOW_CONFIDENCE | MISSING_INFO | AMBIGUOUS_REFERENT | ANGRY_CUSTOMER | LEGAL_THREAT | SENSITIVE_TOPIC | DISPUTE | COMPLAINT | UNAUTHORIZED_REQUEST | REQUESTED_HUMAN | HALLUCINATION_BLOCKED | COMPLEX
+  aiInterpretation   String? // the Understanding Engine's paraphrase, for display
+  intent             String?
+  confidence         Int?
+  suggestedResponses String? // JSON array of candidate replies for the human to pick from/edit
+
+  status         String    @default("PENDING") // PENDING | RESOLVED
+  resolvedById   String?
+  resolvedBy     User?     @relation("TikTokEscalationResolver", fields: [resolvedById], references: [id])
+  resolvedAt     DateTime?
+  resolutionNote String?
+
+  createdAt DateTime @default(now())
+
+  @@index([status, createdAt])
+  @@index([conversationId])
+}
+
+// Training Center content (spec sections 4, 5, 16): knowledge, examples,
+// corrections, voice profile material, and dealership policy — all
+// versioned and editable from the admin dashboard, no code changes.
+model TikTokKnowledge {
+  id String @id @default(cuid())
+
+  type String
+  // KNOWLEDGE      — general "here's how I explain X" material
+  // FAQ            — question/answer pairs
+  // POLICY         — fixed dealership facts (hours, location, process) the
+  //                  AI is allowed to state verbatim
+  // EXAMPLE        — a full example conversation pasted in to learn tone
+  // CORRECTION     — "here's what I would have said instead" (section 5)
+  // VOICE_EXAMPLE  — a message Chino likes, used as a style reference
+  // PREFERRED_PHRASE / DO_NOT_SAY — vocabulary guidance
+
+  title   String?
+  content String // the actual text/example/correction
+  tags    String? // comma-separated keywords used for retrieval matching
+
+  // For CORRECTION rows: what the AI actually sent, for side-by-side context.
+  sourceConversationId String?
+  sourceMessageId      String?
+  incorrectResponse    String?
+
+  version Int     @default(1)
+  active  Boolean @default(true)
+
+  authorId String?
+  author   User?   @relation("TikTokKnowledgeAuthor", fields: [authorId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([type, active])
+}
+
+// Global configuration for the assistant (spec sections 2, 10, 15).
+// Single-row table — always read/write the row with id "default".
+model TikTokAISettings {
+  id String @id @default("default")
+
+  mode String @default("DRAFT") // AUTO | DRAFT | OFF — global default; a conversation's own `mode` overrides this
+
+  autoThreshold  Int @default(90) // >= this and no missing info -> may auto-send in AUTO mode
+  draftThreshold Int @default(75) // >= this -> may draft for review; below -> escalate, no draft
+
+  escalateOnAnger        Boolean @default(true)
+  escalateOnLegalThreat  Boolean @default(true)
+  escalateOnHumanRequest Boolean @default(true)
+
+  businessName String?
+  voiceNotes   String? // freeform description of Chino's communication style
+
   updatedAt DateTime @updatedAt
 }

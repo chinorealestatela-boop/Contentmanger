@@ -7,6 +7,7 @@ import {
   DEFAULT_PIPELINE_STAGES,
 } from "../src/lib/constants";
 import { DEFAULT_PERMISSIONS } from "../src/lib/permissions";
+import { findOrCreateConversation, ingestMessage } from "../src/lib/tiktok/ingest";
 
 const prisma = new PrismaClient();
 
@@ -141,6 +142,8 @@ async function main() {
     { provider: "GOOGLE_CALENDAR", category: "CALENDAR" },
     { provider: "DMS", category: "DMS" },
     { provider: "INVENTORY_FEED", category: "INVENTORY" },
+    { provider: "TIKTOK", category: "MESSAGING" },
+    { provider: "ANTHROPIC", category: "AI" },
   ];
   for (const i of integrationDefs) {
     await prisma.integration.upsert({
@@ -761,7 +764,103 @@ async function main() {
     });
   }
 
-  console.log(`✅ Seed complete: ${createdCustomers.length + soldPlans.length} customers, ${createdLeads.length + soldPlans.length} leads, ${vehicles.length} vehicles, ${apptPlans.length} appointments, ${taskPlans.length} tasks, ${activityCount} activity entries.`);
+  // ── TikTok AI Assistant: training material + demo conversations ────────
+  await prisma.tikTokAISettings.upsert({
+    where: { id: "default" },
+    update: {},
+    create: {
+      id: "default",
+      mode: "DRAFT",
+      autoThreshold: 90,
+      draftThreshold: 75,
+      businessName: "Driveline Motors",
+      voiceNotes:
+        "Keep it short and casual, like texting a friend. Confident, not pushy. Never use corporate phrases like 'valued customer,' 'per our conversation,' or 'we appreciate your business.'",
+    },
+  });
+
+  const knowledgeDefs: { type: string; title: string | null; content: string; tags: string }[] = [
+    { type: "POLICY", title: "Hours", content: "We're open Monday-Saturday 9am-7pm, closed Sundays.", tags: "hours" },
+    { type: "POLICY", title: "Location", content: "We're at 4820 Commerce Pkwy, Riverbend, TX — right off the Highway 35 exit.", tags: "location, address" },
+    {
+      type: "POLICY",
+      title: "Financing",
+      content: "We work with 20+ lenders and can usually find something that fits. A down payment helps but isn't always required — depends on the deal.",
+      tags: "financing",
+    },
+    {
+      type: "POLICY",
+      title: "Credit situations",
+      content: "We work with all credit situations — bad credit, no credit, first-time buyers. I can't quote approval odds over DM since it depends on the lender's review, but most people qualify for something.",
+      tags: "credit, bad credit, no credit, first time buyer",
+    },
+    {
+      type: "POLICY",
+      title: "Down payment",
+      content: "Down payment depends on the vehicle and your approval — most of our deals start around $500-1500 down, but I'd need to run your specific numbers to give you an exact figure.",
+      tags: "down payment",
+    },
+    {
+      type: "POLICY",
+      title: "Driver's license",
+      content: "You'll need a valid driver's license to test drive, but we can work with a co-signer if your license situation is complicated — happy to chat about it.",
+      tags: "license",
+    },
+    {
+      type: "POLICY",
+      title: "Application",
+      content: "I can send you the link to start a credit application — takes about 5 minutes and doesn't hurt your credit to get pre-qualified.",
+      tags: "application",
+    },
+    {
+      type: "POLICY",
+      title: "Documents needed",
+      content: "Bring your driver's license, proof of income (pay stubs or bank statements), and proof of residence. If you have a trade, bring the title too.",
+      tags: "documents",
+    },
+    { type: "PREFERRED_PHRASE", title: null, content: "Let's get you in something reliable.", tags: "" },
+    { type: "PREFERRED_PHRASE", title: null, content: "I got you.", tags: "" },
+    { type: "PREFERRED_PHRASE", title: null, content: "For sure, let's make it happen.", tags: "" },
+    { type: "DO_NOT_SAY", title: null, content: "guaranteed approval", tags: "" },
+    { type: "DO_NOT_SAY", title: null, content: "no credit check needed", tags: "" },
+    { type: "DO_NOT_SAY", title: null, content: "best deal in town", tags: "" },
+    { type: "VOICE_EXAMPLE", title: null, content: "Yeah for sure, when's good for you?", tags: "" },
+    { type: "VOICE_EXAMPLE", title: null, content: "I got a couple options that could work — lemme know your budget and I'll point you the right way.", tags: "" },
+    { type: "VOICE_EXAMPLE", title: null, content: "No stress, take your time — I'm here whenever.", tags: "" },
+  ];
+  for (const k of knowledgeDefs) {
+    await prisma.tikTokKnowledge.create({ data: { type: k.type, title: k.title || null, content: k.content, tags: k.tags || null, authorId: sam.id } });
+  }
+
+  // Demo conversations run through the real pipeline (understanding →
+  // intent → confidence → response), so what shows up in the Inbox on
+  // first login is exactly what the system would actually produce.
+  const jayden = await findOrCreateConversation("jayden_rides", "Jayden");
+  await ingestMessage(jayden.id, "yo yall still got that trailhand truck");
+  await ingestMessage(jayden.id, "how much down to get in something like that, i got about 1500 saved");
+
+  const taylorFan = await findOrCreateConversation("taylor_wantsacar", "Taylor B.");
+  await ingestMessage(taylorFan.id, "hey do you guys finance people with bad credit");
+  const taylorFirstReply = await prisma.tikTokMessage.findFirst({ where: { conversationId: taylorFan.id, direction: "OUT" }, orderBy: { createdAt: "asc" } });
+  if (taylorFirstReply) {
+    // Simulate Sam having already reviewed and sent this one, so the demo
+    // inbox shows what an approved/sent AI reply looks like too.
+    await prisma.tikTokMessage.update({ where: { id: taylorFirstReply.id }, data: { status: "SENT", sentAt: new Date() } });
+    await prisma.tikTokConversation.update({ where: { id: taylorFan.id }, data: { lastOutboundAt: new Date() } });
+  }
+  await ingestMessage(taylorFan.id, "can i come by this saturday to check something out");
+
+  const angryCustomer = await findOrCreateConversation("mad_customer99", "D. Reyes");
+  await ingestMessage(angryCustomer.id, "this dealership scammed me last time, my lawyer is gonna hear about this");
+
+  const spamBot = await findOrCreateConversation("spam_bot_202", "🔥Deals🔥");
+  await ingestMessage(spamBot.id, "check out my page for the best car deals dm me for info 🔥🔥🔥");
+
+  const chris = await findOrCreateConversation("chris_lookingsuv", "Chris");
+  await ingestMessage(chris.id, "hi! do you have any suvs available");
+  await ingestMessage(chris.id, "whats your hours");
+
+  console.log(`✅ Seed complete: ${createdCustomers.length + soldPlans.length} customers, ${createdLeads.length + soldPlans.length} leads, ${vehicles.length} vehicles, ${apptPlans.length} appointments, ${taskPlans.length} tasks, ${activityCount} activity entries, ${knowledgeDefs.length} TikTok AI training items, 5 demo TikTok conversations.`);
 }
 
 main()

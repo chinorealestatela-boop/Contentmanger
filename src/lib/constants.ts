@@ -308,6 +308,107 @@ export const TRIGGER_EVENTS: Option[] = [
   { value: "FOLLOW_UP_COMPLETED", label: "Follow-up task is completed" },
 ];
 
+// ── TikTok AI Messaging Assistant ───────────────────────────────────────
+
+// Intent taxonomy (spec section 6). Expandable — add entries here and the
+// admin dashboard's filters/labels pick them up automatically. The
+// rule-based intent engine (src/lib/tiktok/intent-engine.ts) has pattern
+// matchers for each of these; add a matcher there too when adding a value.
+export const TIKTOK_INTENTS: Option[] = [
+  { value: "GENERAL_INQUIRY", label: "General Inquiry" },
+  { value: "VEHICLE_AVAILABILITY", label: "Vehicle Availability" },
+  { value: "VEHICLE_PRICE", label: "Vehicle Price" },
+  { value: "DOWN_PAYMENT", label: "Down Payment" },
+  { value: "MONTHLY_PAYMENT", label: "Monthly Payment" },
+  { value: "FINANCING", label: "Financing" },
+  { value: "CREDIT", label: "Credit" },
+  { value: "FIRST_TIME_BUYER", label: "First-Time Buyer" },
+  { value: "BAD_CREDIT", label: "Bad Credit" },
+  { value: "NO_CREDIT", label: "No Credit" },
+  { value: "DRIVERS_LICENSE", label: "Driver's License Question" },
+  { value: "TRADE_IN", label: "Trade-In" },
+  { value: "APPOINTMENT_REQUEST", label: "Appointment Request" },
+  { value: "TEST_DRIVE", label: "Test Drive" },
+  { value: "DEALERSHIP_LOCATION", label: "Dealership Location" },
+  { value: "DEALERSHIP_HOURS", label: "Dealership Hours" },
+  { value: "VEHICLE_INFO", label: "Vehicle Information" },
+  { value: "APPLICATION", label: "Application" },
+  { value: "DOCUMENTS_NEEDED", label: "Documents Needed" },
+  { value: "FOLLOW_UP", label: "Follow-Up" },
+  { value: "OBJECTION", label: "Customer Objection" },
+  { value: "HESITATION", label: "Customer Hesitation" },
+  { value: "CASUAL", label: "Casual Conversation" },
+  { value: "SPAM", label: "Spam" },
+  { value: "SENSITIVE", label: "Sensitive / High-Risk" },
+  { value: "UNCLEAR", label: "Unclear" },
+];
+export type TikTokIntent = (typeof TIKTOK_INTENTS)[number]["value"];
+
+export const TIKTOK_MODES: Option[] = [
+  { value: "AUTO", label: "Auto — AI replies automatically when confident", color: "#16a34a" },
+  { value: "DRAFT", label: "Draft — AI drafts, you approve every reply", color: "#2563eb" },
+  { value: "OFF", label: "Off — AI does nothing", color: "#64748b" },
+];
+export type TikTokMode = "AUTO" | "DRAFT" | "OFF";
+
+export const TIKTOK_CONVERSATION_STATUSES: Option[] = [
+  { value: "OPEN", label: "Open", color: "#2563eb" },
+  { value: "HUMAN_REVIEW", label: "Human Review", color: "#dc2626" },
+  { value: "CLOSED", label: "Closed", color: "#64748b" },
+];
+
+// Extends the CRM's 3-value Temperature with two TikTok-specific states —
+// a lead that isn't viable yet, and one that needs Chino's judgment call.
+export const TIKTOK_TEMPERATURES: Option[] = [
+  { value: "HOT", label: "Hot", color: "#dc2626" },
+  { value: "WARM", label: "Warm", color: "#ea580c" },
+  { value: "COLD", label: "Cold", color: "#2563eb" },
+  { value: "UNQUALIFIED", label: "Unqualified", color: "#64748b" },
+  { value: "HUMAN_REVIEW", label: "Human Review", color: "#a16207" },
+];
+
+export const TIKTOK_MESSAGE_STATUSES: Option[] = [
+  { value: "RECEIVED", label: "Received" },
+  { value: "DRAFT", label: "Draft" },
+  { value: "QUEUED", label: "Queued" },
+  { value: "SENT", label: "Sent" },
+  { value: "BLOCKED", label: "Blocked" },
+];
+
+// Why a conversation was routed to "Human Review Required" (spec section 9).
+export const TIKTOK_ESCALATION_REASONS: Option[] = [
+  { value: "LOW_CONFIDENCE", label: "AI wasn't confident enough" },
+  { value: "MISSING_INFO", label: "AI doesn't have the information needed" },
+  { value: "AMBIGUOUS_REFERENT", label: "Unclear what the customer is referring to" },
+  { value: "ANGRY_CUSTOMER", label: "Customer seems angry" },
+  { value: "LEGAL_THREAT", label: "Legal action mentioned" },
+  { value: "SENSITIVE_TOPIC", label: "Sensitive financial/legal topic" },
+  { value: "DISPUTE", label: "Customer disputes a deal" },
+  { value: "COMPLAINT", label: "Complaint about the dealership" },
+  { value: "UNAUTHORIZED_REQUEST", label: "Request outside the AI's authority" },
+  { value: "REQUESTED_HUMAN", label: "Customer asked for a real person" },
+  { value: "HALLUCINATION_BLOCKED", label: "AI's draft failed a safety check" },
+  { value: "COMPLEX", label: "Conversation became complex" },
+];
+
+export const TIKTOK_KNOWLEDGE_TYPES: Option[] = [
+  { value: "KNOWLEDGE", label: "Knowledge" },
+  { value: "FAQ", label: "FAQ" },
+  { value: "POLICY", label: "Dealership Policy" },
+  { value: "EXAMPLE", label: "Example Conversation" },
+  { value: "CORRECTION", label: "Correction" },
+  { value: "VOICE_EXAMPLE", label: "Voice Example" },
+  { value: "PREFERRED_PHRASE", label: "Preferred Phrase" },
+  { value: "DO_NOT_SAY", label: "Never Say This" },
+];
+
+export const TIKTOK_APPLICATION_STATUSES: Option[] = [
+  { value: "NOT_STARTED", label: "Not Started", color: "#64748b" },
+  { value: "STARTED", label: "Started", color: "#a16207" },
+  { value: "SUBMITTED", label: "Submitted", color: "#2563eb" },
+  { value: "COMPLETED", label: "Completed", color: "#16a34a" },
+];
+
 export const REACTIVATION_WINDOWS: Option[] = [
   { value: "30", label: "30 Days" },
   { value: "60", label: "60 Days" },

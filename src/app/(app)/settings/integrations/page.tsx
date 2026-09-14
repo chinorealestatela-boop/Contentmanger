@@ -2,16 +2,18 @@ import { requireScope } from "@/lib/queries/scope";
 import { prisma } from "@/lib/prisma";
 import { SettingsShell } from "@/components/settings/SettingsShell";
 import { Badge } from "@/components/ui/Badge";
-import { Sparkles, MessageSquare, Mail, Calendar, Database, Truck, type LucideIcon } from "lucide-react";
+import { Sparkles, MessageSquare, MessageCircle, Mail, Calendar, Database, Truck, type LucideIcon } from "lucide-react";
 
 const META: Record<string, { label: string; desc: string; icon: LucideIcon; envVar: string }> = {
   OPENAI: { label: "AI Provider (OpenAI or similar)", desc: "Upgrades the AI Sales Assistant from the built-in rule-based engine to a full LLM.", icon: Sparkles, envVar: "OPENAI_API_KEY" },
+  ANTHROPIC: { label: "AI Provider (Claude)", desc: "Upgrades the TikTok AI Assistant's understanding/response engine from rule-based to a full LLM.", icon: Sparkles, envVar: "ANTHROPIC_API_KEY" },
   TWILIO: { label: "SMS (Twilio)", desc: "Send texts directly instead of manually logging them.", icon: MessageSquare, envVar: "TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN" },
   GMAIL: { label: "Email (Gmail)", desc: "Send and sync emails directly from customer profiles.", icon: Mail, envVar: "EMAIL_PROVIDER_API_KEY" },
   OUTLOOK: { label: "Email (Outlook)", desc: "Send and sync emails directly from customer profiles.", icon: Mail, envVar: "EMAIL_PROVIDER_API_KEY" },
   GOOGLE_CALENDAR: { label: "Google Calendar", desc: "Two-way sync of appointments with your calendar.", icon: Calendar, envVar: "GOOGLE_CALENDAR_CLIENT_ID / SECRET" },
   DMS: { label: "Dealership Management System", desc: "Sync customer and deal records with your DMS.", icon: Database, envVar: "DMS_API_KEY" },
   INVENTORY_FEED: { label: "Inventory Feed", desc: "Auto-import vehicle inventory from a third-party feed instead of manual entry.", icon: Truck, envVar: "INVENTORY_FEED_URL" },
+  TIKTOK: { label: "TikTok Business Messaging", desc: "Send/receive TikTok DMs live instead of logging them manually. Requires approved TikTok API access.", icon: MessageCircle, envVar: "TikTok Business Messaging API credentials" },
 };
 
 export default async function IntegrationsSettingsPage() {
