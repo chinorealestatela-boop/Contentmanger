@@ -44,6 +44,11 @@ next-env.d.ts
 /prisma/dev.db
 /prisma/dev.db-journal
 
+# Generated at build time by scripts/build-demo-db.mjs when no Postgres
+# database is configured — never committed, always rebuilt fresh.
+/prisma/demo-seed.db
+/prisma/demo-seed.db-journal
+
 # Generated at build time by scripts/generate-postgres-schema.mjs — never
 # hand-edit; the canonical schema is prisma/schema.prisma.
 /prisma/schema.postgres.prisma

@@ -130,6 +130,12 @@ Set a strong `AUTH_SECRET` (`openssl rand -base64 32`) and a correct `NEXTAUTH_U
 
 For the automation engine's time-based sweep to run without a human clicking "Run Checks Now," call `runTimeBasedAutomationChecks()` (`src/lib/automation/engine.ts`) from a scheduled job (cron, a serverless scheduled function, etc.) — e.g. hourly.
 
+### Running without a database (demo mode)
+
+Vercel's `vercel-build` script (`scripts/vercel-build.mjs`) needs `DATABASE_URL` + `DIRECT_URL` pointing at a real Postgres database (see `scripts/generate-postgres-schema.mjs`). If they're not set — e.g. a preview deployment nobody's wired a database into yet — it automatically falls back to building a self-contained, fully-seeded SQLite database (`scripts/build-demo-db.mjs`) and bundling it into every serverless function (`next.config.ts`'s `outputFileTracingIncludes`). At runtime, `src/lib/prisma.ts` copies it to a writable `/tmp` path on first use, and `src/lib/auth.ts` falls back to a fixed non-secret `AUTH_SECRET` under the same condition.
+
+This gets a URL up with zero configuration, but **data resets on every cold start and every redeploy** — it's for looking at the app, not real use. Add `DATABASE_URL`/`DIRECT_URL` (and a real `AUTH_SECRET`) in the project's environment variables to switch to the real Postgres path; both fallbacks are no-ops the moment those are set.
+
 ## Connecting real integrations later
 
 Nothing below is required to use the app. Each is a placeholder row in the `Integration` table (see **Settings → Integrations**) and a seam in the code where a real provider slots in without touching UI:

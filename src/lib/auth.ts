@@ -6,6 +6,11 @@ import { parsePermissions } from "@/lib/permissions";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   trustHost: true,
+  // Falls back to a fixed, non-secret value only when AUTH_SECRET/
+  // NEXTAUTH_SECRET aren't configured at all (e.g. a database-less demo
+  // preview deploy — see src/lib/prisma.ts). Never used when a real
+  // secret is set, so this has no effect on local dev or production.
+  secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET ?? "insecure-demo-secret-set-AUTH_SECRET-to-override",
   session: { strategy: "jwt", maxAge: 30 * 24 * 60 * 60 },
   pages: {
     signIn: "/login",
