@@ -24,6 +24,11 @@ for (const suffix of ["", "-journal", "-wal", "-shm"]) {
 const env = { ...process.env, DATABASE_URL: `file:${dbPath}` };
 const run = (cmd) => execSync(cmd, { stdio: "inherit", env, cwd: root });
 
+// Force-regenerate against the SQLite schema — Vercel's build cache can
+// otherwise reuse an @prisma/client already generated for Postgres by an
+// earlier build of this same project (e.g. its production branch), which
+// then rejects a `file:` DATABASE_URL even though schema.prisma is sqlite.
+run("npx prisma generate --schema=prisma/schema.prisma");
 run("npx prisma db push --accept-data-loss --skip-generate");
 run("npx tsx prisma/seed.ts");
 
