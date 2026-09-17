@@ -13,6 +13,8 @@ import {
   Users,
   Sparkles,
   DollarSign,
+  ScanLine,
+  UserPlus2,
 } from "lucide-react";
 import { requireScope } from "@/lib/queries/scope";
 import { getDashboardMetrics, getActionCenter, getHotLeads, getUpcomingActivities } from "@/lib/queries/dashboard";
@@ -63,6 +65,11 @@ export default async function DashboardPage() {
       <div className="flex flex-col gap-1">
         <h1 className="text-2xl font-semibold text-[var(--text)]">{greeting}, {user?.firstName ?? "there"}.</h1>
         <p className="text-[13.5px] text-[var(--text-muted)]">Here&rsquo;s who needs you today.</p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <Link href="/leads/scan" className="btn btn-primary justify-center py-3.5 text-[14px]"><ScanLine size={17} /> Scan License</Link>
+        <Link href="/leads/new" className="btn btn-secondary justify-center py-3.5 text-[14px]"><UserPlus2 size={17} /> New Lead</Link>
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
