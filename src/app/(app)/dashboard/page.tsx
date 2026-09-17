@@ -13,25 +13,31 @@ import {
   Users,
   Sparkles,
 } from "lucide-react";
-import { requireScope } from "@/lib/queries/scope";
+import { requireScope, customerScopeWhere } from "@/lib/queries/scope";
 import { getDashboardMetrics, getActionCenter, getHotLeads, getUpcomingActivities } from "@/lib/queries/dashboard";
 import { ensureFollowUpsFresh, getFollowUpsDueToday } from "@/lib/queries/followups";
+import { getTasks } from "@/lib/queries/tasks";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { ActionCard } from "@/components/dashboard/ActionCard";
 import { HotLeadRow } from "@/components/dashboard/HotLeadRow";
 import { EventRow } from "@/components/calendar/EventRow";
+import { TaskRow } from "@/components/tasks/TaskRow";
+import { DashboardQuickActions } from "@/components/dashboard/QuickActions";
 import { formatTime12h } from "@/lib/format";
 import { prisma } from "@/lib/prisma";
 
 export default async function DashboardPage() {
   const scope = await requireScope();
   await ensureFollowUpsFresh();
-  const [metrics, actionItems, hotLeads, upcoming, followUpsDueToday, user] = await Promise.all([
+  const [metrics, actionItems, hotLeads, upcoming, followUpsDueToday, tasksToday, tasksOverdue, customers, user] = await Promise.all([
     getDashboardMetrics(scope),
     getActionCenter(scope, 12),
     getHotLeads(scope, 8),
     getUpcomingActivities(scope),
     getFollowUpsDueToday(scope, 5),
+    getTasks(scope, "today"),
+    getTasks(scope, "overdue"),
+    prisma.customer.findMany({ where: customerScopeWhere(scope), orderBy: { firstName: "asc" }, select: { id: true, firstName: true, lastName: true } }),
     prisma.user.findUnique({ where: { id: scope.userId } }),
   ]);
 
@@ -55,9 +61,12 @@ export default async function DashboardPage() {
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold text-[var(--text)]">{greeting}, {user?.firstName ?? "there"}.</h1>
-        <p className="text-[13.5px] text-[var(--text-muted)]">Here&rsquo;s who needs you today.</p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-2xl font-semibold text-[var(--text)]">{greeting}, {user?.firstName ?? "there"}.</h1>
+          <p className="text-[13.5px] text-[var(--text-muted)]">Here&rsquo;s who needs you today.</p>
+        </div>
+        <DashboardQuickActions customers={customers} />
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
@@ -87,6 +96,29 @@ export default async function DashboardPage() {
               {actionItems.map((item) => (
                 <ActionCard key={`${item.source}-${item.id}`} item={item} />
               ))}
+            </div>
+          </section>
+
+          {tasksOverdue.length > 0 && (
+            <section className="card border-red-200">
+              <div className="flex items-center justify-between border-b border-red-200 bg-red-50 px-5 py-4">
+                <h2 className="text-[15px] font-semibold text-red-900">Overdue Tasks</h2>
+                <Link href="/tasks?view=overdue" className="text-xs font-semibold text-[var(--brand)] hover:underline">View all</Link>
+              </div>
+              <div className="space-y-3 p-4">
+                {tasksOverdue.slice(0, 5).map((t) => <TaskRow key={t.id} task={t} overdue />)}
+              </div>
+            </section>
+          )}
+
+          <section className="card">
+            <div className="flex items-center justify-between border-b border-[var(--border)] px-5 py-4">
+              <h2 className="text-[15px] font-semibold text-[var(--text)]">Today&rsquo;s Tasks</h2>
+              <Link href="/tasks?view=today" className="text-xs font-semibold text-[var(--brand)] hover:underline">View all</Link>
+            </div>
+            <div className="space-y-3 p-4">
+              {tasksToday.length === 0 && <p className="py-6 text-center text-sm text-[var(--text-muted)]">No tasks due today.</p>}
+              {tasksToday.slice(0, 5).map((t) => <TaskRow key={t.id} task={t} />)}
             </div>
           </section>
         </div>

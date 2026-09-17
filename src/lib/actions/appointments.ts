@@ -47,6 +47,20 @@ export async function createAppointment(_prev: SimpleActionState, formData: Form
   const salespersonId = parsed.data.salespersonId || scope.userId;
   const reminderOffsetMinutes = parseReminderField(formData.get("reminderOffsetMinutes"));
 
+  // Guard against accidentally double-booking the same customer at the
+  // exact same date+time (e.g. a double click, or two tabs open).
+  const duplicate = await prisma.appointment.findFirst({
+    where: {
+      customerId: parsed.data.customerId,
+      date: new Date(parsed.data.date),
+      time: parsed.data.time,
+      status: { notIn: ["CANCELLED"] },
+    },
+  });
+  if (duplicate) {
+    return { error: "This customer already has an appointment at that exact date and time. Pick a different time, or edit the existing appointment instead." };
+  }
+
   await prisma.appointment.create({
     data: {
       customerId: parsed.data.customerId,
@@ -123,5 +137,74 @@ export async function rescheduleAppointment(appointmentId: string, date: string,
   });
   revalidatePath("/appointments");
   revalidatePath("/calendar");
+  revalidatePath(`/customers/${appt.customerId}`);
+}
+
+const updateSchema = z.object({
+  appointmentId: z.string().min(1),
+  date: z.string().min(1, "Date is required."),
+  time: z.string().min(1, "Time is required."),
+  endTime: z.string().optional(),
+  location: z.string().optional(),
+  type: z.string().default("SALES_APPOINTMENT"),
+  notes: z.string().optional(),
+});
+
+export async function updateAppointment(_prev: SimpleActionState, formData: FormData): Promise<SimpleActionState> {
+  const scope = await requireScope();
+  const parsed = updateSchema.safeParse({
+    appointmentId: formData.get("appointmentId"),
+    date: formData.get("date"),
+    time: formData.get("time"),
+    endTime: formData.get("endTime") || undefined,
+    location: formData.get("location") || undefined,
+    type: formData.get("type") || "SALES_APPOINTMENT",
+    notes: formData.get("notes") || undefined,
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input." };
+  const reminderOffsetMinutes = parseReminderField(formData.get("reminderOffsetMinutes"));
+
+  try {
+    const appt = await prisma.appointment.update({
+      where: { id: parsed.data.appointmentId },
+      data: {
+        date: new Date(parsed.data.date),
+        time: parsed.data.time,
+        endTime: parsed.data.endTime,
+        location: parsed.data.location,
+        type: parsed.data.type,
+        notes: parsed.data.notes,
+        reminderOffsetMinutes,
+        reminderSentAt: null, // re-arm the reminder against the new time
+      },
+    });
+
+    await logActivity({
+      customerId: appt.customerId,
+      leadId: appt.leadId,
+      type: "APPOINTMENT",
+      description: `Appointment rescheduled to ${parsed.data.date} at ${parsed.data.time}.`,
+      actorId: scope.userId,
+    });
+
+    revalidatePath("/appointments");
+    revalidatePath("/calendar");
+    revalidatePath("/dashboard");
+    revalidatePath(`/customers/${appt.customerId}`);
+    return { success: "Appointment updated." };
+  } catch (err) {
+    console.error("updateAppointment failed", err);
+    return { error: "Couldn't save changes to this appointment — please try again." };
+  }
+}
+
+export async function deleteAppointment(appointmentId: string) {
+  await requireScope();
+  const appt = await prisma.appointment.findUnique({ where: { id: appointmentId } });
+  if (!appt) return;
+  await prisma.appointment.delete({ where: { id: appointmentId } });
+  revalidatePath("/appointments");
+  revalidatePath("/calendar");
+  revalidatePath("/dashboard");
   revalidatePath(`/customers/${appt.customerId}`);
 }

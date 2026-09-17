@@ -1,7 +1,9 @@
 import Link from "next/link";
-import { requireScope } from "@/lib/queries/scope";
+import { requireScope, customerScopeWhere } from "@/lib/queries/scope";
 import { getTasks, getTaskCounts, type TaskView } from "@/lib/queries/tasks";
 import { TaskRow } from "@/components/tasks/TaskRow";
+import { NewTaskButton } from "@/components/tasks/NewTaskButton";
+import { prisma } from "@/lib/prisma";
 import { cn } from "@/lib/utils";
 
 const VIEWS: { key: TaskView; label: string }[] = [
@@ -16,15 +18,22 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
   const sp = await searchParams;
   const scope = await requireScope();
   const view = (sp.view as TaskView) ?? "today";
-  const [tasks, counts] = await Promise.all([getTasks(scope, view), getTaskCounts(scope)]);
+  const [tasks, counts, customers] = await Promise.all([
+    getTasks(scope, view),
+    getTaskCounts(scope),
+    prisma.customer.findMany({ where: customerScopeWhere(scope), orderBy: { firstName: "asc" }, select: { id: true, firstName: true, lastName: true } }),
+  ]);
 
   const countMap: Record<string, number> = { overdue: counts.overdue, today: counts.today, tomorrow: counts.tomorrow, upcoming: counts.upcoming, completed: counts.completed };
 
   return (
     <div className="mx-auto max-w-4xl space-y-5 p-4 sm:p-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-[var(--text)]">Tasks</h1>
-        <p className="text-[13px] text-[var(--text-muted)]">Every call, text, and follow-up you own — automations create these too.</p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-[var(--text)]">Tasks</h1>
+          <p className="text-[13px] text-[var(--text-muted)]">Every call, text, and follow-up you own — automations create these too.</p>
+        </div>
+        <NewTaskButton customers={customers} />
       </div>
 
       <div className="flex flex-wrap gap-1.5 border-b border-[var(--border)] pb-3">

@@ -11,10 +11,11 @@ import { SectionCard, EmptyRow } from "@/components/ui/SectionCard";
 import { ActivityTimeline } from "@/components/customers/ActivityTimeline";
 import { ProfileActions } from "@/components/customers/ProfileActions";
 import { FollowUpsSection } from "@/components/customers/FollowUpsSection";
+import { AppointmentRow } from "@/components/appointments/AppointmentRow";
 import { formatCurrency, formatDate, formatRelativeDay, formatTime12h, formatTimeAgo } from "@/lib/format";
 import {
   optionLabel, CONTACT_METHODS, CONTACT_TIMES, PURCHASE_TIMEFRAMES, FINANCE_TYPES,
-  CREDIT_APP_STATUSES, APPOINTMENT_STATUSES, APPRAISAL_STATUSES, COMMUNICATION_TYPES,
+  CREDIT_APP_STATUSES, APPRAISAL_STATUSES, COMMUNICATION_TYPES,
   TASK_STATUSES, OFFER_STATUSES,
 } from "@/lib/constants";
 
@@ -177,13 +178,7 @@ export default async function CustomerProfilePage({ params }: { params: Promise<
             ) : (
               <ul className="space-y-2">
                 {customer.appointments.map((a) => (
-                  <li key={a.id} className="flex items-center justify-between rounded-lg border border-[var(--border)] px-3.5 py-2.5">
-                    <div>
-                      <p className="text-[13px] font-medium text-[var(--text)]">{a.type.replace(/_/g, " ")}{a.vehicle ? ` · ${a.vehicle.year} ${a.vehicle.make} ${a.vehicle.model}` : ""}</p>
-                      <p className="text-[11.5px] text-[var(--text-faint)]">{formatDate(a.date)} at {formatTime12h(a.time)} · {a.salesperson.firstName} {a.salesperson.lastName}</p>
-                    </div>
-                    <Badge variant={a.status === "NO_SHOW" ? "overdue" : a.status === "COMPLETED" || a.status === "SHOWED" ? "sold" : "appointment"}>{optionLabel(APPOINTMENT_STATUSES, a.status)}</Badge>
-                  </li>
+                  <AppointmentRow key={a.id} appointment={a} />
                 ))}
               </ul>
             )}

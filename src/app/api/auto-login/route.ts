@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { AuthError } from "next-auth";
 import { auth, signIn } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 
 // Solo-use convenience: skip the login screen entirely and sign straight in
 // as the seeded admin account. The /login and /register pages still exist
@@ -13,7 +14,15 @@ const AUTO_LOGIN_PASSWORD = "Password123!";
 
 export async function GET() {
   const session = await auth();
-  if (session?.user) redirect("/dashboard");
+  if (session?.user) {
+    // A JWT session has no server-side revocation — it still parses as
+    // "valid" even after its User row is deleted or deactivated (e.g. by
+    // an admin cleanup). Trusting that blindly would bounce a dangling
+    // session straight back to /dashboard forever instead of ever
+    // re-authenticating. Confirm the account is still real first.
+    const stillValid = await prisma.user.findUnique({ where: { id: session.user.id }, select: { isActive: true } });
+    if (stillValid?.isActive) redirect("/dashboard");
+  }
 
   try {
     await signIn("credentials", {

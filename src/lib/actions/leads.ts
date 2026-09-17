@@ -72,97 +72,146 @@ export async function createLead(_prev: LeadActionState, formData: FormData): Pr
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input." };
   const d = parsed.data;
 
-  let customerId = d.existingCustomerId;
-  if (!customerId) {
-    const customer = await prisma.customer.create({
-      data: {
-        firstName: d.firstName,
-        lastName: d.lastName,
-        phone: d.phone,
-        email: d.email,
-        address: d.address,
-        city: d.city,
-        state: d.state,
-        zip: d.zip,
-        preferredContactMethod: d.preferredContactMethod,
-        bestContactTime: d.bestContactTime,
-        ownerId: d.assigneeId,
-      },
-    });
-    customerId = customer.id;
+  // Validate every foreign key up front, before touching the database, so a
+  // stale dropdown value (e.g. a salesperson removed after the page loaded)
+  // fails with a clear, actionable message instead of a raw FK-constraint
+  // crash deep inside the transaction.
+  const [assignee, defaultStage, source, vehicle] = await Promise.all([
+    prisma.user.findUnique({ where: { id: d.assigneeId }, select: { id: true, isActive: true } }),
+    prisma.pipelineStage.findFirst({ where: { name: "New Lead" } }),
+    d.sourceId ? prisma.leadSource.findUnique({ where: { id: d.sourceId }, select: { id: true } }) : Promise.resolve(null),
+    d.vehicleId ? prisma.vehicle.findUnique({ where: { id: d.vehicleId }, select: { id: true } }) : Promise.resolve(null),
+  ]);
+
+  if (!assignee || !assignee.isActive) {
+    return { error: "The selected salesperson is no longer available. Please refresh the page and pick again." };
+  }
+  if (!defaultStage) {
+    return { error: "Pipeline isn't configured yet — set up stages in Settings first." };
+  }
+  if (d.sourceId && !source) {
+    return { error: "The selected lead source no longer exists. Please refresh the page and pick again." };
+  }
+  if (d.vehicleId && !vehicle) {
+    return { error: "The selected inventory vehicle no longer exists. Please refresh the page and pick again." };
+  }
+  if (d.existingCustomerId) {
+    const existing = await prisma.customer.findUnique({ where: { id: d.existingCustomerId }, select: { id: true } });
+    if (!existing) return { error: "That customer no longer exists. Please start over from the Leads page." };
   }
 
-  const defaultStage = await prisma.pipelineStage.findFirst({ where: { name: "New Lead" } });
-  if (!defaultStage) return { error: "Pipeline isn't configured yet — set up stages in Settings first." };
+  let customerId: string;
+  let leadId: string;
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      let cid = d.existingCustomerId;
+      if (!cid) {
+        const customer = await tx.customer.create({
+          data: {
+            firstName: d.firstName,
+            lastName: d.lastName,
+            phone: d.phone,
+            email: d.email,
+            address: d.address,
+            city: d.city,
+            state: d.state,
+            zip: d.zip,
+            preferredContactMethod: d.preferredContactMethod,
+            bestContactTime: d.bestContactTime,
+            ownerId: d.assigneeId,
+          },
+        });
+        cid = customer.id;
+      }
 
-  const lead = await prisma.lead.create({
-    data: {
+      const lead = await tx.lead.create({
+        data: {
+          customerId: cid,
+          sourceId: d.sourceId,
+          assigneeId: d.assigneeId,
+          stageId: defaultStage.id,
+          purchaseTimeframe: d.purchaseTimeframe,
+          temperature: d.temperature,
+          score: d.temperature === "HOT" ? 85 : d.temperature === "WARM" ? 60 : 30,
+          financeType: d.financeType,
+          desiredPayment: d.desiredPayment,
+          downPayment: d.downPayment,
+          hasCoBuyer: d.hasCoBuyer === "on" || d.hasCoBuyer === "true",
+          coBuyerName: d.coBuyerName,
+          prefBodyStyle: d.prefBodyStyle,
+          prefMaxPrice: d.prefMaxPrice,
+          prefDrivetrain: d.prefDrivetrain,
+          prefThirdRow: d.prefThirdRow === "on" || d.prefThirdRow === "true",
+          prefColor: d.prefColor,
+          customerNeeds: d.customerNeeds,
+          customerWants: d.customerWants,
+          objections: d.objections,
+          preferences: d.preferences,
+          salesNotes: d.salesNotes,
+          lastContactedAt: new Date(),
+          nextFollowUpAt: new Date(),
+        },
+      });
+
+      if (d.vehicleId || d.vehicleMake || d.vehicleModel) {
+        await tx.customerVehicle.create({
+          data: {
+            customerId: cid,
+            leadId: lead.id,
+            vehicleId: d.vehicleId,
+            year: d.vehicleYear,
+            make: d.vehicleMake,
+            model: d.vehicleModel,
+            trim: d.vehicleTrim,
+            isPrimary: true,
+          },
+        });
+      }
+
+      if (d.hasTrade === "on" || d.hasTrade === "true") {
+        await tx.tradeIn.create({
+          data: {
+            customerId: cid,
+            year: d.tradeYear,
+            make: d.tradeMake,
+            model: d.tradeModel,
+            payoff: d.tradePayoff ?? 0,
+            estimatedValue: d.tradeEstValue ?? 0,
+          },
+        });
+      }
+
+      return { customerId: cid, leadId: lead.id };
+    });
+    customerId = result.customerId;
+    leadId = result.leadId;
+  } catch (err) {
+    // Never leave a half-created lead (a Customer with no Lead, or a Lead
+    // missing its vehicle/trade-in) — the transaction above already
+    // guarantees that atomically. Log the real cause for diagnosis and
+    // surface a message instead of letting this crash into the generic
+    // error boundary.
+    console.error("createLead: transaction failed", err);
+    return { error: "Something went wrong saving this lead. Nothing was saved — please try again, and if it keeps happening let your admin know." };
+  }
+
+  // Best-effort side effects: the lead itself is already safely committed
+  // above, so a failure here (e.g. a misconfigured automation rule) should
+  // never make it look like the lead didn't save.
+  try {
+    await logActivity({
       customerId,
-      sourceId: d.sourceId,
-      assigneeId: d.assigneeId,
-      stageId: defaultStage.id,
-      purchaseTimeframe: d.purchaseTimeframe,
-      temperature: d.temperature,
-      score: d.temperature === "HOT" ? 85 : d.temperature === "WARM" ? 60 : 30,
-      financeType: d.financeType,
-      desiredPayment: d.desiredPayment,
-      downPayment: d.downPayment,
-      hasCoBuyer: d.hasCoBuyer === "on" || d.hasCoBuyer === "true",
-      coBuyerName: d.coBuyerName,
-      prefBodyStyle: d.prefBodyStyle,
-      prefMaxPrice: d.prefMaxPrice,
-      prefDrivetrain: d.prefDrivetrain,
-      prefThirdRow: d.prefThirdRow === "on" || d.prefThirdRow === "true",
-      prefColor: d.prefColor,
-      customerNeeds: d.customerNeeds,
-      customerWants: d.customerWants,
-      objections: d.objections,
-      preferences: d.preferences,
-      salesNotes: d.salesNotes,
-      lastContactedAt: new Date(),
-      nextFollowUpAt: new Date(),
-    },
-  });
-
-  if (d.vehicleId || d.vehicleMake || d.vehicleModel) {
-    await prisma.customerVehicle.create({
-      data: {
-        customerId,
-        leadId: lead.id,
-        vehicleId: d.vehicleId,
-        year: d.vehicleYear,
-        make: d.vehicleMake,
-        model: d.vehicleModel,
-        trim: d.vehicleTrim,
-        isPrimary: true,
-      },
+      leadId,
+      type: "LEAD_CREATED",
+      description: "Lead created.",
+      actorId: scope.userId,
     });
-  }
-
-  if (d.hasTrade === "on" || d.hasTrade === "true") {
-    await prisma.tradeIn.create({
-      data: {
-        customerId,
-        year: d.tradeYear,
-        make: d.tradeMake,
-        model: d.tradeModel,
-        payoff: d.tradePayoff ?? 0,
-        estimatedValue: d.tradeEstValue ?? 0,
-      },
-    });
-  }
-
-  await logActivity({
-    customerId,
-    leadId: lead.id,
-    type: "LEAD_CREATED",
-    description: `Lead created${d.sourceId ? "" : ""}.`,
-    actorId: scope.userId,
-  });
-
-  await runAutomation("NEW_LEAD", { customerId, leadId: lead.id, actorId: scope.userId });
-  if (d.temperature === "HOT") {
-    await runAutomation("HOT_LEAD", { customerId, leadId: lead.id, actorId: scope.userId });
+    await runAutomation("NEW_LEAD", { customerId, leadId, actorId: scope.userId });
+    if (d.temperature === "HOT") {
+      await runAutomation("HOT_LEAD", { customerId, leadId, actorId: scope.userId });
+    }
+  } catch (err) {
+    console.error("createLead: post-create automation/activity failed (lead was still saved)", err);
   }
 
   revalidatePath("/leads");
