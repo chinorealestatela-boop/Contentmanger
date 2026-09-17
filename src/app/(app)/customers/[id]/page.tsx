@@ -12,6 +12,7 @@ import { ActivityTimeline } from "@/components/customers/ActivityTimeline";
 import { MessageLogSection } from "@/components/customers/MessageLogSection";
 import { ProfileActions } from "@/components/customers/ProfileActions";
 import { FollowUpsSection } from "@/components/customers/FollowUpsSection";
+import { PaymentPlanSection } from "@/components/customers/PaymentPlanSection";
 import { formatCurrency, formatDate, formatRelativeDay, formatTime12h, formatTimeAgo } from "@/lib/format";
 import {
   optionLabel, CONTACT_METHODS, CONTACT_TIMES, PURCHASE_TIMEFRAMES, FINANCE_TYPES,
@@ -153,6 +154,11 @@ export default async function CustomerProfilePage({ params }: { params: Promise<
                 ))}
               </ul>
             )}
+          </SectionCard>
+
+          {/* Future / down payments */}
+          <SectionCard title="Future Payments">
+            <PaymentPlanSection plans={customer.paymentPlans} />
           </SectionCard>
 
           {/* Trade-ins */}

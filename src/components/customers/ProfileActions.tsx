@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
-import { Phone, MessageSquare, Mail, StickyNote, CheckSquare, CalendarPlus, Car, ArrowLeftRight, FileEdit, Workflow, Trophy, XCircle, Gauge, PhoneCall } from "lucide-react";
+import { Phone, MessageSquare, Mail, StickyNote, CheckSquare, CalendarPlus, Car, ArrowLeftRight, FileEdit, Workflow, Trophy, XCircle, Gauge, PhoneCall, DollarSign, Plus, Trash2 } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { logCommunication } from "@/lib/actions/communications";
 import { addNote } from "@/lib/actions/notes";
@@ -13,9 +13,10 @@ import { addVehicleInterest } from "@/lib/actions/vehicleInterests";
 import { addTradeIn } from "@/lib/actions/tradeins";
 import { logTestDrive } from "@/lib/actions/testdrives";
 import { changeLeadStage, markSold, markLost } from "@/lib/actions/leads";
+import { createPaymentPlan } from "@/lib/actions/payments";
 import { TASK_TYPES, TASK_PRIORITIES, APPOINTMENT_TYPES, APPRAISAL_STATUSES, FINANCE_TYPES, CUSTOMER_REACTIONS, FOLLOWUP_REMINDER_OPTIONS } from "@/lib/constants";
 
-type Kind = "CALL" | "TEXT" | "EMAIL" | "NOTE" | "TASK" | "FOLLOWUP" | "CALENDAR" | "VEHICLE" | "TRADE" | "TESTDRIVE" | "LOG" | "STAGE" | "SOLD" | "LOST" | null;
+type Kind = "CALL" | "TEXT" | "EMAIL" | "NOTE" | "TASK" | "FOLLOWUP" | "CALENDAR" | "VEHICLE" | "TRADE" | "TESTDRIVE" | "LOG" | "STAGE" | "SOLD" | "LOST" | "PAYMENTPLAN" | null;
 
 export function ProfileActions({
   customerId,
@@ -49,6 +50,7 @@ export function ProfileActions({
       <button className={btn} onClick={() => setModal("VEHICLE")}><Car size={13} /> Add Vehicle</button>
       <button className={btn} onClick={() => setModal("TRADE")}><ArrowLeftRight size={13} /> Add Trade</button>
       <button className={btn} onClick={() => setModal("TESTDRIVE")}><Gauge size={13} /> Log Test Drive</button>
+      <button className={btn} onClick={() => setModal("PAYMENTPLAN")}><DollarSign size={13} /> Future Payment</button>
       <button className={btn} onClick={() => setModal("LOG")}><FileEdit size={13} /> Log Activity</button>
       {leadId && (
         <>
@@ -66,6 +68,7 @@ export function ProfileActions({
       {modal === "VEHICLE" && <VehicleModal customerId={customerId} leadId={leadId} vehicles={vehicles} onClose={() => setModal(null)} />}
       {modal === "TRADE" && <TradeModal customerId={customerId} onClose={() => setModal(null)} />}
       {modal === "TESTDRIVE" && <TestDriveModal customerId={customerId} leadId={leadId} vehicles={vehicles} onClose={() => setModal(null)} />}
+      {modal === "PAYMENTPLAN" && <PaymentPlanModal customerId={customerId} leadId={leadId} onClose={() => setModal(null)} />}
       {modal === "LOG" && <LogModal customerId={customerId} leadId={leadId} onClose={() => setModal(null)} />}
       {modal === "STAGE" && leadId && <StageModal leadId={leadId} stages={stages} onClose={() => setModal(null)} />}
       {modal === "SOLD" && leadId && <SoldModal leadId={leadId} vehicles={vehicles} onClose={() => setModal(null)} />}
@@ -377,6 +380,114 @@ function TestDriveModal({ customerId, leadId, vehicles, onClose }: { customerId:
         <div><label className="label">Next Step</label><textarea name="nextStep" rows={2} className="input" placeholder="e.g. Send pricing worksheet, follow up tomorrow" /></div>
         <p className="text-xs text-[var(--text-muted)]">A follow-up task is created automatically once you log this.</p>
         <FormFooter pending={pending} onClose={onClose} label="Log Test Drive" />
+      </form>
+    </Modal>
+  );
+}
+
+function PaymentPlanModal({ customerId, leadId, onClose }: { customerId: string; leadId: string | null; onClose: () => void }) {
+  const [state, formAction, pending] = useActionState(createPaymentPlan, null);
+  useCloseOnSuccess(state, onClose);
+
+  const [totalRequired, setTotalRequired] = useState("");
+  const [amountPaidUpfront, setAmountPaidUpfront] = useState("");
+  const [rows, setRows] = useState<{ amount: string; dueDate: string }[]>([{ amount: "", dueDate: "" }]);
+
+  // Quick-fill controls: N payments of $X every Y days starting on a date —
+  // generates the rows below instead of typing each one by hand.
+  const [genCount, setGenCount] = useState("2");
+  const [genAmount, setGenAmount] = useState("");
+  const [genFrequencyDays, setGenFrequencyDays] = useState("30");
+  const [genStart, setGenStart] = useState(new Date().toISOString().slice(0, 10));
+
+  const remaining = Number(totalRequired || 0) - Number(amountPaidUpfront || 0);
+
+  function generateRows() {
+    const count = Math.max(1, Math.min(24, Number(genCount) || 1));
+    const amount = genAmount || "";
+    const freq = Math.max(1, Number(genFrequencyDays) || 30);
+    const start = genStart ? new Date(`${genStart}T00:00:00`) : new Date();
+    const next: { amount: string; dueDate: string }[] = [];
+    for (let i = 0; i < count; i++) {
+      const d = new Date(start);
+      d.setDate(d.getDate() + freq * i);
+      next.push({ amount, dueDate: d.toISOString().slice(0, 10) });
+    }
+    setRows(next);
+  }
+
+  return (
+    <Modal title="Future Payment Schedule" onClose={onClose} width="max-w-lg">
+      <form action={formAction} className="space-y-4">
+        <input type="hidden" name="customerId" value={customerId} />
+        {leadId && <input type="hidden" name="leadId" value={leadId} />}
+        {state?.error && <ErrorBox msg={state.error} />}
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="label">Total Down Payment Required</label>
+            <input name="totalRequired" type="number" step="0.01" required className="input" value={totalRequired} onChange={(e) => setTotalRequired(e.target.value)} autoFocus />
+          </div>
+          <div>
+            <label className="label">Already Paid Upfront</label>
+            <input name="amountPaidUpfront" type="number" step="0.01" className="input" value={amountPaidUpfront} onChange={(e) => setAmountPaidUpfront(e.target.value)} placeholder="0" />
+          </div>
+        </div>
+        {totalRequired && (
+          <p className="text-[12.5px] text-[var(--text-muted)]">
+            Remaining balance to schedule: <span className="font-semibold text-[var(--text)]">${remaining.toLocaleString()}</span>
+          </p>
+        )}
+
+        <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-subtle)] p-3">
+          <p className="mb-2 text-[11.5px] font-semibold uppercase tracking-wide text-[var(--text-faint)]">Quick Fill</p>
+          <div className="grid grid-cols-4 gap-2">
+            <div><label className="label">Payments</label><input type="number" min={1} max={24} className="input" value={genCount} onChange={(e) => setGenCount(e.target.value)} /></div>
+            <div><label className="label">Amount Each</label><input type="number" step="0.01" className="input" value={genAmount} onChange={(e) => setGenAmount(e.target.value)} /></div>
+            <div><label className="label">Every (days)</label><input type="number" min={1} className="input" value={genFrequencyDays} onChange={(e) => setGenFrequencyDays(e.target.value)} /></div>
+            <div><label className="label">First Due</label><input type="date" className="input" value={genStart} onChange={(e) => setGenStart(e.target.value)} /></div>
+          </div>
+          <button type="button" onClick={generateRows} className="btn btn-secondary btn-sm mt-2">Generate Payments</button>
+        </div>
+
+        <div className="space-y-2">
+          <label className="label">Payment Schedule</label>
+          {rows.map((row, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <span className="w-14 shrink-0 text-[12px] text-[var(--text-faint)]">#{i + 1}</span>
+              <input
+                name="paymentAmount"
+                type="number"
+                step="0.01"
+                required
+                placeholder="Amount"
+                className="input"
+                value={row.amount}
+                onChange={(e) => setRows((r) => r.map((x, idx) => (idx === i ? { ...x, amount: e.target.value } : x)))}
+              />
+              <input
+                name="paymentDueDate"
+                type="date"
+                required
+                className="input"
+                value={row.dueDate}
+                onChange={(e) => setRows((r) => r.map((x, idx) => (idx === i ? { ...x, dueDate: e.target.value } : x)))}
+              />
+              <button
+                type="button"
+                onClick={() => setRows((r) => (r.length > 1 ? r.filter((_, idx) => idx !== i) : r))}
+                className="shrink-0 rounded-lg p-1.5 text-red-500 hover:bg-red-50"
+                aria-label="Remove payment"
+              >
+                <Trash2 size={15} />
+              </button>
+            </div>
+          ))}
+          <button type="button" onClick={() => setRows((r) => [...r, { amount: "", dueDate: "" }])} className="btn btn-ghost btn-sm"><Plus size={13} /> Add Payment</button>
+        </div>
+
+        <div><label className="label">Notes</label><textarea name="notes" rows={2} className="input" placeholder="e.g. Approved for financing pending remaining down payment." /></div>
+        <FormFooter pending={pending} onClose={onClose} label="Save Payment Schedule" />
       </form>
     </Modal>
   );

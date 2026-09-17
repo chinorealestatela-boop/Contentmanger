@@ -12,7 +12,7 @@ import type { MessageContext } from "@/lib/messaging/templates";
 
 export type AppointmentEvent = "BOOKING_CONFIRMATION" | "REMINDER_24H" | "REMINDER_2H" | "RESCHEDULED" | "CANCELLED";
 
-async function getDealershipInfo() {
+export async function getDealershipInfo() {
   const row = await prisma.setting.findUnique({ where: { key: "dealership" } });
   const parsed = row ? JSON.parse(row.value) : {};
   return {

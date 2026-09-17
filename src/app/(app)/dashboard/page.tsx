@@ -12,9 +12,11 @@ import {
   XCircle,
   Users,
   Sparkles,
+  DollarSign,
 } from "lucide-react";
 import { requireScope } from "@/lib/queries/scope";
 import { getDashboardMetrics, getActionCenter, getHotLeads, getUpcomingActivities } from "@/lib/queries/dashboard";
+import { getPaymentDashboardCounts } from "@/lib/queries/payments";
 import { ensureFollowUpsFresh, getFollowUpsDueToday } from "@/lib/queries/followups";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { ActionCard } from "@/components/dashboard/ActionCard";
@@ -26,13 +28,14 @@ import { prisma } from "@/lib/prisma";
 export default async function DashboardPage() {
   const scope = await requireScope();
   await ensureFollowUpsFresh();
-  const [metrics, actionItems, hotLeads, upcoming, followUpsDueToday, user] = await Promise.all([
+  const [metrics, actionItems, hotLeads, upcoming, followUpsDueToday, user, paymentCounts] = await Promise.all([
     getDashboardMetrics(scope),
     getActionCenter(scope, 12),
     getHotLeads(scope, 8),
     getUpcomingActivities(scope),
     getFollowUpsDueToday(scope, 5),
     prisma.user.findUnique({ where: { id: scope.userId } }),
+    getPaymentDashboardCounts(scope),
   ]);
 
   const hour = new Date().getHours();
@@ -51,6 +54,8 @@ export default async function DashboardPage() {
     { label: "Negotiations", value: metrics.negotiations, icon: Handshake, href: "/pipeline", tone: "warm" as const },
     { label: "Sales This Month", value: metrics.salesThisMonth, icon: Trophy, href: "/reports", tone: "sold" as const },
     { label: "Lost", value: metrics.lost, icon: XCircle, href: "/lost-leads", tone: "lost" as const },
+    { label: "Payments Due This Week", value: paymentCounts.dueThisWeek, icon: DollarSign, href: "/payments", tone: "default" as const },
+    { label: "Overdue Payments", value: paymentCounts.overdue, icon: AlertTriangle, href: "/payments", tone: "overdue" as const },
   ];
 
   return (

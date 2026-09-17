@@ -63,6 +63,8 @@ model User {
   sessions       Session[]
   followUps      FollowUp[]           @relation("FollowUpAssignee")
   pushSubscriptions PushSubscription[]
+  paymentPlansCreated PaymentPlan[]   @relation("PaymentPlanCreatedBy")
+  paymentsMarkedPaid  Payment[]       @relation("PaymentPaidBy")
 }
 
 // One row per browser/device the user has enabled push notifications on
@@ -150,6 +152,8 @@ model Customer {
   followUps           FollowUp[]
   smsMessages         SmsMessage[]
   emailMessages       EmailMessage[]
+  paymentPlans        PaymentPlan[]
+  payments            Payment[]
 
   @@index([lastName, firstName])
 }
@@ -259,6 +263,8 @@ model Lead {
   sales               Sale[]
   followUps           FollowUp[]
   appointments        Appointment[]
+  paymentPlans        PaymentPlan[]
+  payments            Payment[]
 
   @@index([assigneeId, status])
   @@index([temperature])
@@ -615,7 +621,7 @@ model SmsMessage {
   appointment   Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
 
   toPhone String
-  type    String // BOOKING_CONFIRMATION | REMINDER_24H | REMINDER_2H | RESCHEDULED | CANCELLED | CUSTOM
+  type    String // BOOKING_CONFIRMATION | REMINDER_24H | REMINDER_2H | RESCHEDULED | CANCELLED | PAYMENT_REMINDER | CUSTOM
   body    String
 
   status       String  @default("PENDING") // PENDING | SENT | DELIVERED | FAILED | SIMULATED
@@ -665,6 +671,103 @@ model Note {
   author   User   @relation("NoteAuthor", fields: [authorId], references: [id])
 
   createdAt DateTime @default(now())
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// FUTURE / DOWN-PAYMENT TRACKING
+// ─────────────────────────────────────────────────────────────────────────
+
+// A schedule of money still owed after the initial purchase/down payment
+// (e.g. customer put down $500 of a required $1,500 and owes the
+// remaining $1,000 in installments). One customer/lead can have more than
+// one plan over time (a completed/cancelled one plus a new one), so this
+// is its own row rather than fields on Lead — remainingBalance is always
+// derived at read time from totalRequired/amountPaidUpfront minus the sum
+// of each Payment's amountPaid (see src/lib/payments/status.ts), never
+// stored, so it can never drift out of sync with the individual payments.
+model PaymentPlan {
+  id         String    @id @default(cuid())
+  customerId String
+  customer   Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  leadId     String?
+  lead       Lead?     @relation(fields: [leadId], references: [id], onDelete: SetNull)
+
+  totalRequired     Float // total down payment originally required
+  amountPaidUpfront Float  @default(0) // already collected at signing, before this schedule
+  status            String @default("ACTIVE") // ACTIVE | COMPLETED | CANCELLED
+  notes             String?
+
+  createdById String
+  createdBy   User   @relation("PaymentPlanCreatedBy", fields: [createdById], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  payments Payment[]
+
+  @@index([customerId])
+  @@index([leadId])
+}
+
+// One installment within a PaymentPlan. customerId/leadId are denormalized
+// from the parent plan (kept in sync at creation — a plan never moves to a
+// different customer) purely so the payments dashboard and search can
+// query across all customers without joining through PaymentPlan every
+// time. status only ever stores a manually-set/terminal state; the
+// time-relative labels ("Due Soon"/"Due Today"/"Overdue"/"Upcoming") are
+// computed at read time from dueDate so they're always correct without a
+// background job re-stamping rows every night — see
+// src/lib/payments/status.ts.
+model Payment {
+  id     String      @id @default(cuid())
+  planId String
+  plan   PaymentPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  leadId     String?
+  lead       Lead?    @relation(fields: [leadId], references: [id], onDelete: SetNull)
+
+  amount     Float
+  dueDate    DateTime
+  status     String    @default("PENDING") // PENDING | PAID | PARTIALLY_PAID | CANCELLED
+  amountPaid Float     @default(0)
+  paidAt     DateTime?
+  paidById   String?
+  paidBy     User?     @relation("PaymentPaidBy", fields: [paidById], references: [id])
+  notes      String?
+
+  // Which reminder stages have already fired for this exact payment, so
+  // the reminder sweep (src/lib/payments/reminders.ts) never sends the
+  // same SMS/task/notification twice for the same due date. JSON-encoded
+  // array of PaymentReminderStage strings, e.g. ["7_DAYS_BEFORE","DUE_DATE"].
+  remindersSent String @default("[]")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([customerId])
+  @@index([planId])
+  @@index([dueDate])
+  @@index([status])
+}
+
+// Editable, reusable SMS copy for payment reminders (Feature 3 — "do not
+// hard-code these messages"). trigger ties a template to one of the five
+// reminder stages so the automation sweep knows which template to use by
+// default; null trigger = a general-purpose template only ever chosen
+// manually. {{firstName}}/{{amount}}/{{dueDate}}/{{agentName}}/
+// {{dealershipName}} are interpolated at send time — see
+// src/lib/payments/templates.ts.
+model SmsTemplate {
+  id        String   @id @default(cuid())
+  name      String
+  trigger   String? // 7_DAYS_BEFORE | 3_DAYS_BEFORE | 1_DAY_BEFORE | DUE_DATE | OVERDUE
+  body      String
+  active    Boolean  @default(true)
+  isDefault Boolean  @default(false) // one of the seeded starter templates for its trigger stage
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -795,7 +898,7 @@ model Notification {
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  type      String // NEW_LEAD | HOT_LEAD | OVERDUE_FOLLOW_UP | APPOINTMENT | APPOINTMENT_REMINDER | APPOINTMENT_TOMORROW | APPOINTMENT_CANCELLED | NO_SHOW | CUSTOMER_ACTIVITY | VEHICLE_SOLD | IMPORTANT_TASK | AUTOMATION
+  type      String // NEW_LEAD | HOT_LEAD | OVERDUE_FOLLOW_UP | APPOINTMENT | APPOINTMENT_REMINDER | APPOINTMENT_TOMORROW | APPOINTMENT_CANCELLED | NO_SHOW | CUSTOMER_ACTIVITY | VEHICLE_SOLD | IMPORTANT_TASK | AUTOMATION | PAYMENT_DUE
   title     String
   body      String?
   link      String?

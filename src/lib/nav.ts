@@ -12,6 +12,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Calendar", href: "/calendar", icon: "CalendarClock" },
   { label: "Tasks", href: "/tasks", icon: "CheckSquare" },
   { label: "Vehicles", href: "/vehicles", icon: "Car" },
+  { label: "Payments", href: "/payments", icon: "DollarSign" },
   { label: "Trade-Ins", href: "/trade-ins", icon: "ArrowLeftRight" },
   { label: "Communications", href: "/communications", icon: "MessageSquare" },
   { label: "Message Log", href: "/messages", icon: "Inbox" },

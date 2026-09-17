@@ -14,7 +14,7 @@
 import { prisma } from "@/lib/prisma";
 import { normalizePhone } from "@/lib/phone";
 
-export type SmsType = "BOOKING_CONFIRMATION" | "REMINDER_24H" | "REMINDER_2H" | "RESCHEDULED" | "CANCELLED" | "CUSTOM";
+export type SmsType = "BOOKING_CONFIRMATION" | "REMINDER_24H" | "REMINDER_2H" | "RESCHEDULED" | "CANCELLED" | "PAYMENT_REMINDER" | "CUSTOM";
 
 export function isTwilioConfigured(): boolean {
   return !!(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_FROM_NUMBER);

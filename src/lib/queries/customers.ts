@@ -66,6 +66,10 @@ export async function getCustomerProfile(customerId: string) {
       followUps: { orderBy: [{ followUpDate: "desc" }, { followUpTime: "desc" }], include: { assignee: true } },
       smsMessages: { orderBy: { createdAt: "desc" }, take: 25 },
       emailMessages: { orderBy: { createdAt: "desc" }, take: 25 },
+      paymentPlans: {
+        orderBy: { createdAt: "desc" },
+        include: { payments: { orderBy: { dueDate: "asc" } }, createdBy: true },
+      },
     },
   });
 }

@@ -358,6 +358,7 @@ export const NOTIFICATION_TYPES: Option[] = [
   { value: "VEHICLE_SOLD", label: "Vehicle Sold" },
   { value: "IMPORTANT_TASK", label: "Important Task" },
   { value: "AUTOMATION", label: "Automation" },
+  { value: "PAYMENT_DUE", label: "Payment Due" },
 ];
 
 // The subset of NOTIFICATION_TYPES that get a Push/SMS/Email row in
@@ -372,6 +373,7 @@ export const CHANNEL_NOTIFICATION_TYPES: Option[] = [
   { value: "APPOINTMENT_CANCELLED", label: "Appointment Cancellation" },
   { value: "HOT_LEAD", label: "Hot Lead" },
   { value: "NO_SHOW", label: "No-Show" },
+  { value: "PAYMENT_DUE", label: "Payment Due" },
 ];
 
 // ── Helpers ───────────────────────────────────────────────────────────

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Car, CalendarClock, Users, PhoneCall } from "lucide-react";
+import { Car, CalendarClock, Users, PhoneCall, DollarSign } from "lucide-react";
 import { requireScope } from "@/lib/queries/scope";
 import { globalSearch } from "@/lib/queries/search";
 import { CustomerRow } from "@/components/customers/CustomerRow";
@@ -7,19 +7,20 @@ import { SearchInput } from "@/components/ui/SearchInput";
 import { formatCurrency, formatDate, formatTime12h } from "@/lib/format";
 import { Badge } from "@/components/ui/Badge";
 import { VEHICLE_STATUSES, optionLabel, FOLLOWUP_STATUSES } from "@/lib/constants";
+import { getPaymentDisplayStatus, PAYMENT_DISPLAY_STATUS_META } from "@/lib/payments/status";
 
 export default async function SearchPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
   const sp = await searchParams;
   const q = sp.q ?? "";
   const scope = await requireScope();
-  const results = q ? await globalSearch(scope, q) : { customers: [], vehicles: [], appointments: [], followUps: [] };
-  const totalResults = results.customers.length + results.vehicles.length + results.appointments.length + results.followUps.length;
+  const results = q ? await globalSearch(scope, q) : { customers: [], vehicles: [], appointments: [], followUps: [], payments: [] };
+  const totalResults = results.customers.length + results.vehicles.length + results.appointments.length + results.followUps.length + results.payments.length;
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 p-4 sm:p-6">
       <div>
         <h1 className="text-2xl font-semibold text-[var(--text)]">Search</h1>
-        <p className="text-[13px] text-[var(--text-muted)]">Customers, phone, email, VIN, stock #, vehicle, source, stage, temperature, notes.</p>
+        <p className="text-[13px] text-[var(--text-muted)]">Customers, phone, email, VIN, stock #, vehicle, source, stage, temperature, notes, payment status (try &ldquo;overdue&rdquo; or &ldquo;due today&rdquo;).</p>
       </div>
       <form>
         <SearchInput defaultValue={q} placeholder="Search everything…" />
@@ -83,6 +84,25 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
               <Badge variant="appointment">{optionLabel(FOLLOWUP_STATUSES, f.status)}</Badge>
             </Link>
           ))}
+        </section>
+      )}
+
+      {results.payments.length > 0 && (
+        <section className="space-y-2.5">
+          <h2 className="flex items-center gap-1.5 text-[13px] font-semibold text-[var(--text-muted)]"><DollarSign size={14} /> Payments</h2>
+          {results.payments.map((p) => {
+            const status = getPaymentDisplayStatus(p);
+            const meta = PAYMENT_DISPLAY_STATUS_META[status];
+            return (
+              <Link key={p.id} href={`/customers/${p.customerId}`} className="card flex items-center justify-between p-4 hover:shadow-md">
+                <div>
+                  <p className="text-[13.5px] font-semibold text-[var(--text)]">{p.customer.firstName} {p.customer.lastName} — {formatCurrency(p.amount)}</p>
+                  <p className="text-[12px] text-[var(--text-muted)]">Due {formatDate(p.dueDate)}</p>
+                </div>
+                <Badge variant={status === "OVERDUE" ? "overdue" : status === "DUE_TODAY" ? "warm" : "neutral"}>{meta.label}</Badge>
+              </Link>
+            );
+          })}
         </section>
       )}
 

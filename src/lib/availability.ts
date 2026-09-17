@@ -114,7 +114,7 @@ function weekdayOf(dateStr: string): number {
  * make "8:00 AM" read as "3:30 PM" for lead-time/today-ness purposes —
  * off by exactly the UTC offset. Always go through this instead when
  * comparing "now" against business hours or the booking window. */
-function wallClockInZone(instant: Date, timeZone: string): { dateStr: string; minutes: number } {
+export function wallClockInZone(instant: Date, timeZone: string): { dateStr: string; minutes: number } {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone,
     year: "numeric",

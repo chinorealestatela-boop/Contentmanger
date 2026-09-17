@@ -48,7 +48,8 @@ export type AdminAlertType =
   | "CUSTOMER_ACTIVITY"
   | "VEHICLE_SOLD"
   | "IMPORTANT_TASK"
-  | "AUTOMATION";
+  | "AUTOMATION"
+  | "PAYMENT_DUE";
 
 export type ChannelPrefs = { push?: boolean; sms?: boolean; email?: boolean };
 export type NotificationPrefs = Partial<Record<AdminAlertType, ChannelPrefs>>;
