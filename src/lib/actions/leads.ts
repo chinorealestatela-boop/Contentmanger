@@ -278,8 +278,11 @@ export async function markSold(_prev: SimpleActionState, formData: FormData): Pr
   revalidatePath("/leads");
   revalidatePath("/dashboard");
   revalidatePath("/vehicles");
+  revalidatePath("/sold-leads");
   revalidatePath(`/customers/${lead.customerId}`);
-  redirect(`/customers/${lead.customerId}`);
+  // Straight to the payment-tracking section — selling the vehicle is
+  // usually exactly the moment a downpayment schedule needs to be set up.
+  redirect(`/customers/${lead.customerId}#payment-tracking`);
 }
 
 const lostSchema = z.object({

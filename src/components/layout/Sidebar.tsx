@@ -20,6 +20,8 @@ import {
   Settings as SettingsIcon,
   Sparkles,
   Inbox,
+  DollarSign,
+  Trophy,
   type LucideIcon,
 } from "lucide-react";
 import { NAV_ITEMS } from "@/lib/nav";
@@ -42,6 +44,8 @@ const ICONS: Record<string, LucideIcon> = {
   Zap,
   Settings: SettingsIcon,
   Inbox,
+  DollarSign,
+  Trophy,
 };
 
 export function Sidebar({ onNavigate, onOpenAssistant }: { onNavigate?: () => void; onOpenAssistant?: () => void }) {

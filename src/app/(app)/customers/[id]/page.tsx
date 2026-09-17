@@ -157,7 +157,7 @@ export default async function CustomerProfilePage({ params }: { params: Promise<
           </SectionCard>
 
           {/* Future / down payments */}
-          <SectionCard title="Future Payments">
+          <SectionCard title="Downpayment & Payment Tracking" id="payment-tracking">
             <PaymentPlanSection plans={customer.paymentPlans} />
           </SectionCard>
 

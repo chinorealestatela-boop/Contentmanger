@@ -50,7 +50,7 @@ export function ProfileActions({
       <button className={btn} onClick={() => setModal("VEHICLE")}><Car size={13} /> Add Vehicle</button>
       <button className={btn} onClick={() => setModal("TRADE")}><ArrowLeftRight size={13} /> Add Trade</button>
       <button className={btn} onClick={() => setModal("TESTDRIVE")}><Gauge size={13} /> Log Test Drive</button>
-      <button className={btn} onClick={() => setModal("PAYMENTPLAN")}><DollarSign size={13} /> Future Payment</button>
+      <button className={btn} onClick={() => setModal("PAYMENTPLAN")}><DollarSign size={13} /> Schedule Payment</button>
       <button className={btn} onClick={() => setModal("LOG")}><FileEdit size={13} /> Log Activity</button>
       {leadId && (
         <>
@@ -417,7 +417,7 @@ function PaymentPlanModal({ customerId, leadId, onClose }: { customerId: string;
   }
 
   return (
-    <Modal title="Future Payment Schedule" onClose={onClose} width="max-w-lg">
+    <Modal title="Schedule Payment" onClose={onClose} width="max-w-lg">
       <form action={formAction} className="space-y-4">
         <input type="hidden" name="customerId" value={customerId} />
         {leadId && <input type="hidden" name="leadId" value={leadId} />}

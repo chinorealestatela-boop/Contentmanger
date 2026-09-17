@@ -17,6 +17,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Communications", href: "/communications", icon: "MessageSquare" },
   { label: "Message Log", href: "/messages", icon: "Inbox" },
   { label: "Follow-Up Sequences", href: "/follow-up-sequences", icon: "Workflow" },
+  { label: "Sold Customers", href: "/sold-leads", icon: "Trophy" },
   { label: "Lost Leads", href: "/lost-leads", icon: "XCircle" },
   { label: "Reactivation", href: "/reactivation", icon: "RefreshCcw" },
   { label: "Reports", href: "/reports", icon: "BarChart3" },

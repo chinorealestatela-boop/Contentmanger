@@ -6,14 +6,16 @@ import { getPaymentDisplayStatus, type PaymentDisplayStatus } from "@/lib/paymen
 // lets "overdue payments", "due this week", etc. work as plain search text
 // alongside name/phone/email, per Feature 15.
 const PAYMENT_STATUS_KEYWORDS: Record<string, PaymentDisplayStatus[]> = {
-  overdue: ["OVERDUE"],
-  "past due": ["OVERDUE"],
+  overdue: ["LATE"],
+  "past due": ["LATE"],
+  late: ["LATE"],
   "due today": ["DUE_TODAY"],
   "due soon": ["DUE_SOON"],
   upcoming: ["UPCOMING"],
   paid: ["PAID"],
   "partially paid": ["PARTIALLY_PAID"],
-  "payment due": ["OVERDUE", "DUE_TODAY", "DUE_SOON", "UPCOMING"],
+  waived: ["WAIVED"],
+  "payment due": ["LATE", "DUE_TODAY", "DUE_SOON", "UPCOMING"],
 };
 
 export async function globalSearch(scope: Scope, q: string) {
@@ -70,13 +72,9 @@ export async function globalSearch(scope: Scope, q: string) {
     // today", ...) or by customer name/phone — a plain "$500" or a
     // customer's name should also surface their outstanding payments.
     prisma.payment.findMany({
-      where: {
-        status: "PENDING",
-        customer: customerWhere,
-        ...(matchedStatuses
-          ? {}
-          : { customer: { ...customerWhere, OR: [{ firstName: { contains: q } }, { lastName: { contains: q } }, { phone: { contains: q } }] } }),
-      },
+      where: matchedStatuses
+        ? { customer: customerWhere }
+        : { status: { in: ["PENDING", "LATE"] }, customer: { ...customerWhere, OR: [{ firstName: { contains: q } }, { lastName: { contains: q } }, { phone: { contains: q } }] } },
       include: { customer: true },
       take: 20,
     }),

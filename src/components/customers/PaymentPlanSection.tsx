@@ -1,13 +1,13 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
-import { Pencil, StickyNote, XCircle, CheckCircle2 } from "lucide-react";
+import { Pencil, StickyNote, XCircle, CheckCircle2, HandCoins } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { EmptyRow } from "@/components/ui/SectionCard";
 import { Badge } from "@/components/ui/Badge";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { computeRemainingBalance, getPaymentDisplayStatus, PAYMENT_DISPLAY_STATUS_META, type PaymentDisplayStatus } from "@/lib/payments/status";
-import { markPaymentPaid, updatePayment, cancelPayment, addPaymentNote } from "@/lib/actions/payments";
+import { markPaymentPaid, updatePayment, cancelPayment, markPaymentWaived, addPaymentNote } from "@/lib/actions/payments";
 
 type PaymentRow = {
   id: string;
@@ -16,6 +16,7 @@ type PaymentRow = {
   status: string;
   amountPaid: number;
   paidAt: Date | null;
+  referenceNumber: string | null;
   notes: string | null;
   paidBy?: { firstName: string; lastName: string } | null;
 };
@@ -34,7 +35,7 @@ type PlanRow = {
 function StatusBadge({ status }: { status: PaymentDisplayStatus }) {
   const meta = PAYMENT_DISPLAY_STATUS_META[status];
   const variant =
-    status === "PAID" ? "sold" : status === "OVERDUE" ? "overdue" : status === "DUE_TODAY" ? "warm" : status === "CANCELLED" ? "lost" : status === "PARTIALLY_PAID" ? "appointment" : "neutral";
+    status === "PAID" ? "sold" : status === "LATE" ? "overdue" : status === "DUE_TODAY" ? "warm" : status === "CANCELLED" || status === "WAIVED" ? "lost" : status === "PARTIALLY_PAID" ? "appointment" : "neutral";
   return <Badge variant={variant as never}>{meta.label}</Badge>;
 }
 
@@ -62,7 +63,7 @@ export function PaymentPlanSection({ plans }: { plans: PlanRow[] }) {
             <ul className="divide-y divide-[var(--border)]">
               {plan.payments.map((p) => {
                 const display = getPaymentDisplayStatus(p);
-                const isTerminal = p.status === "PAID" || p.status === "CANCELLED";
+                const isTerminal = p.status === "PAID" || p.status === "CANCELLED" || p.status === "WAIVED";
                 return (
                   <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
                     <div className="min-w-0">
@@ -71,7 +72,11 @@ export function PaymentPlanSection({ plans }: { plans: PlanRow[] }) {
                         {p.status === "PARTIALLY_PAID" && <span className="ml-1.5 text-[11.5px] font-normal text-[var(--text-muted)]">({formatCurrency(p.amountPaid)} received)</span>}
                       </p>
                       {p.notes && <p className="mt-0.5 text-[11.5px] text-[var(--text-muted)]">{p.notes}</p>}
-                      {p.paidAt && p.paidBy && <p className="mt-0.5 text-[11px] text-[var(--text-faint)]">Marked by {p.paidBy.firstName} {p.paidBy.lastName} on {formatDate(p.paidAt)}</p>}
+                      {p.paidAt && p.paidBy && (
+                        <p className="mt-0.5 text-[11px] text-[var(--text-faint)]">
+                          Marked by {p.paidBy.firstName} {p.paidBy.lastName} on {formatDate(p.paidAt)}{p.referenceNumber ? ` · Ref #${p.referenceNumber}` : ""}
+                        </p>
+                      )}
                     </div>
                     <div className="flex shrink-0 items-center gap-1.5">
                       <StatusBadge status={display} />
@@ -80,6 +85,15 @@ export function PaymentPlanSection({ plans }: { plans: PlanRow[] }) {
                           <button title="Mark Paid" onClick={() => setModalPayment({ kind: "PAID", payment: p })} className="rounded-lg p-1.5 text-emerald-600 hover:bg-emerald-50"><CheckCircle2 size={15} /></button>
                           <button title="Edit" onClick={() => setModalPayment({ kind: "EDIT", payment: p })} className="rounded-lg p-1.5 text-[var(--text-muted)] hover:bg-[var(--bg-subtle)]"><Pencil size={14} /></button>
                           <button title="Add Note" onClick={() => setModalPayment({ kind: "NOTE", payment: p })} className="rounded-lg p-1.5 text-[var(--text-muted)] hover:bg-[var(--bg-subtle)]"><StickyNote size={14} /></button>
+                          <button
+                            title="Waive"
+                            onClick={() => {
+                              if (confirm("Waive this payment? The customer will no longer owe this amount.")) markPaymentWaived(p.id);
+                            }}
+                            className="rounded-lg p-1.5 text-violet-600 hover:bg-violet-50"
+                          >
+                            <HandCoins size={15} />
+                          </button>
                           <button
                             title="Cancel"
                             onClick={() => {
@@ -127,6 +141,7 @@ function MarkPaidModal({ payment, onClose }: { payment: PaymentRow; onClose: () 
           <input name="amountPaid" type="number" step="0.01" required defaultValue={payment.amount} className="input" autoFocus />
           <p className="mt-1 text-[11.5px] text-[var(--text-faint)]">Less than the full amount will be marked &ldquo;Partially Paid.&rdquo;</p>
         </div>
+        <div><label className="label">Confirmation / Reference # (optional)</label><input name="referenceNumber" className="input" placeholder="e.g. check #, transaction ID" /></div>
         <div><label className="label">Notes (optional)</label><textarea name="notes" rows={2} className="input" /></div>
         <div className="flex justify-end gap-2">
           <button type="button" onClick={onClose} className="btn btn-ghost">Cancel</button>

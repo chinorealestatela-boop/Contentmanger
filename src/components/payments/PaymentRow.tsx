@@ -2,17 +2,17 @@
 
 import { useActionState, useEffect, useState } from "react";
 import Link from "next/link";
-import { Phone, MessageSquare, User, CheckCircle2, Pencil, StickyNote } from "lucide-react";
+import { Phone, MessageSquare, User, CheckCircle2, Pencil, StickyNote, HandCoins } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { Badge } from "@/components/ui/Badge";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { getPaymentDisplayStatus, PAYMENT_DISPLAY_STATUS_META, type PaymentDisplayStatus } from "@/lib/payments/status";
-import { markPaymentPaid, updatePayment, addPaymentNote } from "@/lib/actions/payments";
+import { markPaymentPaid, updatePayment, markPaymentWaived, addPaymentNote } from "@/lib/actions/payments";
 import type { PaymentListItem } from "@/lib/queries/payments";
 
 function StatusBadge({ status }: { status: PaymentDisplayStatus }) {
   const meta = PAYMENT_DISPLAY_STATUS_META[status];
-  const variant = status === "OVERDUE" ? "overdue" : status === "DUE_TODAY" ? "warm" : status === "DUE_SOON" ? "cold" : "neutral";
+  const variant = status === "LATE" ? "overdue" : status === "DUE_TODAY" ? "warm" : status === "DUE_SOON" ? "cold" : "neutral";
   return <Badge variant={variant as never}>{meta.label}</Badge>;
 }
 
@@ -24,7 +24,7 @@ export function PaymentRow({ item }: { item: PaymentListItem }) {
     <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
       <div className="min-w-0">
         <Link href={`/customers/${item.customerId}`} className="text-[13.5px] font-semibold text-[var(--text)] hover:text-[var(--brand)] hover:underline">{item.customerName}</Link>
-        <p className="text-[11.5px] text-[var(--text-muted)]">{formatCurrency(item.amount)} due {formatDate(item.dueDate)} · {item.salespersonName}</p>
+        <p className="text-[11.5px] text-[var(--text-muted)]">{formatCurrency(item.amount)} due {formatDate(item.dueDate)}{item.vehicleLabel ? ` · ${item.vehicleLabel}` : ""} · {item.salespersonName}</p>
         {item.notes && <p className="mt-0.5 text-[11px] text-[var(--text-faint)]">{item.notes}</p>}
       </div>
       <div className="flex shrink-0 items-center gap-1.5">
@@ -39,6 +39,15 @@ export function PaymentRow({ item }: { item: PaymentListItem }) {
         <button title="Mark Paid" onClick={() => setModal("PAID")} className="rounded-lg p-1.5 text-emerald-600 hover:bg-emerald-50"><CheckCircle2 size={15} /></button>
         <button title="Edit" onClick={() => setModal("EDIT")} className="rounded-lg p-1.5 text-[var(--text-muted)] hover:bg-[var(--bg-subtle)]"><Pencil size={14} /></button>
         <button title="Add Note" onClick={() => setModal("NOTE")} className="rounded-lg p-1.5 text-[var(--text-muted)] hover:bg-[var(--bg-subtle)]"><StickyNote size={14} /></button>
+        <button
+          title="Waive"
+          onClick={() => {
+            if (confirm(`Waive ${item.customerName}'s ${formatCurrency(item.amount)} payment?`)) markPaymentWaived(item.id);
+          }}
+          className="rounded-lg p-1.5 text-violet-600 hover:bg-violet-50"
+        >
+          <HandCoins size={15} />
+        </button>
       </div>
 
       {modal === "PAID" && <PaidModal item={item} onClose={() => setModal(null)} />}
@@ -66,6 +75,7 @@ function PaidModal({ item, onClose }: { item: PaymentListItem; onClose: () => vo
           <label className="label">Amount Received</label>
           <input name="amountPaid" type="number" step="0.01" required defaultValue={item.amount} className="input" autoFocus />
         </div>
+        <div><label className="label">Confirmation / Reference # (optional)</label><input name="referenceNumber" className="input" placeholder="e.g. check #, transaction ID" /></div>
         <div><label className="label">Notes (optional)</label><textarea name="notes" rows={2} className="input" /></div>
         <div className="flex justify-end gap-2">
           <button type="button" onClick={onClose} className="btn btn-ghost">Cancel</button>

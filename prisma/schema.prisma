@@ -728,19 +728,25 @@ model Payment {
   leadId     String?
   lead       Lead?    @relation(fields: [leadId], references: [id], onDelete: SetNull)
 
-  amount     Float
-  dueDate    DateTime
-  status     String    @default("PENDING") // PENDING | PAID | PARTIALLY_PAID | CANCELLED
-  amountPaid Float     @default(0)
-  paidAt     DateTime?
-  paidById   String?
-  paidBy     User?     @relation("PaymentPaidBy", fields: [paidById], references: [id])
-  notes      String?
+  amount         Float
+  dueDate        DateTime
+  status         String    @default("PENDING") // PENDING | PAID | PARTIALLY_PAID | LATE | CANCELLED | WAIVED — LATE is set automatically by the reminder sweep when dueDate passes with no payment recorded (src/lib/payments/reminders.ts), never chosen directly by a user
+  amountPaid     Float     @default(0)
+  paidAt         DateTime?
+  paidById       String?
+  paidBy         User?     @relation("PaymentPaidBy", fields: [paidById], references: [id])
+  referenceNumber String? // confirmation/reference # for the payment received, if any
+  notes          String?
 
   // Which reminder stages have already fired for this exact payment, so
   // the reminder sweep (src/lib/payments/reminders.ts) never sends the
-  // same SMS/task/notification twice for the same due date. JSON-encoded
-  // array of PaymentReminderStage strings, e.g. ["7_DAYS_BEFORE","DUE_DATE"].
+  // same SMS/task/notification twice for the same due date, and so a
+  // cron run that was missed can catch up safely without re-sending
+  // anything that already went out. JSON-encoded array of
+  // { stage: PaymentReminderStage, sentAt: ISO string }. OVERDUE can
+  // appear more than once when recurring overdue reminders are enabled
+  // (see PaymentAutomationSettings.overdueRepeat) — every other stage
+  // fires at most once per payment.
   remindersSent String @default("[]")
 
   createdAt DateTime @default(now())

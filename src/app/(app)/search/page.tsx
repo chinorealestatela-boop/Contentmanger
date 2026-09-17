@@ -99,7 +99,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
                   <p className="text-[13.5px] font-semibold text-[var(--text)]">{p.customer.firstName} {p.customer.lastName} — {formatCurrency(p.amount)}</p>
                   <p className="text-[12px] text-[var(--text-muted)]">Due {formatDate(p.dueDate)}</p>
                 </div>
-                <Badge variant={status === "OVERDUE" ? "overdue" : status === "DUE_TODAY" ? "warm" : "neutral"}>{meta.label}</Badge>
+                <Badge variant={status === "LATE" ? "overdue" : status === "DUE_TODAY" ? "warm" : "neutral"}>{meta.label}</Badge>
               </Link>
             );
           })}
