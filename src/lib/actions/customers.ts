@@ -4,6 +4,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireScope } from "@/lib/queries/scope";
 import { logActivity } from "@/lib/activity";
+import { recordFollowUpAction } from "@/lib/followup";
 import { revalidatePath } from "next/cache";
 import type { SimpleActionState } from "@/lib/actions/communications";
 
@@ -29,6 +30,10 @@ export async function updateCustomer(_prev: SimpleActionState, formData: FormDat
 
   await prisma.customer.update({ where: { id: customerId }, data: rest });
   await logActivity({ customerId, type: "CUSTOMER_UPDATED", description: "Contact information updated.", actorId: scope.userId });
+  // A profile edit alone isn't proof a call/text/email happened — only
+  // completes the generic FOLLOW_UP/OTHER bucket, never CALL/TEXT/EMAIL/
+  // APPOINTMENT/TRADE/CREDIT tasks (see followup.ts's header comment).
+  await recordFollowUpAction({ customerId, actorId: scope.userId, taskTypes: ["FOLLOW_UP", "OTHER"], source: "Customer information updated" });
 
   revalidatePath(`/customers/${customerId}`);
   revalidatePath("/customers");

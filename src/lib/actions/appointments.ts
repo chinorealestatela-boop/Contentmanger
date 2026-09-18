@@ -7,6 +7,7 @@ import { logActivity } from "@/lib/activity";
 import { runAutomation } from "@/lib/automation/engine";
 import { notifyAdmin } from "@/lib/notify/adminAlert";
 import { recomputeLeadScore } from "@/lib/scoring-engine";
+import { recordFollowUpAction } from "@/lib/followup";
 import { revalidatePath } from "next/cache";
 import type { SimpleActionState } from "@/lib/actions/communications";
 
@@ -73,6 +74,13 @@ export async function createAppointment(_prev: SimpleActionState, formData: Form
   });
 
   await runAutomation("APPOINTMENT_CREATED", { customerId: parsed.data.customerId, leadId: parsed.data.leadId, actorId: scope.userId });
+  await recordFollowUpAction({
+    customerId: parsed.data.customerId,
+    leadId: parsed.data.leadId,
+    actorId: scope.userId,
+    taskTypes: ["APPOINTMENT", "FOLLOW_UP", "OTHER"],
+    source: "Appointment scheduled",
+  });
 
   const activeLead = await prisma.lead.findFirst({ where: { customerId: parsed.data.customerId, status: "ACTIVE" } });
   if (activeLead) await recomputeLeadScore(activeLead.id, scope.userId);
@@ -104,6 +112,8 @@ export async function updateAppointmentStatus(appointmentId: string, status: str
 
   if (status === "NO_SHOW") {
     await runAutomation("APPOINTMENT_NO_SHOW", { customerId: appt.customerId, leadId: lead?.id, actorId: scope.userId });
+    // Deliberately NOT a qualifying follow-up action — a no-show means
+    // more follow-up is needed, not less.
   } else if (status === "COMPLETED") {
     await runAutomation("APPOINTMENT_COMPLETED", { customerId: appt.customerId, leadId: lead?.id, actorId: scope.userId });
   } else if (status === "CANCELLED") {
@@ -118,6 +128,18 @@ export async function updateAppointmentStatus(appointmentId: string, status: str
 
   if (lead) await recomputeLeadScore(lead.id, scope.userId);
 
+  // CONFIRMED/SHOWED/COMPLETED are genuine follow-up touches; NO_SHOW and
+  // CANCELLED are deliberately excluded above.
+  if (["CONFIRMED", "SHOWED", "COMPLETED"].includes(status)) {
+    await recordFollowUpAction({
+      customerId: appt.customerId,
+      leadId: lead?.id,
+      actorId: scope.userId,
+      taskTypes: ["APPOINTMENT", "FOLLOW_UP", "OTHER"],
+      source: `Appointment marked ${status.replace(/_/g, " ").toLowerCase()}`,
+    });
+  }
+
   revalidatePath("/appointments");
   revalidatePath("/calendar");
   revalidatePath("/dashboard");
@@ -125,10 +147,18 @@ export async function updateAppointmentStatus(appointmentId: string, status: str
 }
 
 export async function rescheduleAppointment(appointmentId: string, date: string, time: string) {
-  await requireScope();
+  const scope = await requireScope();
   const appt = await prisma.appointment.update({
     where: { id: appointmentId },
     data: { date: new Date(date), time, status: "SCHEDULED" },
+  });
+  const lead = await prisma.lead.findFirst({ where: { customerId: appt.customerId, status: "ACTIVE" }, orderBy: { createdAt: "desc" } });
+  await recordFollowUpAction({
+    customerId: appt.customerId,
+    leadId: lead?.id,
+    actorId: scope.userId,
+    taskTypes: ["APPOINTMENT", "FOLLOW_UP", "OTHER"],
+    source: "Appointment rescheduled",
   });
   revalidatePath("/appointments");
   revalidatePath("/calendar");

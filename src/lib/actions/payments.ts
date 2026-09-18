@@ -9,6 +9,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireScope } from "@/lib/queries/scope";
 import { logActivity } from "@/lib/activity";
+import { recordFollowUpAction } from "@/lib/followup";
 import { revalidatePath } from "next/cache";
 import type { SimpleActionState } from "@/lib/actions/communications";
 
@@ -71,6 +72,7 @@ export async function createPaymentPlan(_prev: SimpleActionState, formData: Form
     actorId: scope.userId,
     metadata: { planId: plan.id },
   });
+  await recordFollowUpAction({ customerId: d.customerId, leadId: d.leadId, actorId: scope.userId, taskTypes: ["FOLLOW_UP", "OTHER", "CREDIT"], source: "Down payment schedule created" });
 
   revalidatePath(`/customers/${d.customerId}`);
   revalidatePath("/payments");
@@ -123,6 +125,7 @@ export async function markPaymentPaid(_prev: SimpleActionState, formData: FormDa
     actorId: scope.userId,
     metadata: { paymentId },
   });
+  await recordFollowUpAction({ customerId: payment.customerId, leadId: payment.leadId, actorId: scope.userId, taskTypes: ["FOLLOW_UP", "OTHER", "CREDIT"], source: "Payment recorded" });
 
   revalidatePath(`/customers/${payment.customerId}`);
   revalidatePath("/payments");

@@ -4,6 +4,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireScope } from "@/lib/queries/scope";
 import { logActivity } from "@/lib/activity";
+import { recordFollowUpAction } from "@/lib/followup";
 import { revalidatePath } from "next/cache";
 import type { SimpleActionState } from "@/lib/actions/communications";
 
@@ -32,6 +33,16 @@ export async function addNote(_prev: SimpleActionState, formData: FormData): Pro
     type: "NOTE_ADDED",
     description: `Note added: ${parsed.data.body.slice(0, 120)}${parsed.data.body.length > 120 ? "…" : ""}`,
     actorId: scope.userId,
+  });
+  // A note is generic evidence a contact touch happened, so it satisfies
+  // any of the "contact" task types — but not APPOINTMENT/TRADE/CREDIT/
+  // DELIVERY, which each need their own specific action to complete.
+  await recordFollowUpAction({
+    customerId: parsed.data.customerId,
+    leadId: parsed.data.leadId,
+    actorId: scope.userId,
+    taskTypes: ["CALL", "TEXT", "EMAIL", "FOLLOW_UP", "OTHER"],
+    source: "Note added",
   });
 
   revalidatePath(`/customers/${parsed.data.customerId}`);

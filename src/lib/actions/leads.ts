@@ -6,6 +6,7 @@ import { requireScope } from "@/lib/queries/scope";
 import { logActivity } from "@/lib/activity";
 import { runAutomation, enrollInSequence } from "@/lib/automation/engine";
 import { recomputeLeadScore } from "@/lib/scoring-engine";
+import { recordFollowUpAction } from "@/lib/followup";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { SimpleActionState } from "@/lib/actions/communications";
@@ -191,6 +192,9 @@ export async function changeLeadStage(leadId: string, stageId: string) {
   });
 
   await runAutomation("STAGE_CHANGE", { customerId: lead.customerId, leadId, actorId: scope.userId });
+  // Only the generic FOLLOW_UP/OTHER bucket — a stage move alone isn't
+  // evidence a call/text/email/appointment specifically happened.
+  await recordFollowUpAction({ customerId: lead.customerId, leadId, actorId: scope.userId, taskTypes: ["FOLLOW_UP", "OTHER"], source: `Pipeline stage changed to "${stage.name}"` });
 
   if (stage.isClosedWon) {
     await markLeadSold(leadId);
@@ -265,6 +269,7 @@ export async function markSold(_prev: SimpleActionState, formData: FormData): Pr
     description: `Deal closed — sale price ${d.salePrice}.`,
     actorId: scope.userId,
   });
+  await recordFollowUpAction({ customerId: lead.customerId, leadId: d.leadId, actorId: scope.userId, taskTypes: ["FOLLOW_UP", "OTHER", "CREDIT"], source: "Deal closed — sold" });
 
   // Alert any other customer whose primary interest was this exact vehicle.
   const interestedOthers = await prisma.customerVehicle.findMany({
