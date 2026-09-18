@@ -18,6 +18,7 @@ import { recomputeLeadScore } from "@/lib/scoring-engine";
 import { getBookingSettings, isSlotAvailable, getAvailableSlots as getAvailableSlotsForDate } from "@/lib/availability";
 import { verifyVehicleStillListed } from "@/lib/inventory/sync";
 import { normalizePhone, isValidPhone } from "@/lib/phone";
+import { HAS_PHOTO_WHERE } from "@/lib/queries/publicInventory";
 import { notifyAppointmentEvent } from "@/lib/messaging/notify";
 import { notifyAdmin } from "@/lib/notify/adminAlert";
 import { formatDate } from "@/lib/format";
@@ -85,6 +86,7 @@ export async function getBookingVehicles(q?: string) {
   return prisma.vehicle.findMany({
     where: {
       status: "AVAILABLE",
+      ...HAS_PHOTO_WHERE,
       ...(q
         ? {
             OR: [

@@ -43,8 +43,18 @@ const SORT_MAP: Record<InventorySort, Prisma.VehicleOrderByWithRelationInput[]> 
 
 const KNOWN_BODY_STYLES = new Set(BODY_STYLES.map((b) => b.value));
 
+/** A vehicle whose photos field is null/""/"[]" never got a real photo
+ * synced or uploaded — usually because DealerCenter itself has no image on
+ * file for it, not something a URL fix can add. Every public-facing
+ * listing filters these out so customers only ever see cards with a real
+ * picture instead of the generic placeholder icon; the vehicle stays fully
+ * visible in the admin CRM inventory list either way. */
+export const HAS_PHOTO_WHERE: Prisma.VehicleWhereInput = {
+  NOT: { OR: [{ photos: null }, { photos: "" }, { photos: "[]" }] },
+};
+
 function buildWhere(filters: InventoryFilters): Prisma.VehicleWhereInput {
-  const where: Prisma.VehicleWhereInput = { status: "AVAILABLE" };
+  const where: Prisma.VehicleWhereInput = { status: "AVAILABLE", ...HAS_PHOTO_WHERE };
   const and: Prisma.VehicleWhereInput[] = [];
 
   if (filters.q) {
@@ -143,7 +153,7 @@ export async function searchPublicInventory(filters: InventoryFilters) {
  * columns, never photos/description. */
 export async function getInventoryFilterOptions() {
   const rows = await prisma.vehicle.findMany({
-    where: { status: "AVAILABLE" },
+    where: { status: "AVAILABLE", ...HAS_PHOTO_WHERE },
     select: { make: true, model: true, bodyStyle: true, year: true, mileage: true, sellingPrice: true, internetPrice: true, features: true },
   });
 

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { formatCurrency } from "@/lib/format";
 import { parsePhotos, estimateMonthlyPayment } from "@/lib/utils";
 import { VehicleThumb } from "@/components/vehicles/VehicleThumb";
+import { HAS_PHOTO_WHERE } from "@/lib/queries/publicInventory";
 
 export const metadata = { title: "Schedule Your Test Drive | AutoMax LV" };
 // Inventory changes as vehicles are added/sold from the admin dashboard —
@@ -12,7 +13,7 @@ export const revalidate = 60;
 
 async function getFeaturedVehicles() {
   const vehicles = await prisma.vehicle.findMany({
-    where: { status: "AVAILABLE" },
+    where: { status: "AVAILABLE", ...HAS_PHOTO_WHERE },
     orderBy: { year: "desc" },
     take: 6,
     select: { id: true, year: true, make: true, model: true, trim: true, condition: true, internetPrice: true, sellingPrice: true, mileage: true, bodyStyle: true, photos: true },
