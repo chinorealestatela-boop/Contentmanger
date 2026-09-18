@@ -42,7 +42,7 @@ export default async function LandingPage() {
               Schedule My Test Drive
             </Link>
             <Link href="/inventory" className="btn w-full border border-white bg-white px-6 py-3 text-[15px] font-bold text-black hover:bg-white/90 sm:w-auto">
-              Check Availability
+              View Inventory
             </Link>
           </div>
           <p className="mt-4 text-[12px] text-black/60">Takes about 2 minutes · No obligation</p>
