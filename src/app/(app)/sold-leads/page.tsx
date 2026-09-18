@@ -4,6 +4,7 @@ import { requireScope } from "@/lib/queries/scope";
 import { listSoldLeads } from "@/lib/queries/soldLeads";
 import { Avatar } from "@/components/ui/Avatar";
 import { Badge } from "@/components/ui/Badge";
+import { SoldImportPanel } from "@/components/leads/SoldImportPanel";
 import { formatCurrency, formatDate, formatTimeAgo } from "@/lib/format";
 
 export const metadata = { title: "Sold Customers | CRM" };
@@ -17,6 +18,16 @@ export default async function SoldLeadsPage() {
       <div>
         <h1 className="text-2xl font-semibold text-[var(--text)]">Sold Customers</h1>
         <p className="text-[13px] text-[var(--text-muted)]">{leads.length} sold deal{leads.length === 1 ? "" : "s"} · track downpayments and future payments for each one here.</p>
+      </div>
+
+      <div className="card space-y-3 p-5">
+        <div>
+          <p className="text-[13px] font-semibold text-[var(--text)]">Import Sold Customers</p>
+          <p className="mt-1 text-[12.5px] text-[var(--text-muted)]">
+            Upload a Sold Customers / Down Payment Report CSV to bulk-add sold deals and set up their down payment tracking in one step.
+          </p>
+        </div>
+        <SoldImportPanel />
       </div>
 
       <div className="space-y-2.5">
