@@ -118,7 +118,7 @@ export default async function LandingPage() {
           <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-[var(--brand-soft)] text-[var(--brand)]">
             <MessageCircle size={20} />
           </span>
-          <h2 className="mt-3 text-xl font-bold tracking-tight text-[var(--text)] sm:text-2xl">Not Ready to Test Drive Yet?</h2>
+          <h2 className="mt-3 text-xl font-bold tracking-tight text-[var(--text)] sm:text-2xl">Not Ready for an Appointment Yet?</h2>
           <p className="mx-auto mt-2 max-w-md text-[13.5px] text-[var(--text-muted)]">
             Book a free 15-minute call instead — no vehicle needed. We&rsquo;ll just talk through financing, trade-ins, or what fits your budget.
           </p>
