@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Mail, Phone, MessageSquare, MapPin, Clock } from "lucide-react";
-import { requireScope } from "@/lib/queries/scope";
+import { requireScope, listTeamUsers, customerScopeWhere } from "@/lib/queries/scope";
 import { getCustomerProfile } from "@/lib/queries/customers";
 import { ensureFollowUpsFresh } from "@/lib/queries/followups";
 import { prisma } from "@/lib/prisma";
@@ -13,6 +13,7 @@ import { MessageLogSection } from "@/components/customers/MessageLogSection";
 import { ProfileActions } from "@/components/customers/ProfileActions";
 import { FollowUpsSection } from "@/components/customers/FollowUpsSection";
 import { PaymentPlanSection } from "@/components/customers/PaymentPlanSection";
+import { AppointmentActionButtons } from "@/components/appointments/AppointmentEditControls";
 import { formatCurrency, formatDate, formatRelativeDay, formatTime12h, formatTimeAgo } from "@/lib/format";
 import {
   optionLabel, CONTACT_METHODS, CONTACT_TIMES, PURCHASE_TIMEFRAMES, FINANCE_TYPES,
@@ -22,15 +23,17 @@ import {
 
 export default async function CustomerProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  await requireScope();
+  const scope = await requireScope();
   await ensureFollowUpsFresh();
   const customer = await getCustomerProfile(id);
   if (!customer) notFound();
 
-  const [stages, lostReasons, availableVehicles] = await Promise.all([
+  const [stages, lostReasons, availableVehicles, allCustomers, teamUsers] = await Promise.all([
     prisma.pipelineStage.findMany({ orderBy: { order: "asc" } }),
     prisma.lostReason.findMany({ where: { active: true }, orderBy: { order: "asc" } }),
     prisma.vehicle.findMany({ where: { status: { in: ["AVAILABLE", "HOLD", "IN_TRANSIT"] } }, orderBy: { createdAt: "desc" } }),
+    prisma.customer.findMany({ where: customerScopeWhere(scope), orderBy: { firstName: "asc" }, select: { id: true, firstName: true, lastName: true } }),
+    listTeamUsers(),
   ]);
 
   const activeLead = customer.leads.find((l) => l.status === "ACTIVE") ?? customer.leads[0] ?? null;
@@ -200,12 +203,35 @@ export default async function CustomerProfilePage({ params }: { params: Promise<
             ) : (
               <ul className="space-y-2">
                 {customer.appointments.map((a) => (
-                  <li key={a.id} className="flex items-center justify-between rounded-lg border border-[var(--border)] px-3.5 py-2.5">
-                    <div>
+                  <li key={a.id} className="flex flex-col gap-2.5 rounded-lg border border-[var(--border)] px-3.5 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
                       <p className="text-[13px] font-medium text-[var(--text)]">{a.type.replace(/_/g, " ")}{a.vehicle ? ` · ${a.vehicle.year} ${a.vehicle.make} ${a.vehicle.model}` : ""}</p>
                       <p className="text-[11.5px] text-[var(--text-faint)]">{formatDate(a.date)} at {formatTime12h(a.time)} · {a.salesperson.firstName} {a.salesperson.lastName}</p>
                     </div>
-                    <Badge variant={a.status === "NO_SHOW" ? "overdue" : a.status === "COMPLETED" || a.status === "SHOWED" ? "sold" : "appointment"}>{optionLabel(APPOINTMENT_STATUSES, a.status)}</Badge>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <Badge variant={a.status === "NO_SHOW" ? "overdue" : a.status === "COMPLETED" || a.status === "SHOWED" ? "sold" : "appointment"}>{optionLabel(APPOINTMENT_STATUSES, a.status)}</Badge>
+                      <AppointmentActionButtons
+                        appointment={{
+                          id: a.id,
+                          customerId: customer.id,
+                          customerName: `${customer.firstName} ${customer.lastName}`,
+                          vehicleId: a.vehicleId,
+                          salespersonId: a.salespersonId,
+                          date: a.date,
+                          time: a.time,
+                          endTime: a.endTime,
+                          location: a.location,
+                          type: a.type,
+                          notes: a.notes,
+                          status: a.status,
+                          reminderOffsetMinutes: a.reminderOffsetMinutes,
+                        }}
+                        customers={allCustomers}
+                        vehicles={availableVehicles}
+                        teamUsers={teamUsers}
+                        compact
+                      />
+                    </div>
                   </li>
                 ))}
               </ul>

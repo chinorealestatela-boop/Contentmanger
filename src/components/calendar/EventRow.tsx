@@ -3,10 +3,17 @@ import { optionLabel, APPOINTMENT_TYPES, FOLLOWUP_STATUSES } from "@/lib/constan
 import { formatDate, formatTime12h } from "@/lib/format";
 import { eventColor, eventIcon } from "@/components/calendar/eventMeta";
 import { AppointmentStatusControl } from "@/components/appointments/AppointmentStatusControl";
+import { AppointmentActionButtons } from "@/components/appointments/AppointmentEditControls";
 import { getPaymentDisplayStatus, PAYMENT_DISPLAY_STATUS_META } from "@/lib/payments/status";
 import type { CalendarEvent } from "@/lib/queries/calendar";
 
-export function EventRow({ event, showDate = false }: { event: CalendarEvent; showDate?: boolean }) {
+export type AppointmentPickers = {
+  customers: { id: string; firstName: string; lastName: string }[];
+  vehicles: { id: string; year: number; make: string; model: string; stockNumber: string }[];
+  teamUsers: { id: string; firstName: string; lastName: string }[];
+};
+
+export function EventRow({ event, showDate = false, pickers }: { event: CalendarEvent; showDate?: boolean; pickers?: AppointmentPickers }) {
   // Note: `Icon` is a component reference pulled from a static lookup
   // table (eventIcon), not a component defined here — it's referentially
   // stable across renders. eslint's react-hooks/static-components rule
@@ -20,7 +27,7 @@ export function EventRow({ event, showDate = false }: { event: CalendarEvent; sh
   const typeLabel = event.kind === "followup" ? "Follow-Up Call" : event.kind === "payment" ? "Scheduled Payment" : optionLabel(APPOINTMENT_TYPES, event.type);
 
   return (
-    <div className="flex items-center gap-3 px-4 py-3 hover:bg-[var(--bg-subtle)]">
+    <div className="flex flex-col gap-2 px-4 py-3 hover:bg-[var(--bg-subtle)] sm:flex-row sm:items-center">
       <Link href={`/customers/${event.customerId}`} className="flex min-w-0 flex-1 items-center gap-3">
         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg" style={{ background: `${color}1a`, color }}>
           {/* eslint-disable-next-line react-hooks/static-components -- Icon is a stable reference from a static lookup table (eventIcon), not a component defined here; the rule can't tell the difference. Same pattern used throughout the app (Sidebar.tsx, MobileNav.tsx, ActivityTimeline.tsx). */}
@@ -39,9 +46,34 @@ export function EventRow({ event, showDate = false }: { event: CalendarEvent; sh
           {(event.kind === "followup" || event.kind === "payment") && event.title && <p className="truncate text-[12px] text-[var(--text-faint)]">{event.title}</p>}
         </div>
       </Link>
-      <div className="shrink-0">
+      <div className="flex shrink-0 items-center justify-end gap-2">
         {event.kind === "appointment" ? (
-          <AppointmentStatusControl appointmentId={event.id} status={event.status} />
+          <>
+            <AppointmentStatusControl appointmentId={event.id} status={event.status} />
+            {pickers && (
+              <AppointmentActionButtons
+                compact
+                appointment={{
+                  id: event.id,
+                  customerId: event.customerId,
+                  customerName: event.customerName,
+                  vehicleId: event.vehicleId,
+                  salespersonId: event.salespersonId,
+                  date: event.date,
+                  time: event.time,
+                  endTime: event.endTime,
+                  location: event.location,
+                  type: event.type,
+                  notes: event.notes,
+                  status: event.status,
+                  reminderOffsetMinutes: event.reminderOffsetMinutes,
+                }}
+                customers={pickers.customers}
+                vehicles={pickers.vehicles}
+                teamUsers={pickers.teamUsers}
+              />
+            )}
+          </>
         ) : event.kind === "payment" ? (
           <span className="badge" style={{ background: `${color}1a`, color }}>{PAYMENT_DISPLAY_STATUS_META[getPaymentDisplayStatus({ status: event.status, dueDate: event.date })].label}</span>
         ) : (

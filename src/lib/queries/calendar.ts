@@ -26,6 +26,9 @@ export type CalendarEvent = {
   type: string; // appointment type, "FOLLOW_UP", or "PAYMENT_DUE" / "PAYMENT_LATE"
   status: string;
   notes: string | null;
+  vehicleId: string | null; // appointments only
+  salespersonId: string | null; // appointments only
+  reminderOffsetMinutes: number | null; // appointments only
 };
 
 const PAYMENT_EVENT_TIME = "09:00";
@@ -60,6 +63,9 @@ async function paymentEvents(scope: Scope, where: { dueDate?: { gte: Date; lte: 
     type: p.status === "LATE" ? "PAYMENT_LATE" : "PAYMENT_DUE",
     status: p.status,
     notes: p.notes,
+    vehicleId: null,
+    salespersonId: null,
+    reminderOffsetMinutes: null,
   }));
 }
 
@@ -97,6 +103,9 @@ export async function getCalendarEvents(scope: Scope, range: { start: Date; end:
       type: a.type,
       status: a.status,
       notes: a.notes,
+      vehicleId: a.vehicleId,
+      salespersonId: a.salespersonId,
+      reminderOffsetMinutes: a.reminderOffsetMinutes,
     })),
     ...followUps.map((f): CalendarEvent => ({
       id: f.id,
@@ -114,6 +123,9 @@ export async function getCalendarEvents(scope: Scope, range: { start: Date; end:
       type: "FOLLOW_UP",
       status: f.status,
       notes: f.notes,
+      vehicleId: null,
+      salespersonId: null,
+      reminderOffsetMinutes: null,
     })),
     ...payments,
   ];
@@ -147,11 +159,13 @@ export async function getPastEvents(scope: Scope, limit = 30): Promise<CalendarE
       customerPhone: a.customer.phone, leadId: a.leadId, title: a.type.replace(/_/g, " "),
       subtitle: a.vehicle ? `${a.vehicle.year} ${a.vehicle.make} ${a.vehicle.model}` : a.location,
       date: a.date, time: a.time, endTime: a.endTime, location: a.location, type: a.type, status: a.status, notes: a.notes,
+      vehicleId: a.vehicleId, salespersonId: a.salespersonId, reminderOffsetMinutes: a.reminderOffsetMinutes,
     })),
     ...followUps.map((f): CalendarEvent => ({
       id: f.id, kind: "followup", customerId: f.customerId, customerName: `${f.customer.firstName} ${f.customer.lastName}`,
       customerPhone: f.customer.phone, leadId: f.leadId, title: f.topic, subtitle: "Follow-Up Call",
       date: f.followUpDate, time: f.followUpTime, endTime: null, location: null, type: "FOLLOW_UP", status: f.status, notes: f.notes,
+      vehicleId: null, salespersonId: null, reminderOffsetMinutes: null,
     })),
     ...payments,
   ];

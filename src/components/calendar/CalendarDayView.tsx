@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { addDays, format, subDays } from "date-fns";
-import { EventRow } from "@/components/calendar/EventRow";
+import { EventRow, type AppointmentPickers } from "@/components/calendar/EventRow";
 import type { CalendarEvent } from "@/lib/queries/calendar";
 
-export function CalendarDayView({ day, events }: { day: Date; events: CalendarEvent[] }) {
+export function CalendarDayView({ day, events, pickers }: { day: Date; events: CalendarEvent[]; pickers: AppointmentPickers }) {
   const sorted = [...events].sort((a, b) => a.time.localeCompare(b.time));
   const prev = subDays(day, 1);
   const next = addDays(day, 1);
@@ -21,7 +21,7 @@ export function CalendarDayView({ day, events }: { day: Date; events: CalendarEv
       </div>
       <div className="divide-y divide-[var(--border)]">
         {sorted.length === 0 && <p className="px-4 py-10 text-center text-sm text-[var(--text-muted)]">Nothing scheduled for this day.</p>}
-        {sorted.map((e) => <EventRow key={e.id} event={e} />)}
+        {sorted.map((e) => <EventRow key={e.id} event={e} pickers={pickers} />)}
       </div>
     </div>
   );

@@ -406,6 +406,7 @@ export async function rescheduleBookingAppointment(_prev: ManageActionState, for
 
   // Let the reminder sweep re-fire for the new time.
   await prisma.smsMessage.deleteMany({ where: { appointmentId: appt.id, type: { in: ["REMINDER_24H", "REMINDER_2H"] } } });
+  await prisma.emailMessage.deleteMany({ where: { appointmentId: appt.id, type: "REMINDER" } });
 
   await logActivity({ customerId: appt.customerId, leadId: appt.leadId, type: "APPOINTMENT_RESCHEDULED", description: `Rescheduled online to ${date} at ${time}.` });
 
