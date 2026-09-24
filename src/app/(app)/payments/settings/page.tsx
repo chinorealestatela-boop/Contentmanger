@@ -2,16 +2,23 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { requireScope } from "@/lib/queries/scope";
 import { getPaymentAutomationSettings } from "@/lib/payments/reminders";
-import { getSmsTemplates } from "@/lib/payments/templates";
+import { getSmsTemplates, getThankYouTemplate } from "@/lib/payments/templates";
+import { getReferralProgramSettings } from "@/lib/referrals";
 import { SectionCard } from "@/components/ui/SectionCard";
 import { AutomationSettingsForm } from "@/components/payments/AutomationSettingsForm";
 import { SmsTemplateManager } from "@/components/payments/SmsTemplateManager";
+import { ReferralSettingsForm } from "@/components/payments/ReferralSettingsForm";
 
 export const metadata = { title: "Payment Automation | CRM" };
 
 export default async function PaymentSettingsPage() {
   await requireScope();
-  const [automation, templates] = await Promise.all([getPaymentAutomationSettings(), getSmsTemplates()]);
+  const [automation, templates, thankYouTemplate, referralSettings] = await Promise.all([
+    getPaymentAutomationSettings(),
+    getSmsTemplates(),
+    getThankYouTemplate(),
+    getReferralProgramSettings(),
+  ]);
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 p-4 sm:p-6">
@@ -27,6 +34,10 @@ export default async function PaymentSettingsPage() {
 
       <SectionCard title="SMS Templates">
         <SmsTemplateManager templates={templates} />
+      </SectionCard>
+
+      <SectionCard title="Deferred Payment Completion — Thank-You & Referral">
+        <ReferralSettingsForm defaultRewardAmount={referralSettings.defaultRewardAmount} thankYouMessage={thankYouTemplate.body} />
       </SectionCard>
     </div>
   );

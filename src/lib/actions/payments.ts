@@ -10,6 +10,7 @@ import { prisma } from "@/lib/prisma";
 import { requireScope } from "@/lib/queries/scope";
 import { logActivity } from "@/lib/activity";
 import { recordFollowUpAction } from "@/lib/followup";
+import { checkAndCreateCompletionFollowUp } from "@/lib/payments/followup";
 import { revalidatePath } from "next/cache";
 import type { SimpleActionState } from "@/lib/actions/communications";
 
@@ -127,10 +128,20 @@ export async function markPaymentPaid(_prev: SimpleActionState, formData: FormDa
   });
   await recordFollowUpAction({ customerId: payment.customerId, leadId: payment.leadId, actorId: scope.userId, taskTypes: ["FOLLOW_UP", "OTHER", "CREDIT"], source: "Payment recorded" });
 
+  // If this was the last outstanding payment on its plan, this creates the
+  // one-time thank-you/referral follow-up task + notification. Safe to
+  // call every time a payment is marked paid — it's a no-op unless the
+  // plan just became fully settled and hasn't already had one created
+  // (see src/lib/payments/followup.ts).
+  if (newStatus === "PAID") {
+    await checkAndCreateCompletionFollowUp(payment.planId, scope.userId);
+  }
+
   revalidatePath(`/customers/${payment.customerId}`);
   revalidatePath("/payments");
   revalidatePath("/dashboard");
   revalidatePath("/calendar");
+  revalidatePath("/tasks");
   return { success: "Payment updated." };
 }
 

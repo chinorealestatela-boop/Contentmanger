@@ -13,7 +13,10 @@ import { MessageLogSection } from "@/components/customers/MessageLogSection";
 import { ProfileActions } from "@/components/customers/ProfileActions";
 import { FollowUpsSection } from "@/components/customers/FollowUpsSection";
 import { PaymentPlanSection } from "@/components/customers/PaymentPlanSection";
+import { ReferralSection } from "@/components/customers/ReferralSection";
 import { AppointmentActionButtons } from "@/components/appointments/AppointmentEditControls";
+import { getThankYouTemplate } from "@/lib/payments/templates";
+import { getReferralProgramSettings } from "@/lib/referrals";
 import { formatCurrency, formatDate, formatRelativeDay, formatTime12h, formatTimeAgo } from "@/lib/format";
 import {
   optionLabel, CONTACT_METHODS, CONTACT_TIMES, PURCHASE_TIMEFRAMES, FINANCE_TYPES,
@@ -28,13 +31,17 @@ export default async function CustomerProfilePage({ params }: { params: Promise<
   const customer = await getCustomerProfile(id);
   if (!customer) notFound();
 
-  const [stages, lostReasons, availableVehicles, allCustomers, teamUsers] = await Promise.all([
+  const [stages, lostReasons, availableVehicles, allCustomers, teamUsers, thankYouTemplateRow, referralSettings] = await Promise.all([
     prisma.pipelineStage.findMany({ orderBy: { order: "asc" } }),
     prisma.lostReason.findMany({ where: { active: true }, orderBy: { order: "asc" } }),
     prisma.vehicle.findMany({ where: { status: { in: ["AVAILABLE", "HOLD", "IN_TRANSIT"] } }, orderBy: { createdAt: "desc" } }),
     prisma.customer.findMany({ where: customerScopeWhere(scope), orderBy: { firstName: "asc" }, select: { id: true, firstName: true, lastName: true } }),
     listTeamUsers(),
+    getThankYouTemplate(),
+    getReferralProgramSettings(),
   ]);
+  const thankYouTemplate = thankYouTemplateRow.body;
+  const referralAmount = referralSettings.defaultRewardAmount;
 
   const activeLead = customer.leads.find((l) => l.status === "ACTIVE") ?? customer.leads[0] ?? null;
 
@@ -161,7 +168,22 @@ export default async function CustomerProfilePage({ params }: { params: Promise<
 
           {/* Future / down payments */}
           <SectionCard title="Downpayment & Payment Tracking" id="payment-tracking">
-            <PaymentPlanSection plans={customer.paymentPlans} />
+            <PaymentPlanSection
+              plans={customer.paymentPlans}
+              customerFirstName={customer.firstName}
+              thankYouTemplate={thankYouTemplate}
+              referralAmount={referralAmount}
+            />
+          </SectionCard>
+
+          {/* Referral program */}
+          <SectionCard title="Referral Program">
+            <ReferralSection
+              customer={{ id: customer.id, firstName: customer.firstName, lastName: customer.lastName, referralEligible: customer.referralEligible }}
+              referredBy={customer.referredByRecord?.referrer ?? null}
+              referralsMade={customer.referralsMade}
+              otherCustomers={allCustomers.filter((c) => c.id !== customer.id)}
+            />
           </SectionCard>
 
           {/* Trade-ins */}

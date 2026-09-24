@@ -68,7 +68,14 @@ export async function getCustomerProfile(customerId: string) {
       emailMessages: { orderBy: { createdAt: "desc" }, take: 25 },
       paymentPlans: {
         orderBy: { createdAt: "desc" },
-        include: { payments: { orderBy: { dueDate: "asc" } }, createdBy: true },
+        include: { payments: { orderBy: { dueDate: "asc" } }, createdBy: true, followUpTask: { include: { assignee: true } } },
+      },
+      referralsMade: {
+        orderBy: { createdAt: "desc" },
+        include: { referredCustomer: { select: { id: true, firstName: true, lastName: true } } },
+      },
+      referredByRecord: {
+        include: { referrer: { select: { id: true, firstName: true, lastName: true } } },
       },
     },
   });

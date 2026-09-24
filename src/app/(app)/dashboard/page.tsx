@@ -18,11 +18,12 @@ import {
 } from "lucide-react";
 import { requireScope } from "@/lib/queries/scope";
 import { getDashboardMetrics, getActionCenter, getHotLeads, getUpcomingActivities } from "@/lib/queries/dashboard";
-import { getPaymentDashboardCounts } from "@/lib/queries/payments";
+import { getPaymentDashboardCounts, getPaymentFollowUps } from "@/lib/queries/payments";
 import { ensureFollowUpsFresh, getFollowUpsDueToday } from "@/lib/queries/followups";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { ActionCard } from "@/components/dashboard/ActionCard";
 import { HotLeadRow } from "@/components/dashboard/HotLeadRow";
+import { PaymentFollowUpCard } from "@/components/dashboard/PaymentFollowUpCard";
 import { EventRow } from "@/components/calendar/EventRow";
 import { formatTime12h } from "@/lib/format";
 import { prisma } from "@/lib/prisma";
@@ -30,7 +31,7 @@ import { prisma } from "@/lib/prisma";
 export default async function DashboardPage() {
   const scope = await requireScope();
   await ensureFollowUpsFresh();
-  const [metrics, actionItems, hotLeads, upcoming, followUpsDueToday, user, paymentCounts] = await Promise.all([
+  const [metrics, actionItems, hotLeads, upcoming, followUpsDueToday, user, paymentCounts, paymentFollowUps] = await Promise.all([
     getDashboardMetrics(scope),
     getActionCenter(scope, 12),
     getHotLeads(scope, 8),
@@ -38,6 +39,7 @@ export default async function DashboardPage() {
     getFollowUpsDueToday(scope, 5),
     prisma.user.findUnique({ where: { id: scope.userId } }),
     getPaymentDashboardCounts(scope),
+    getPaymentFollowUps(scope),
   ]);
 
   const hour = new Date().getHours();
@@ -171,6 +173,8 @@ export default async function DashboardPage() {
               </div>
             </section>
           )}
+
+          <PaymentFollowUpCard dueToday={paymentFollowUps.dueToday} overdue={paymentFollowUps.overdue} completedTodayCount={paymentFollowUps.completedTodayCount} />
         </div>
       </div>
     </div>

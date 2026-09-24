@@ -65,6 +65,7 @@ model User {
   pushSubscriptions PushSubscription[]
   paymentPlansCreated PaymentPlan[]   @relation("PaymentPlanCreatedBy")
   paymentsMarkedPaid  Payment[]       @relation("PaymentPaidBy")
+  referralsCreated    Referral[]      @relation("ReferralCreatedBy")
 }
 
 // One row per browser/device the user has enabled push notifications on
@@ -134,6 +135,15 @@ model Customer {
   ownerId String
   owner   User   @relation("CustomerOwner", fields: [ownerId], references: [id])
 
+  // Referral program (deferred-payment-completion follow-up feature).
+  // Whether this customer can be offered/counted in the referral program —
+  // defaults true for every existing and new customer; an admin can opt a
+  // specific customer out. Actual referrals this customer has sent in are
+  // Referral rows keyed by referrerId below, not a count stored here — the
+  // count/earnings shown on their profile are always computed from those
+  // rows so they can never drift out of sync.
+  referralEligible Boolean @default(true)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -154,6 +164,8 @@ model Customer {
   emailMessages       EmailMessage[]
   paymentPlans        PaymentPlan[]
   payments            Payment[]
+  referralsMade       Referral[] @relation("ReferralsMade")
+  referredByRecord    Referral?  @relation("ReferredCustomer")
 
   @@index([lastName, firstName])
 }
@@ -552,7 +564,7 @@ model Task {
   lead       Lead?     @relation(fields: [leadId], references: [id], onDelete: Cascade)
 
   title    String
-  type     String   @default("OTHER") // CALL | TEXT | EMAIL | FOLLOW_UP | APPOINTMENT | TRADE | CREDIT | DELIVERY | OTHER
+  type     String   @default("OTHER") // CALL | TEXT | EMAIL | FOLLOW_UP | APPOINTMENT | TRADE | CREDIT | DELIVERY | REFERRAL | OTHER
   priority String   @default("NORMAL") // LOW | NORMAL | HIGH | URGENT
   dueDate  DateTime
   dueTime  String?
@@ -566,6 +578,11 @@ model Task {
   completedAt DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+
+  // Back-reference for PaymentPlan.followUpTask — a Task is the completion
+  // follow-up for at most one plan. No column here; the FK lives on
+  // PaymentPlan.
+  paymentPlanFollowUp PaymentPlan? @relation("PaymentPlanFollowUpTask")
 
   @@index([assigneeId, status, dueDate])
 }
@@ -697,6 +714,19 @@ model PaymentPlan {
   status            String @default("ACTIVE") // ACTIVE | COMPLETED | CANCELLED
   notes             String?
 
+  // Deferred-payment-completion follow-up (additive — see
+  // src/lib/payments/followup.ts). completedAt is set once, the first time
+  // every payment on this plan is settled (PAID or WAIVED, with at least
+  // one actually PAID) — status flips to COMPLETED at the same moment.
+  // followUpTaskId is both the link to the "send thank-you/referral
+  // message" Task this created AND the idempotency guard: the follow-up
+  // (one Task + one Notification) is only ever created while this is
+  // still null, so re-reading or re-rendering this plan can never create
+  // a second one.
+  completedAt    DateTime?
+  followUpTaskId String?    @unique
+  followUpTask   Task?      @relation("PaymentPlanFollowUpTask", fields: [followUpTaskId], references: [id], onDelete: SetNull)
+
   createdById String
   createdBy   User   @relation("PaymentPlanCreatedBy", fields: [createdById], references: [id])
 
@@ -768,12 +798,48 @@ model Payment {
 model SmsTemplate {
   id        String   @id @default(cuid())
   name      String
-  trigger   String? // 7_DAYS_BEFORE | 3_DAYS_BEFORE | 1_DAY_BEFORE | DUE_DATE | OVERDUE
+  trigger   String? // 7_DAYS_BEFORE | 3_DAYS_BEFORE | 1_DAY_BEFORE | DUE_DATE | OVERDUE | THANK_YOU_REFERRAL
   body      String
   active    Boolean  @default(true)
   isDefault Boolean  @default(false) // one of the seeded starter templates for its trigger stage
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// REFERRAL PROGRAM
+//
+// A customer who completes a deferred down payment gets a thank-you +
+// referral-program message (see src/lib/payments/followup.ts). When they
+// actually send someone in, that's recorded here by linking the new
+// customer to the one who referred them — one row per referred customer
+// (referredCustomerId is unique: a customer can only have been referred by
+// one person). Reward amount/status are tracked per referral rather than
+// as a single total on Customer, so a mix of paid/pending referrals for
+// the same referrer displays correctly and nothing is ever auto-marked
+// Paid without a person confirming it (see updateReferralStatus).
+// ─────────────────────────────────────────────────────────────────────────
+
+model Referral {
+  id String @id @default(cuid())
+
+  referrerId String
+  referrer   Customer @relation("ReferralsMade", fields: [referrerId], references: [id], onDelete: Cascade)
+
+  referredCustomerId String   @unique
+  referredCustomer   Customer @relation("ReferredCustomer", fields: [referredCustomerId], references: [id], onDelete: Cascade)
+
+  rewardAmount Float  @default(200)
+  status       String @default("PENDING") // PENDING | PAID | INELIGIBLE
+  notes        String?
+
+  createdById String?
+  createdBy   User?   @relation("ReferralCreatedBy", fields: [createdById], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([referrerId])
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -904,7 +970,7 @@ model Notification {
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  type      String // NEW_LEAD | HOT_LEAD | OVERDUE_FOLLOW_UP | APPOINTMENT | APPOINTMENT_REMINDER | APPOINTMENT_TOMORROW | APPOINTMENT_CANCELLED | NO_SHOW | CUSTOMER_ACTIVITY | VEHICLE_SOLD | IMPORTANT_TASK | AUTOMATION | PAYMENT_DUE
+  type      String // NEW_LEAD | HOT_LEAD | OVERDUE_FOLLOW_UP | APPOINTMENT | APPOINTMENT_REMINDER | APPOINTMENT_TOMORROW | APPOINTMENT_CANCELLED | NO_SHOW | CUSTOMER_ACTIVITY | VEHICLE_SOLD | IMPORTANT_TASK | AUTOMATION | PAYMENT_DUE | PAYMENT_COMPLETED
   title     String
   body      String?
   link      String?

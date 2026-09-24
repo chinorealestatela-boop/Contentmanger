@@ -5,6 +5,8 @@
 import { prisma } from "@/lib/prisma";
 import { customerScopeWhere, type Scope } from "@/lib/queries/scope";
 import { addDays, endOfDay, startOfDay } from "date-fns";
+import { computeTotalCollected, vehicleLabelForCustomer } from "@/lib/payments/followup";
+import { formatCurrency } from "@/lib/format";
 
 export type PaymentListItem = {
   id: string;
@@ -112,4 +114,79 @@ export async function getPaymentDashboardCounts(scope: Scope) {
   ]);
 
   return { dueThisWeek, overdue };
+}
+
+// ── Deferred-payment-completion follow-ups (Task type "REFERRAL", source
+// "AUTOMATION" — see src/lib/payments/followup.ts) ──────────────────────
+
+export type PaymentFollowUpItem = {
+  taskId: string;
+  customerId: string;
+  customerName: string;
+  amountLabel: string;
+  vehicleLabel: string | null;
+  dueDate: Date;
+  completedAt: Date | null;
+};
+
+async function toFollowUpItem(task: {
+  id: string;
+  customerId: string | null;
+  dueDate: Date;
+  completedAt: Date | null;
+  customer: { firstName: string; lastName: string } | null;
+  paymentPlanFollowUp: { amountPaidUpfront: number; totalRequired: number; payments: { amountPaid: number }[] } | null;
+}): Promise<PaymentFollowUpItem | null> {
+  if (!task.customerId || !task.customer) return null;
+  const plan = task.paymentPlanFollowUp;
+  const amount = plan ? computeTotalCollected(plan) || plan.totalRequired : null;
+  return {
+    taskId: task.id,
+    customerId: task.customerId,
+    customerName: `${task.customer.firstName} ${task.customer.lastName}`,
+    amountLabel: amount != null ? formatCurrency(amount) : "—",
+    vehicleLabel: await vehicleLabelForCustomer(task.customerId),
+    dueDate: task.dueDate,
+    completedAt: task.completedAt,
+  };
+}
+
+/** Today's outstanding + overdue "send thank-you/referral message" tasks,
+ * plus how many were completed today — the dedicated dashboard section
+ * (Feature 10), distinct from the generic Today's Actions list these
+ * tasks already also appear in (Task has no type filter there). */
+export async function getPaymentFollowUps(scope: Scope) {
+  const assigneeWhere = scope.viewAll ? {} : { assigneeId: scope.userId };
+  const now = new Date();
+  const todayStart = startOfDay(now);
+  const todayEnd = endOfDay(now);
+
+  const include = { customer: { select: { firstName: true, lastName: true } }, paymentPlanFollowUp: { include: { payments: true } } } as const;
+
+  const [dueTodayRows, overdueRows, completedTodayCount] = await Promise.all([
+    prisma.task.findMany({
+      where: { ...assigneeWhere, type: "REFERRAL", source: "AUTOMATION", status: "PENDING", dueDate: { gte: todayStart, lte: todayEnd } },
+      include,
+      orderBy: { dueDate: "asc" },
+    }),
+    prisma.task.findMany({
+      where: { ...assigneeWhere, type: "REFERRAL", source: "AUTOMATION", status: "PENDING", dueDate: { lt: todayStart } },
+      include,
+      orderBy: { dueDate: "asc" },
+    }),
+    prisma.task.count({
+      where: { ...assigneeWhere, type: "REFERRAL", source: "AUTOMATION", status: "COMPLETED", completedAt: { gte: todayStart, lte: todayEnd } },
+    }),
+  ]);
+
+  const [dueToday, overdue] = await Promise.all([
+    Promise.all(dueTodayRows.map(toFollowUpItem)),
+    Promise.all(overdueRows.map(toFollowUpItem)),
+  ]);
+
+  return {
+    dueToday: dueToday.filter((x): x is PaymentFollowUpItem => x !== null),
+    overdue: overdue.filter((x): x is PaymentFollowUpItem => x !== null),
+    completedTodayCount,
+  };
 }

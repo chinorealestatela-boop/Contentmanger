@@ -2,6 +2,7 @@ import { formatDateTime } from "@/lib/format";
 import {
   Phone, StickyNote, Workflow, CalendarClock, Car, ArrowLeftRight, CheckSquare,
   Trophy, XCircle, RefreshCcw, Zap, UserPlus, Repeat, Gauge, PhoneCall, CalendarX, CalendarCheck2,
+  Gift, Share2,
   type LucideIcon,
 } from "lucide-react";
 
@@ -37,6 +38,10 @@ const ICONS: Record<string, LucideIcon> = {
   FOLLOWUP_RESCHEDULED: RefreshCcw,
   FOLLOWUP_CANCELLED: CalendarX,
   FOLLOWUP_MISSED: CalendarX,
+  PAYMENT_PLAN_COMPLETED: Gift,
+  REFERRAL_ADDED: Share2,
+  REFERRAL_REMOVED: XCircle,
+  REFERRAL_STATUS_CHANGED: Gift,
 };
 
 export function ActivityTimeline({ activities }: { activities: { id: string; type: string; description: string; createdAt: Date; actor: { firstName: string; lastName: string } | null }[] }) {

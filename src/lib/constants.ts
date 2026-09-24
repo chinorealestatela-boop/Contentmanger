@@ -180,6 +180,7 @@ export const TASK_TYPES: Option[] = [
   { value: "TRADE", label: "Trade" },
   { value: "CREDIT", label: "Credit" },
   { value: "DELIVERY", label: "Delivery" },
+  { value: "REFERRAL", label: "Referral" },
   { value: "OTHER", label: "Other" },
 ];
 
@@ -374,6 +375,7 @@ export const CHANNEL_NOTIFICATION_TYPES: Option[] = [
   { value: "HOT_LEAD", label: "Hot Lead" },
   { value: "NO_SHOW", label: "No-Show" },
   { value: "PAYMENT_DUE", label: "Payment Due" },
+  { value: "PAYMENT_COMPLETED", label: "Deferred Payment Completed" },
 ];
 
 // ── Helpers ───────────────────────────────────────────────────────────

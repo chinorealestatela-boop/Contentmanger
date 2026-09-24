@@ -76,3 +76,34 @@ export function renderTemplate(body: string, vars: TemplateVars): string {
     .replaceAll("{{agentName}}", vars.agentName)
     .replaceAll("{{dealershipName}}", vars.dealershipName);
 }
+
+// ── Thank-you / referral message (deferred-payment-completion follow-up) ──
+// A single editable template, not one-per-stage like the reminders above —
+// there's only ever one "you just paid off your down payment" moment per
+// plan. Stored as an SmsTemplate row like everything else here (trigger
+// "THANK_YOU_REFERRAL", lazily created on first read) purely so it reuses
+// the same table/editing conventions rather than inventing a parallel one.
+
+export const THANK_YOU_TRIGGER = "THANK_YOU_REFERRAL";
+
+export const DEFAULT_THANK_YOU_BODY =
+  "Hey {{firstName}}, I just wanted to say thank you again for trusting me and doing business with me. I really appreciate you! 🙏 If you have any friends or family looking to get into a vehicle, we also have a {{referralAmount}} referral program. Just have them come down and mention your name, and I'll make sure we take care of them. I appreciate you!";
+
+export async function getThankYouTemplate() {
+  const existing = await prisma.smsTemplate.findFirst({ where: { trigger: THANK_YOU_TRIGGER } });
+  if (existing) return existing;
+  return prisma.smsTemplate.create({
+    data: { name: "Thank-You & Referral — Default", trigger: THANK_YOU_TRIGGER, body: DEFAULT_THANK_YOU_BODY, active: true, isDefault: true },
+  });
+}
+
+export async function saveThankYouTemplate(body: string) {
+  const existing = await getThankYouTemplate();
+  return prisma.smsTemplate.update({ where: { id: existing.id }, data: { body } });
+}
+
+export type ThankYouVars = { firstName: string; referralAmount: string };
+
+export function renderThankYouTemplate(body: string, vars: ThankYouVars): string {
+  return body.replaceAll("{{firstName}}", vars.firstName).replaceAll("{{referralAmount}}", vars.referralAmount);
+}
