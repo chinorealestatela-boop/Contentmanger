@@ -50,7 +50,7 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
           <div className="mx-auto mt-6 h-px w-full max-w-xs bg-white/10" />
 
           <p className="mx-auto mt-6 max-w-xl text-[11px] leading-relaxed text-white/40">
-            By requesting a test drive you agree to be contacted by phone, text, or email about your inquiry. Message and data rates may apply for SMS. See our{" "}
+            By requesting an appointment you agree to be contacted by phone, text, or email about your inquiry. Message and data rates may apply for SMS. See our{" "}
             <Link href="/privacy" className="underline hover:text-white/60">privacy &amp; SMS terms</Link> and{" "}
             <Link href="/terms" className="underline hover:text-white/60">terms &amp; conditions</Link>.
           </p>
