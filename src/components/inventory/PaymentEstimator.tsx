@@ -42,7 +42,7 @@ export function PaymentEstimator({ price }: { price: number }) {
             <span>Estimated APR</span>
             <span className="font-semibold text-[var(--text)]">{apr.toFixed(1)}%</span>
           </label>
-          <input type="range" min={0} max={24} step={0.1} value={apr} onChange={(e) => setApr(Number(e.target.value))} className="w-full" />
+          <input type="range" min={0} max={40} step={0.1} value={apr} onChange={(e) => setApr(Number(e.target.value))} className="w-full" />
         </div>
         <div>
           <label className="label mb-1" htmlFor="term">Loan term</label>
