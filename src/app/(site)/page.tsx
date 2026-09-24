@@ -36,7 +36,7 @@ export default async function LandingPage() {
             Ready to Find Your Next Ride?
           </h1>
           <p className="mx-auto mt-4 max-w-xl text-[15.5px] text-white/70 sm:text-lg">
-            Schedule your test drive and let&rsquo;s find the right vehicle and payment for you.
+            Book your appointment and let&rsquo;s find the right vehicle and payment for you.
           </p>
         </div>
 
