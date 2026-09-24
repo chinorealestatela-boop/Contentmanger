@@ -63,7 +63,7 @@ export default async function LandingPage() {
           </form>
           <div className="mt-3 flex flex-col gap-2 border-t border-white/10 pt-3 sm:flex-row">
             <Link href="/book" className="btn btn-primary flex-1 justify-center py-2.5 text-[13.5px] shadow-[0_4px_16px_rgba(216,19,36,0.4)]">
-              <CalendarCheck size={15} /> Schedule My Test Drive
+              <CalendarCheck size={15} /> Schedule Appointment
             </Link>
             <Link href="/inventory" className="btn flex-1 justify-center border border-white/15 bg-white/5 py-2.5 text-[13.5px] font-bold text-white hover:bg-white/10">
               Browse All Inventory
