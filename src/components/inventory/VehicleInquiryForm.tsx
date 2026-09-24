@@ -29,7 +29,7 @@ export function VehicleInquiryForm({ vehicleId, vehicleLabel, dealershipName }: 
 
   if (state && "success" in state && state.success) {
     return (
-      <div id="interested" className="card scroll-mt-24 p-6 text-center">
+      <div id="interested" className="site-card scroll-mt-24 p-7 text-center">
         <CheckCircle2 size={32} className="mx-auto text-[var(--success)]" />
         <h3 className="mt-3 text-[16px] font-bold text-[var(--text)]">Got it — thanks!</h3>
         <p className="mt-1.5 text-[13.5px] text-[var(--text-muted)]">
@@ -46,7 +46,7 @@ export function VehicleInquiryForm({ vehicleId, vehicleLabel, dealershipName }: 
     <form
       id="interested"
       action={(fd) => startTransition(() => formAction(fd))}
-      className="card scroll-mt-24 space-y-3.5 p-5"
+      className="site-card scroll-mt-24 space-y-3.5 p-6"
     >
       <div>
         <h3 className="text-[15px] font-bold text-[var(--text)]">Interested in this {vehicleLabel}?</h3>

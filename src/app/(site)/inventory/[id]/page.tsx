@@ -8,6 +8,7 @@ import { PaymentEstimator } from "@/components/inventory/PaymentEstimator";
 import { VehicleInquiryForm } from "@/components/inventory/VehicleInquiryForm";
 import { StickyBookBar } from "@/components/inventory/StickyBookBar";
 import { formatCurrency } from "@/lib/format";
+import { estimateMonthlyPayment } from "@/lib/utils";
 import { optionLabel, BODY_STYLES } from "@/lib/constants";
 
 export const revalidate = 60;
@@ -52,29 +53,37 @@ export default async function VehicleDetailPage({ params }: { params: Promise<{ 
         <ChevronLeft size={15} /> Back to Available Vehicles
       </Link>
 
-      <div className="mt-4 grid grid-cols-1 gap-6 lg:grid-cols-5">
+      <div className="mt-5 grid grid-cols-1 gap-7 lg:grid-cols-5">
         <div className="lg:col-span-3">
           <VehicleGallery photos={vehicle.photos} alt={title} />
         </div>
 
         <div className="space-y-4 lg:col-span-2">
           <div>
-            <h1 className="text-2xl font-extrabold text-[var(--text)]">{title}</h1>
+            {vehicle.condition === "NEW" && (
+              <span className="site-eyebrow mb-2 inline-flex rounded-full bg-[var(--brand)] px-2.5 py-1 text-white">New</span>
+            )}
+            <h1 className="text-2xl font-extrabold tracking-tight text-[var(--text)] sm:text-[28px]">{title}</h1>
             {vehicle.trim && <p className="text-[14px] text-[var(--text-muted)]">{vehicle.trim}</p>}
-            <p className="mt-2 text-[26px] font-extrabold text-[var(--brand)]">{formatCurrency(price)}</p>
+            <p className="mt-2 text-[28px] font-extrabold text-[var(--brand)]">{formatCurrency(price)}</p>
+            {price != null && (
+              <p className="text-[12.5px] font-medium text-[var(--text-muted)]">
+                Est. {formatCurrency(Math.round(estimateMonthlyPayment(price)))}/mo
+              </p>
+            )}
           </div>
 
-          <div className="grid grid-cols-2 gap-x-4 gap-y-2 rounded-xl border border-[var(--border)] p-4 text-[13px]">
+          <div className="site-card grid grid-cols-2 gap-x-4 gap-y-3 p-4 text-[13px]">
             {specs.map((s) => (
               <div key={s.label}>
-                <p className="text-[11px] text-[var(--text-faint)]">{s.label}</p>
-                <p className="font-semibold text-[var(--text)]">{s.value}</p>
+                <p className="text-[10.5px] font-semibold uppercase tracking-wide text-[var(--text-faint)]">{s.label}</p>
+                <p className="mt-0.5 font-semibold text-[var(--text)]">{s.value}</p>
               </div>
             ))}
           </div>
 
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <Link href={`/book?vehicle=${vehicle.id}`} className="btn btn-primary justify-center py-2.5">
+            <Link href={`/book?vehicle=${vehicle.id}`} className="btn btn-primary justify-center py-2.5 shadow-[0_4px_14px_rgba(216,19,36,0.3)] sm:col-span-2">
               <CalendarCheck size={15} /> Schedule Test Drive
             </Link>
             <a href="#interested" className="btn btn-secondary justify-center py-2.5">
@@ -83,7 +92,7 @@ export default async function VehicleDetailPage({ params }: { params: Promise<{ 
             <a href="#interested" className="btn btn-secondary justify-center py-2.5">
               <ShieldCheck size={15} /> Check Availability
             </a>
-            <a href="https://www.automaxlv.com/apply-online/" target="_blank" rel="noopener noreferrer" className="btn btn-secondary justify-center py-2.5">
+            <a href="https://www.automaxlv.com/apply-online/" target="_blank" rel="noopener noreferrer" className="btn btn-secondary justify-center py-2.5 sm:col-span-2">
               <Landmark size={15} /> Apply for Financing
             </a>
           </div>
@@ -91,9 +100,9 @@ export default async function VehicleDetailPage({ params }: { params: Promise<{ 
       </div>
 
       {vehicle.features.length > 0 && (
-        <div className="mt-8">
-          <h2 className="text-[16px] font-bold text-[var(--text)]">Features</h2>
-          <div className="mt-2 flex flex-wrap gap-2">
+        <div className="site-card mt-9 p-5">
+          <h2 className="text-[15px] font-bold text-[var(--text)]">Features</h2>
+          <div className="mt-3 flex flex-wrap gap-2">
             {vehicle.features.map((f) => (
               <span key={f} className="rounded-full bg-[var(--bg-subtle)] px-3 py-1 text-[12.5px] font-medium text-[var(--text-muted)]">{f}</span>
             ))}
@@ -102,8 +111,8 @@ export default async function VehicleDetailPage({ params }: { params: Promise<{ 
       )}
 
       {vehicle.description && (
-        <div className="mt-8">
-          <h2 className="text-[16px] font-bold text-[var(--text)]">Description</h2>
+        <div className="mt-6">
+          <h2 className="text-[15px] font-bold text-[var(--text)]">Description</h2>
           <p className="mt-2 whitespace-pre-line text-[13.5px] leading-relaxed text-[var(--text-muted)]">{vehicle.description}</p>
         </div>
       )}

@@ -23,7 +23,7 @@ export function PaymentEstimator({ price }: { price: number }) {
   }, [price, down, apr, termMonths]);
 
   return (
-    <div className="card p-5">
+    <div className="site-card p-6">
       <h3 className="text-[14px] font-bold text-[var(--text)]">Estimated Monthly Payment</h3>
       <p className="mt-3 text-[28px] font-extrabold text-[var(--brand)]">
         {formatCurrency(Math.round(monthly))}<span className="text-[14px] font-semibold text-[var(--text-muted)]">/mo</span>

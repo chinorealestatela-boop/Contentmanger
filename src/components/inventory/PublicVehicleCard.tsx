@@ -12,9 +12,14 @@ export function PublicVehicleCard({ vehicle }: { vehicle: PublicVehicleListItem 
   const topFeatures = vehicle.features.slice(0, 3);
 
   return (
-    <div className="card flex flex-col overflow-hidden">
-      <Link href={`/inventory/${vehicle.id}`} className="block">
-        <VehicleThumb src={vehicle.photos[0]} alt={title} className="h-44 w-full" iconSize={36} />
+    <div className="site-card site-card-hover flex flex-col overflow-hidden">
+      <Link href={`/inventory/${vehicle.id}`} className="relative block">
+        <VehicleThumb src={vehicle.photos[0]} alt={title} className="h-48 w-full rounded-t-2xl rounded-b-none" iconSize={36} />
+        {vehicle.condition === "NEW" && (
+          <span className="absolute left-3 top-3 rounded-full bg-[var(--brand)] px-2.5 py-1 text-[10.5px] font-bold uppercase tracking-wide text-white shadow-sm">
+            New
+          </span>
+        )}
       </Link>
       <div className="flex flex-1 flex-col gap-2 p-4">
         <div>
@@ -44,8 +49,8 @@ export function PublicVehicleCard({ vehicle }: { vehicle: PublicVehicleListItem 
 
         <p className="text-[11px] text-[var(--text-faint)]">Stock #{vehicle.stockNumber}</p>
 
-        <div className="mt-auto flex items-end justify-between gap-2 pt-2">
-          <span className="text-[17px] font-extrabold text-[var(--brand)]">{formatCurrency(price)}</span>
+        <div className="mt-auto flex items-end justify-between gap-2 border-t border-[var(--border)] pt-3">
+          <span className="text-[18px] font-extrabold text-[var(--brand)]">{formatCurrency(price)}</span>
           {price != null && (
             <span className="text-[12px] font-semibold text-[var(--text-muted)]">
               Est. {formatCurrency(Math.round(estimateMonthlyPayment(price)))}/mo

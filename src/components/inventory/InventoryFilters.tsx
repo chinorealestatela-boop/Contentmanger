@@ -153,7 +153,7 @@ export function InventoryFilters({ options, mobileOpen, onCloseMobile }: { optio
     <>
       {/* Desktop sidebar */}
       <aside className="hidden w-64 shrink-0 lg:block">
-        <div className="card sticky top-20 p-4">
+        <div className="site-card sticky top-20 p-5">
           <FilterFields options={options} />
         </div>
       </aside>
@@ -161,8 +161,8 @@ export function InventoryFilters({ options, mobileOpen, onCloseMobile }: { optio
       {/* Mobile sheet */}
       {mobileOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
-          <div className="absolute inset-0 bg-black/40" onClick={onCloseMobile} />
-          <div className="absolute inset-y-0 right-0 w-full max-w-sm overflow-y-auto bg-[var(--bg-elevated)] p-4 shadow-xl">
+          <div className="absolute inset-0 bg-black/50" onClick={onCloseMobile} />
+          <div className="site-glass absolute inset-y-0 right-0 w-full max-w-sm overflow-y-auto rounded-none rounded-l-2xl border-y-0 border-r-0 p-4">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-[15px] font-bold text-[var(--text)]">Filter Vehicles</h2>
               <button type="button" onClick={onCloseMobile} className="rounded-lg p-1.5 hover:bg-[var(--bg-subtle)]" aria-label="Close filters">

@@ -30,8 +30,8 @@ export default async function InventoryPage({
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
       <div>
-        <h1 className="text-2xl font-bold text-[var(--text)] sm:text-3xl">Available Vehicles</h1>
-        <p className="mt-1 text-[13.5px] text-[var(--text-muted)]">
+        <h1 className="text-2xl font-bold tracking-tight text-[var(--text)] sm:text-3xl">Available Vehicles</h1>
+        <p className="mt-1.5 text-[13.5px] text-[var(--text-muted)]">
           {options.count} vehicle{options.count === 1 ? "" : "s"} currently on the lot — search or filter to find yours.
         </p>
       </div>
@@ -39,12 +39,12 @@ export default async function InventoryPage({
       <Suspense fallback={<div className="mt-5 h-96 animate-pulse rounded-xl bg-[var(--bg-subtle)]" />}>
         <InventoryControls options={options} resultCount={total}>
           {vehicles.length === 0 ? (
-            <div className="card p-10 text-center text-[13.5px] text-[var(--text-muted)]">
+            <div className="site-card p-10 text-center text-[13.5px] text-[var(--text-muted)]">
               No vehicles match those filters. Try widening your search, or{" "}
               <a href="/book" className="font-semibold text-[var(--brand)] hover:underline">tell us what you&rsquo;re looking for</a>.
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
               {vehicles.map((v) => (
                 <PublicVehicleCard key={v.id} vehicle={v} />
               ))}

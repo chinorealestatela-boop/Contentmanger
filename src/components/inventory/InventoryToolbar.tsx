@@ -42,7 +42,7 @@ export function InventoryToolbar({ resultCount, onOpenFilters }: { resultCount: 
   }
 
   return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+    <div className="site-card flex flex-col gap-3 p-3 sm:flex-row sm:items-center">
       <div className="relative flex-1">
         <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-faint)]" />
         <input
@@ -50,7 +50,7 @@ export function InventoryToolbar({ resultCount, onOpenFilters }: { resultCount: 
           value={q}
           onChange={(e) => onSearchChange(e.target.value)}
           placeholder="Search make, model, year, stock #, features…"
-          className="input pl-9"
+          className="input border-transparent bg-[var(--bg-subtle)] pl-9 focus:border-[var(--brand)] focus:bg-[var(--bg-elevated)]"
           aria-label="Search available vehicles"
         />
       </div>
@@ -61,7 +61,7 @@ export function InventoryToolbar({ resultCount, onOpenFilters }: { resultCount: 
         <select
           value={get("sort") || "newest"}
           onChange={(e) => update({ sort: e.target.value }, { resetPage: false })}
-          className="input w-auto"
+          className="input w-auto border-transparent bg-[var(--bg-subtle)]"
           aria-label="Sort vehicles"
         >
           {SORT_OPTIONS.map((s) => (
@@ -69,7 +69,7 @@ export function InventoryToolbar({ resultCount, onOpenFilters }: { resultCount: 
           ))}
         </select>
       </div>
-      <p className="hidden shrink-0 text-[12.5px] text-[var(--text-muted)] sm:block">{resultCount} match{resultCount === 1 ? "" : "es"}</p>
+      <p className="hidden shrink-0 text-[12.5px] font-medium text-[var(--text-muted)] sm:block">{resultCount} match{resultCount === 1 ? "" : "es"}</p>
     </div>
   );
 }

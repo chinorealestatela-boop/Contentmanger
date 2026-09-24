@@ -68,7 +68,7 @@ export function InventoryAlertBanner({ dealershipName }: { dealershipName: strin
   if (!visible || dismissed) return null;
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--border)] bg-[var(--bg-elevated)] p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-[0_-4px_16px_rgba(0,0,0,0.1)] sm:bottom-4 sm:left-auto sm:right-4 sm:max-w-sm sm:rounded-2xl sm:border sm:pb-4">
+    <div className="site-glass fixed inset-x-0 bottom-0 z-40 rounded-none rounded-t-2xl border-x-0 border-b-0 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:bottom-4 sm:left-auto sm:right-4 sm:max-w-sm sm:rounded-2xl sm:border sm:pb-4">
       <AlertForm dealershipName={dealershipName} onDismiss={dismiss} />
     </div>
   );

@@ -12,7 +12,7 @@ import { formatCurrency } from "@/lib/format";
  * breakpoint. */
 export function StickyBookBar({ vehicleId, title, price }: { vehicleId: string; title: string; price: number | null }) {
   return (
-    <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--border)] bg-[var(--bg-elevated)]/95 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-[0_-4px_16px_rgba(0,0,0,0.08)] backdrop-blur lg:hidden">
+    <div className="site-glass fixed inset-x-0 bottom-0 z-40 rounded-none border-x-0 border-b-0 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] lg:hidden">
       <div className="mx-auto flex max-w-5xl items-center gap-3">
         <div className="min-w-0 flex-1">
           <p className="truncate text-[12.5px] font-semibold text-[var(--text)]">{title}</p>

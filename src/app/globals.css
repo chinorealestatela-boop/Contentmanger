@@ -249,3 +249,90 @@ body {
 .animate-fade-in {
   animation: fade-in 0.15s ease-out;
 }
+
+/* ── Public site design system ──────────────────────────────────────────
+ * Everything below is scoped to the public booking site — src/app/(site)/**
+ * and its src/components/{booking,inventory}/** — and is purely additive:
+ * the admin CRM's .card/.btn/.badge/.input classes above are untouched, so
+ * none of this affects the dashboard. A restrained glassmorphism system —
+ * dark hero gradient, a handful of "glass" surfaces used only where they
+ * earn their place (nav, hero panel, sticky CTA, filter sheet), solid
+ * high-contrast surfaces everywhere else (vehicle cards, forms, spec
+ * grids) so information stays easy to scan and read. */
+:root {
+  --site-ink: #0c0c0f;
+  --site-ink-soft: #17171c;
+  --site-hero-from: #0a0a0d;
+  --site-hero-via: #1c1315;
+  --site-hero-to: #2a1116;
+
+  --site-glass-bg: rgba(255, 255, 255, 0.72);
+  --site-glass-border: rgba(255, 255, 255, 0.5);
+  --site-glass-dark-bg: rgba(12, 12, 15, 0.55);
+  --site-glass-dark-border: rgba(255, 255, 255, 0.14);
+  --site-glass-shadow: 0 8px 30px rgba(10, 10, 15, 0.14);
+
+  --site-shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 24px rgba(15, 23, 42, 0.06);
+  --site-shadow-lift: 0 16px 40px rgba(15, 23, 42, 0.14);
+}
+
+.site-glass {
+  background: var(--site-glass-bg);
+  backdrop-filter: blur(18px) saturate(160%);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  border: 1px solid var(--site-glass-border);
+  box-shadow: var(--site-glass-shadow);
+}
+
+.site-glass-dark {
+  background: var(--site-glass-dark-bg);
+  backdrop-filter: blur(18px) saturate(160%);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  border: 1px solid var(--site-glass-dark-border);
+  color: #fff;
+}
+
+/* Nav: a lighter touch of blur so it reads as "frosted", not opaque. */
+.site-glass-nav {
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(14px) saturate(160%);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  border-bottom: 1px solid rgba(228, 228, 231, 0.8);
+}
+
+.site-hero {
+  background:
+    radial-gradient(ellipse 900px 500px at 15% -10%, rgba(216, 19, 36, 0.25), transparent 60%),
+    radial-gradient(ellipse 700px 500px at 100% 0%, rgba(255, 255, 255, 0.06), transparent 55%),
+    linear-gradient(160deg, var(--site-hero-from) 0%, var(--site-hero-via) 55%, var(--site-hero-to) 100%);
+}
+
+.site-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: var(--site-shadow-card);
+  transition: box-shadow 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
+}
+
+.site-card-hover:hover {
+  box-shadow: var(--site-shadow-lift);
+  transform: translateY(-3px);
+  border-color: rgba(216, 19, 36, 0.25);
+}
+
+.site-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site-card-hover:hover {
+    transform: none;
+  }
+}
