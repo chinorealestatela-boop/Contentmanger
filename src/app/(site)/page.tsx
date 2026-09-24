@@ -70,7 +70,6 @@ export default async function LandingPage() {
             </Link>
           </div>
         </div>
-        <p className="relative mt-4 text-center text-[12px] text-white/40">Takes about 2 minutes · No obligation</p>
       </section>
 
       {/* Trust bar */}
