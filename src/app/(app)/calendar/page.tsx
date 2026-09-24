@@ -1,14 +1,21 @@
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import { startOfDay, endOfDay, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays } from "date-fns";
-import { requireScope } from "@/lib/queries/scope";
+import { requireScope, listTeamUsers, customerScopeWhere } from "@/lib/queries/scope";
 import { ensureFollowUpsFresh } from "@/lib/queries/followups";
 import { getCalendarEvents, getPastEvents } from "@/lib/queries/calendar";
 import { CalendarMonthView } from "@/components/calendar/CalendarMonthView";
 import { CalendarWeekView } from "@/components/calendar/CalendarWeekView";
 import { CalendarDayView } from "@/components/calendar/CalendarDayView";
 import { EventRow } from "@/components/calendar/EventRow";
+import { prisma } from "@/lib/prisma";
 import { cn } from "@/lib/utils";
+
+type AppointmentPickers = {
+  customers: { id: string; firstName: string; lastName: string }[];
+  vehicles: { id: string; year: number; make: string; model: string; stockNumber: string }[];
+  teamUsers: { id: string; firstName: string; lastName: string }[];
+};
 
 type View = "month" | "week" | "day" | "upcoming" | "today" | "past";
 
@@ -30,6 +37,13 @@ export default async function CalendarPage({
   const scope = await requireScope();
   await ensureFollowUpsFresh();
 
+  const [customers, vehicles, teamUsers] = await Promise.all([
+    prisma.customer.findMany({ where: customerScopeWhere(scope), orderBy: { firstName: "asc" }, select: { id: true, firstName: true, lastName: true } }),
+    prisma.vehicle.findMany({ where: { status: { in: ["AVAILABLE", "HOLD", "IN_TRANSIT"] } }, orderBy: { createdAt: "desc" } }),
+    listTeamUsers(),
+  ]);
+  const pickers: AppointmentPickers = { customers, vehicles, teamUsers };
+
   const now = new Date();
   const year = sp.year ? Number(sp.year) : now.getFullYear();
   const month = sp.month ? Number(sp.month) : now.getMonth();
@@ -47,16 +61,16 @@ export default async function CalendarPage({
     content = <CalendarWeekView anchor={anchor} events={events} />;
   } else if (view === "day") {
     const events = await getCalendarEvents(scope, { start: startOfDay(anchor), end: endOfDay(anchor) });
-    content = <CalendarDayView day={anchor} events={events} />;
+    content = <CalendarDayView day={anchor} events={events} pickers={pickers} />;
   } else if (view === "today") {
     const events = await getCalendarEvents(scope, { start: startOfDay(now), end: endOfDay(now) });
-    content = <ListCard title="Today's Activities" empty="Nothing scheduled for today." events={events} />;
+    content = <ListCard title="Today's Activities" empty="Nothing scheduled for today." events={events} pickers={pickers} />;
   } else if (view === "upcoming") {
     const events = await getCalendarEvents(scope, { start: startOfDay(now), end: endOfDay(addDays(now, 90)) });
-    content = <ListCard title="Upcoming Activities" empty="Nothing scheduled in the next 90 days." events={events} showDate />;
+    content = <ListCard title="Upcoming Activities" empty="Nothing scheduled in the next 90 days." events={events} showDate pickers={pickers} />;
   } else {
     const events = await getPastEvents(scope, 50);
-    content = <ListCard title="Past Activities" empty="No past activity yet." events={events} showDate />;
+    content = <ListCard title="Past Activities" empty="No past activity yet." events={events} showDate pickers={pickers} />;
   }
 
   return (
@@ -89,7 +103,7 @@ export default async function CalendarPage({
   );
 }
 
-function ListCard({ title, empty, events, showDate }: { title: string; empty: string; events: Awaited<ReturnType<typeof getCalendarEvents>>; showDate?: boolean }) {
+function ListCard({ title, empty, events, showDate, pickers }: { title: string; empty: string; events: Awaited<ReturnType<typeof getCalendarEvents>>; showDate?: boolean; pickers: AppointmentPickers }) {
   return (
     <div className="card overflow-hidden">
       <div className="border-b border-[var(--border)] px-4 py-3">
@@ -98,7 +112,7 @@ function ListCard({ title, empty, events, showDate }: { title: string; empty: st
       </div>
       <div className="divide-y divide-[var(--border)]">
         {events.length === 0 && <p className="px-4 py-10 text-center text-sm text-[var(--text-muted)]">{empty}</p>}
-        {events.map((e) => <EventRow key={e.id} event={e} showDate={showDate} />)}
+        {events.map((e) => <EventRow key={e.id} event={e} showDate={showDate} pickers={pickers} />)}
       </div>
     </div>
   );

@@ -12,6 +12,8 @@ const ICONS: Record<string, LucideIcon> = {
   STAGE_CHANGE: Workflow,
   TEMPERATURE_CHANGE: Zap,
   APPOINTMENT: CalendarClock,
+  APPOINTMENT_RESCHEDULED: RefreshCcw,
+  APPOINTMENT_UPDATED: CalendarClock,
   CALENDAR_EVENT: CalendarClock,
   VEHICLE_INTEREST_ADDED: Car,
   TRADE_ADDED: ArrowLeftRight,
