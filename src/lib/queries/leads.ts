@@ -4,7 +4,7 @@ import type { Prisma } from "@prisma/client";
 
 export async function listLeads(
   scope: Scope,
-  opts: { q?: string; temperature?: string; status?: string; stageId?: string; sourceId?: string; page?: number; pageSize?: number } = {}
+  opts: { q?: string; temperature?: string; status?: string; stageId?: string; sourceId?: string; sort?: "score" | "newest"; page?: number; pageSize?: number } = {}
 ) {
   const page = opts.page ?? 1;
   const pageSize = opts.pageSize ?? 25;
@@ -39,7 +39,7 @@ export async function listLeads(
         assignee: true,
         vehicleInterests: { include: { vehicle: true }, take: 1 },
       },
-      orderBy: [{ score: "desc" }, { createdAt: "desc" }],
+      orderBy: opts.sort === "newest" ? [{ createdAt: "desc" as const }] : [{ score: "desc" as const }, { createdAt: "desc" as const }],
       skip: (page - 1) * pageSize,
       take: pageSize,
     }),
