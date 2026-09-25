@@ -2,14 +2,10 @@ import { prisma } from "@/lib/prisma";
 import { leadScopeWhere, type Scope } from "@/lib/queries/scope";
 import type { Prisma } from "@prisma/client";
 
-export async function listLeads(
-  scope: Scope,
-  opts: { q?: string; temperature?: string; status?: string; stageId?: string; sourceId?: string; sort?: "score" | "newest"; page?: number; pageSize?: number } = {}
-) {
-  const page = opts.page ?? 1;
-  const pageSize = opts.pageSize ?? 25;
+type LeadFilterOpts = { q?: string; temperature?: string; status?: string; stageId?: string; sourceId?: string };
 
-  const where: Prisma.LeadWhereInput = {
+function buildLeadWhere(scope: Scope, opts: LeadFilterOpts): Prisma.LeadWhereInput {
+  return {
     ...leadScopeWhere(scope),
     status: opts.status ?? "ACTIVE",
     ...(opts.temperature ? { temperature: opts.temperature } : {}),
@@ -28,6 +24,16 @@ export async function listLeads(
         }
       : {}),
   };
+}
+
+export async function listLeads(
+  scope: Scope,
+  opts: LeadFilterOpts & { sort?: "score" | "newest"; page?: number; pageSize?: number } = {}
+) {
+  const page = opts.page ?? 1;
+  const pageSize = opts.pageSize ?? 25;
+
+  const where = buildLeadWhere(scope, opts);
 
   const [leads, total] = await Promise.all([
     prisma.lead.findMany({
@@ -47,4 +53,18 @@ export async function listLeads(
   ]);
 
   return { leads, total, page, pageSize, pageCount: Math.max(1, Math.ceil(total / pageSize)) };
+}
+
+/** Unpaginated variant for CSV export — same filters/scope as listLeads, but
+ * every matching row so the download matches what the filtered page shows. */
+export async function listLeadsForExport(scope: Scope, opts: LeadFilterOpts & { sort?: "score" | "newest" } = {}) {
+  return prisma.lead.findMany({
+    where: buildLeadWhere(scope, opts),
+    include: {
+      customer: true,
+      source: true,
+      vehicleInterests: { include: { vehicle: true }, take: 1 },
+    },
+    orderBy: opts.sort === "newest" ? [{ createdAt: "desc" as const }] : [{ score: "desc" as const }, { createdAt: "desc" as const }],
+  });
 }

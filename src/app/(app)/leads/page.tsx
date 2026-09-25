@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Plus, Download } from "lucide-react";
 import { requireScope } from "@/lib/queries/scope";
 import { listLeads } from "@/lib/queries/leads";
 import { prisma } from "@/lib/prisma";
@@ -38,6 +38,17 @@ export default async function LeadsPage({
     return `/leads${qs ? `?${qs}` : ""}`;
   };
 
+  // Export carries the same filters as the page itself (minus pagination) so
+  // the CSV always matches what's currently on screen.
+  const exportHref = (() => {
+    const params = new URLSearchParams();
+    Object.entries({ q: sp.q, temperature: sp.temperature, status: sp.status, source: sp.source, sort: sp.sort }).forEach(
+      ([k, v]) => v && params.set(k, v)
+    );
+    const qs = params.toString();
+    return `/leads/export${qs ? `?${qs}` : ""}`;
+  })();
+
   return (
     <div className="mx-auto max-w-5xl space-y-5 p-4 sm:p-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -45,9 +56,14 @@ export default async function LeadsPage({
           <h1 className="text-2xl font-semibold text-[var(--text)]">Leads</h1>
           <p className="text-[13px] text-[var(--text-muted)]">{total} lead{total === 1 ? "" : "s"} · sorted by {sort === "newest" ? "most recent" : "lead score"}</p>
         </div>
-        <Link href="/leads/new" className="btn btn-primary">
-          <Plus size={15} /> New Lead
-        </Link>
+        <div className="flex items-center gap-2">
+          <a href={exportHref} className="btn btn-secondary">
+            <Download size={15} /> Download CSV
+          </a>
+          <Link href="/leads/new" className="btn btn-primary">
+            <Plus size={15} /> New Lead
+          </Link>
+        </div>
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">

@@ -64,3 +64,19 @@ export function parseCsv(text: string): string[][] {
 export function normalizeHeader(h: string): string {
   return h.trim().toLowerCase().replace(/[^a-z0-9]/g, "");
 }
+
+/** RFC4180 field escaping for the CSV writers below (export paths). Only
+ * quotes when needed, matching what parseCsv above expects to read back. */
+function csvField(value: string): string {
+  return /[",\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
+}
+
+export function toCsvRow(fields: (string | number | null | undefined)[]): string {
+  return fields.map((f) => csvField(f == null ? "" : String(f))).join(",");
+}
+
+export function toCsv(rows: (string | number | null | undefined)[][]): string {
+  // Leading BOM so Excel opens UTF-8 CSVs (names/emails) without mangling
+  // characters — plain files without it get misread as Latin-1 in Excel.
+  return "﻿" + rows.map(toCsvRow).join("\r\n") + "\r\n";
+}
