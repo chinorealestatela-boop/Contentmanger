@@ -48,8 +48,8 @@ export function CalendarWeekView({ anchor, events }: { anchor: Date; events: Cal
               <div className="space-y-1 p-1.5">
                 {dayEvents.length === 0 && <p className="px-1 py-2 text-center text-[10.5px] text-[var(--text-faint)]">—</p>}
                 {dayEvents.map((e) => {
-                  const Icon = eventIcon(e.type);
-                  const color = eventColor(e.type);
+                  const Icon = eventIcon(e.type, e.kind);
+                  const color = eventColor(e.type, e.kind);
                   return (
                     <Link
                       key={e.id}

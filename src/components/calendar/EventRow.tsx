@@ -1,9 +1,10 @@
 import Link from "next/link";
-import { optionLabel, APPOINTMENT_TYPES, FOLLOWUP_STATUSES } from "@/lib/constants";
+import { optionLabel, APPOINTMENT_TYPES, FOLLOWUP_STATUSES, TASK_TYPES } from "@/lib/constants";
 import { formatDate, formatTime12h } from "@/lib/format";
 import { eventColor, eventIcon } from "@/components/calendar/eventMeta";
 import { AppointmentStatusControl } from "@/components/appointments/AppointmentStatusControl";
 import { AppointmentActionButtons } from "@/components/appointments/AppointmentEditControls";
+import { TaskEventStatus } from "@/components/calendar/TaskEventStatus";
 import { getPaymentDisplayStatus, PAYMENT_DISPLAY_STATUS_META } from "@/lib/payments/status";
 import type { CalendarEvent } from "@/lib/queries/calendar";
 
@@ -22,9 +23,13 @@ export function EventRow({ event, showDate = false, pickers }: { event: Calendar
   // already used the same way throughout the app (Sidebar.tsx,
   // MobileNav.tsx, ActivityTimeline.tsx), so it's left as-is here for
   // consistency rather than special-cased in just this one file.
-  const Icon = eventIcon(event.type);
-  const color = eventColor(event.type);
-  const typeLabel = event.kind === "followup" ? "Follow-Up Call" : event.kind === "payment" ? "Scheduled Payment" : optionLabel(APPOINTMENT_TYPES, event.type);
+  const Icon = eventIcon(event.type, event.kind);
+  const color = eventColor(event.type, event.kind);
+  const typeLabel =
+    event.kind === "followup" ? "Follow-Up Call" :
+    event.kind === "payment" ? "Scheduled Payment" :
+    event.kind === "task" ? optionLabel(TASK_TYPES, event.type) :
+    optionLabel(APPOINTMENT_TYPES, event.type);
 
   return (
     <div className="flex flex-col gap-2 px-4 py-3 hover:bg-[var(--bg-subtle)] sm:flex-row sm:items-center">
@@ -41,9 +46,11 @@ export function EventRow({ event, showDate = false, pickers }: { event: Calendar
             </span>
           </div>
           <p className="truncate text-[12px] text-[var(--text-muted)]">
-            {typeLabel}{event.subtitle && event.kind === "appointment" ? ` · ${event.subtitle}` : ""}
+            {typeLabel}{event.subtitle && (event.kind === "appointment" || event.kind === "task") ? ` · ${event.subtitle}` : ""}
           </p>
-          {(event.kind === "followup" || event.kind === "payment") && event.title && <p className="truncate text-[12px] text-[var(--text-faint)]">{event.title}</p>}
+          {(event.kind === "followup" || event.kind === "payment" || event.kind === "task") && event.title && (
+            <p className="truncate text-[12px] text-[var(--text-faint)]">{event.title}</p>
+          )}
         </div>
       </Link>
       <div className="flex shrink-0 items-center justify-end gap-2">
@@ -74,6 +81,8 @@ export function EventRow({ event, showDate = false, pickers }: { event: Calendar
               />
             )}
           </>
+        ) : event.kind === "task" ? (
+          <TaskEventStatus taskId={event.id} status={event.status} />
         ) : event.kind === "payment" ? (
           <span className="badge" style={{ background: `${color}1a`, color }}>{PAYMENT_DISPLAY_STATUS_META[getPaymentDisplayStatus({ status: event.status, dueDate: event.date })].label}</span>
         ) : (

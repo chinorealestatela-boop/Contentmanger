@@ -52,7 +52,7 @@ export function CalendarMonthView({ year, month, events }: { year: number; month
               </p>
               <div className="mt-1 space-y-0.5">
                 {dayEvents.slice(0, 3).map((e) => {
-                  const color = eventColor(e.type);
+                  const color = eventColor(e.type, e.kind);
                   return (
                     <span
                       key={e.id}

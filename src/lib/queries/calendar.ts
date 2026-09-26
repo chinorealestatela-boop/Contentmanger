@@ -12,7 +12,7 @@ import { formatCurrency } from "@/lib/format";
  * time that was never actually scheduled. */
 export type CalendarEvent = {
   id: string;
-  kind: "appointment" | "followup" | "payment";
+  kind: "appointment" | "followup" | "payment" | "task";
   customerId: string;
   customerName: string;
   customerPhone: string | null;
@@ -23,7 +23,7 @@ export type CalendarEvent = {
   time: string;
   endTime: string | null;
   location: string | null;
-  type: string; // appointment type, "FOLLOW_UP", or "PAYMENT_DUE" / "PAYMENT_LATE"
+  type: string; // appointment type, Task.type, "FOLLOW_UP", or "PAYMENT_DUE" / "PAYMENT_LATE"
   status: string;
   notes: string | null;
   vehicleId: string | null; // appointments only
@@ -31,7 +31,52 @@ export type CalendarEvent = {
   reminderOffsetMinutes: number | null; // appointments only
 };
 
-const PAYMENT_EVENT_TIME = "09:00";
+// No time-of-day of its own — tasks without a dueTime sort near the top of
+// the day, same treatment as an untimed Payment.
+const UNTIMED_EVENT_TIME = "09:00";
+const PAYMENT_EVENT_TIME = UNTIMED_EVENT_TIME;
+
+async function taskEvents(scope: Scope, where: { dueDate?: { gte: Date; lte: Date }; lt?: Date }): Promise<CalendarEvent[]> {
+  const assigneeWhere = scope.viewAll ? {} : { assigneeId: scope.userId };
+  const tasks = await prisma.task.findMany({
+    where: {
+      ...assigneeWhere,
+      status: { not: "CANCELLED" },
+      ...(where.dueDate ? { dueDate: where.dueDate } : where.lt ? { dueDate: { lt: where.lt } } : {}),
+    },
+    include: {
+      customer: { select: { firstName: true, lastName: true, phone: true } },
+      lead: { select: { id: true, vehicleInterests: { include: { vehicle: true }, take: 1 } } },
+    },
+  });
+
+  return tasks
+    .filter((t) => t.customer)
+    .map((t): CalendarEvent => {
+      const vi = t.lead?.vehicleInterests[0];
+      const vehicleLabel = vi ? (vi.vehicle ? `${vi.vehicle.year} ${vi.vehicle.make} ${vi.vehicle.model}` : [vi.year, vi.make, vi.model].filter(Boolean).join(" ")) : null;
+      return {
+        id: t.id,
+        kind: "task",
+        customerId: t.customerId!,
+        customerName: `${t.customer!.firstName} ${t.customer!.lastName}`,
+        customerPhone: t.customer!.phone,
+        leadId: t.leadId,
+        title: t.title,
+        subtitle: vehicleLabel,
+        date: t.dueDate,
+        time: t.dueTime ?? UNTIMED_EVENT_TIME,
+        endTime: null,
+        location: null,
+        type: t.type,
+        status: t.status,
+        notes: t.notes,
+        vehicleId: null,
+        salespersonId: null,
+        reminderOffsetMinutes: null,
+      };
+    });
+}
 
 async function paymentEvents(scope: Scope, where: { dueDate?: { gte: Date; lte: Date }; lt?: Date }): Promise<CalendarEvent[]> {
   const payments = await prisma.payment.findMany({
@@ -72,7 +117,7 @@ async function paymentEvents(scope: Scope, where: { dueDate?: { gte: Date; lte: 
 export async function getCalendarEvents(scope: Scope, range: { start: Date; end: Date }): Promise<CalendarEvent[]> {
   const salespersonWhere = scope.viewAll ? undefined : scope.userId;
 
-  const [appointments, followUps, payments] = await Promise.all([
+  const [appointments, followUps, payments, tasks] = await Promise.all([
     prisma.appointment.findMany({
       where: { salespersonId: salespersonWhere, date: { gte: range.start, lte: range.end } },
       include: { customer: { select: { firstName: true, lastName: true, phone: true } }, vehicle: { select: { year: true, make: true, model: true } } },
@@ -84,6 +129,7 @@ export async function getCalendarEvents(scope: Scope, range: { start: Date; end:
       orderBy: { followUpTime: "asc" },
     }),
     paymentEvents(scope, { dueDate: { gte: range.start, lte: range.end } }),
+    taskEvents(scope, { dueDate: { gte: range.start, lte: range.end } }),
   ]);
 
   const events: CalendarEvent[] = [
@@ -128,6 +174,7 @@ export async function getCalendarEvents(scope: Scope, range: { start: Date; end:
       reminderOffsetMinutes: null,
     })),
     ...payments,
+    ...tasks,
   ];
 
   return events.sort((a, b) => followUpDateTime(a.date, a.time).getTime() - followUpDateTime(b.date, b.time).getTime());
@@ -137,7 +184,7 @@ export async function getPastEvents(scope: Scope, limit = 30): Promise<CalendarE
   const now = new Date();
   const salespersonWhere = scope.viewAll ? undefined : scope.userId;
 
-  const [appointments, followUps, payments] = await Promise.all([
+  const [appointments, followUps, payments, tasks] = await Promise.all([
     prisma.appointment.findMany({
       where: { salespersonId: salespersonWhere, date: { lt: now } },
       include: { customer: { select: { firstName: true, lastName: true, phone: true } }, vehicle: { select: { year: true, make: true, model: true } } },
@@ -151,6 +198,7 @@ export async function getPastEvents(scope: Scope, limit = 30): Promise<CalendarE
       take: limit,
     }),
     paymentEvents(scope, { lt: now }), // late (unpaid) payments only — a paid one is no longer "outstanding" on the calendar
+    taskEvents(scope, { lt: now }),
   ]);
 
   const events: CalendarEvent[] = [
@@ -168,6 +216,7 @@ export async function getPastEvents(scope: Scope, limit = 30): Promise<CalendarE
       vehicleId: null, salespersonId: null, reminderOffsetMinutes: null,
     })),
     ...payments,
+    ...tasks,
   ];
 
   return events.sort((a, b) => followUpDateTime(b.date, b.time).getTime() - followUpDateTime(a.date, a.time).getTime()).slice(0, limit);

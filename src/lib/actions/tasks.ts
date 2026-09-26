@@ -64,6 +64,7 @@ export async function createTask(_prev: TaskActionState, formData: FormData): Pr
 
   revalidatePath("/tasks");
   revalidatePath("/dashboard");
+  revalidatePath("/calendar");
   if (parsed.data.customerId) revalidatePath(`/customers/${parsed.data.customerId}`);
   return { success: "Task created.", taskId: task.id };
 }
@@ -90,6 +91,7 @@ export async function completeTask(taskId: string) {
 
   revalidatePath("/tasks");
   revalidatePath("/dashboard");
+  revalidatePath("/calendar");
   if (task.customerId) revalidatePath(`/customers/${task.customerId}`);
 }
 
@@ -102,6 +104,7 @@ export async function rescheduleTask(taskId: string, dueDate: string, dueTime?: 
   });
   revalidatePath("/tasks");
   revalidatePath("/dashboard");
+  revalidatePath("/calendar");
 }
 
 export async function snoozeTask(taskId: string, days: number) {
@@ -113,6 +116,7 @@ export async function snoozeTask(taskId: string, days: number) {
   await prisma.task.update({ where: { id: taskId }, data: { status: "SNOOZED", dueDate: newDate } });
   revalidatePath("/tasks");
   revalidatePath("/dashboard");
+  revalidatePath("/calendar");
 }
 
 export async function reopenTask(taskId: string) {
@@ -120,6 +124,7 @@ export async function reopenTask(taskId: string) {
   await prisma.task.update({ where: { id: taskId }, data: { status: "PENDING" } });
   revalidatePath("/tasks");
   revalidatePath("/dashboard");
+  revalidatePath("/calendar");
 }
 
 export async function cancelTask(taskId: string) {
@@ -127,4 +132,5 @@ export async function cancelTask(taskId: string) {
   await prisma.task.update({ where: { id: taskId }, data: { status: "CANCELLED" } });
   revalidatePath("/tasks");
   revalidatePath("/dashboard");
+  revalidatePath("/calendar");
 }
