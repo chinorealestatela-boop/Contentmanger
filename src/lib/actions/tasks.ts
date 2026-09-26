@@ -93,6 +93,17 @@ export async function completeTask(taskId: string) {
   if (task.customerId) revalidatePath(`/customers/${task.customerId}`);
 }
 
+export async function rescheduleTask(taskId: string, dueDate: string, dueTime?: string) {
+  await requireScope();
+  if (!dueDate) return;
+  await prisma.task.update({
+    where: { id: taskId },
+    data: { dueDate: new Date(dueDate), dueTime: dueTime || null, status: "PENDING" },
+  });
+  revalidatePath("/tasks");
+  revalidatePath("/dashboard");
+}
+
 export async function snoozeTask(taskId: string, days: number) {
   await requireScope();
   const task = await prisma.task.findUnique({ where: { id: taskId } });

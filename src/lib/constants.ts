@@ -171,12 +171,18 @@ export const FOLLOWUP_REMINDER_OPTIONS: Option[] = [
 ];
 
 // ── Tasks ──────────────────────────────────────────────────────────────
+// Colors on the four customer-request types below are what the CRM's
+// calendar/task list dots and badges key off of (🟢🔵🟡🟠 per the intended
+// at-a-glance color coding) — see eventMeta.ts / TaskRow.tsx.
 export const TASK_TYPES: Option[] = [
   { value: "CALL", label: "Call" },
   { value: "TEXT", label: "Text" },
   { value: "EMAIL", label: "Email" },
   { value: "FOLLOW_UP", label: "Follow-Up" },
-  { value: "APPOINTMENT", label: "Appointment" },
+  { value: "APPOINTMENT", label: "Appointment / Test Drive", color: "#16a34a" },
+  { value: "VEHICLE_INFO", label: "Vehicle Information", color: "#2563eb" },
+  { value: "VEHICLE_AVAILABILITY", label: "Vehicle Availability", color: "#eab308" },
+  { value: "FINANCING_REQUEST", label: "Financing Request", color: "#ea580c" },
   { value: "TRADE", label: "Trade" },
   { value: "CREDIT", label: "Credit" },
   { value: "DELIVERY", label: "Delivery" },
@@ -355,6 +361,9 @@ export const NOTIFICATION_TYPES: Option[] = [
   { value: "APPOINTMENT_TOMORROW", label: "Appointment Tomorrow" },
   { value: "APPOINTMENT_CANCELLED", label: "Appointment Cancellation" },
   { value: "NO_SHOW", label: "No-Show" },
+  { value: "VEHICLE_INQUIRY", label: "Vehicle Information Request" },
+  { value: "AVAILABILITY_REQUEST", label: "Vehicle Availability Request" },
+  { value: "FINANCING_REQUEST", label: "Financing Request" },
   { value: "CUSTOMER_ACTIVITY", label: "Customer Activity" },
   { value: "VEHICLE_SOLD", label: "Vehicle Sold" },
   { value: "IMPORTANT_TASK", label: "Important Task" },
@@ -372,6 +381,9 @@ export const CHANNEL_NOTIFICATION_TYPES: Option[] = [
   { value: "APPOINTMENT", label: "New Appointment" },
   { value: "APPOINTMENT_REMINDER", label: "Appointment Reminder" },
   { value: "APPOINTMENT_CANCELLED", label: "Appointment Cancellation" },
+  { value: "VEHICLE_INQUIRY", label: "Vehicle Information Request" },
+  { value: "AVAILABILITY_REQUEST", label: "Vehicle Availability Request" },
+  { value: "FINANCING_REQUEST", label: "Financing Request" },
   { value: "HOT_LEAD", label: "Hot Lead" },
   { value: "NO_SHOW", label: "No-Show" },
   { value: "PAYMENT_DUE", label: "Payment Due" },

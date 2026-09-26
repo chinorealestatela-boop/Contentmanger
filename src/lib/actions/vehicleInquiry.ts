@@ -17,13 +17,48 @@ import { logActivity } from "@/lib/activity";
 import { runAutomation } from "@/lib/automation/engine";
 import { recomputeLeadScore } from "@/lib/scoring-engine";
 import { normalizePhone, isValidPhone } from "@/lib/phone";
-import { getPrimarySalespersonId, resolveSourceId } from "@/lib/actions/booking";
+import { getPrimarySalespersonId, resolveSourceId, findActiveLeadForCustomer } from "@/lib/actions/booking";
+import { notifyAdmin, type AdminAlertType } from "@/lib/notify/adminAlert";
 
 const INQUIRY_TYPE_LABEL: Record<string, string> = {
   INFO: "Requested more information",
   AVAILABILITY: "Asked to confirm availability",
   FINANCING: "Asked about financing",
 };
+
+// Per-inquiry-type task/notification wiring — the calendar/task-list color
+// coding (🔵🟡🟠) and the "🔔 New ___" bell copy the user asked for.
+const INQUIRY_TASK_TYPE: Record<string, string> = {
+  INFO: "VEHICLE_INFO",
+  AVAILABILITY: "VEHICLE_AVAILABILITY",
+  FINANCING: "FINANCING_REQUEST",
+};
+const INQUIRY_TASK_PRIORITY: Record<string, string> = {
+  INFO: "NORMAL",
+  AVAILABILITY: "HIGH",
+  FINANCING: "HIGH",
+};
+const INQUIRY_NOTIF_TYPE: Record<string, AdminAlertType> = {
+  INFO: "VEHICLE_INQUIRY",
+  AVAILABILITY: "AVAILABILITY_REQUEST",
+  FINANCING: "FINANCING_REQUEST",
+};
+const INQUIRY_NOTIF_TITLE: Record<string, string> = {
+  INFO: "New Vehicle Inquiry",
+  AVAILABILITY: "New Availability Request",
+  FINANCING: "New Financing Request",
+};
+
+function inquiryNotifBody(inquiryType: string, customerName: string, vehicleLabel: string) {
+  switch (inquiryType) {
+    case "AVAILABILITY":
+      return `${customerName} wants to know if the ${vehicleLabel} is still available.`;
+    case "FINANCING":
+      return `${customerName} is asking about financing options for the ${vehicleLabel}.`;
+    default:
+      return `${customerName} wants more information on a ${vehicleLabel}.`;
+  }
+}
 
 const inquirySchema = z.object({
   vehicleId: z.string().min(1),
@@ -93,46 +128,103 @@ export async function submitVehicleInquiry(_prev: InquiryActionState, formData: 
     });
   }
 
-  const noteLines = [`${INQUIRY_TYPE_LABEL[d.inquiryType]} for the ${vehicle.year} ${vehicle.make} ${vehicle.model} (stock #${vehicle.stockNumber}) from the website's vehicle inventory page.`];
+  const vehicleLabel = `${vehicle.year} ${vehicle.make} ${vehicle.model}`;
+  const noteLines = [`${INQUIRY_TYPE_LABEL[d.inquiryType]} for the ${vehicleLabel} (stock #${vehicle.stockNumber}) from the website's vehicle inventory page.`];
   if (d.message) noteLines.push(`Message: ${d.message}`);
+  const newNote = noteLines.join("\n");
 
-  const lead = await prisma.lead.create({
-    data: {
-      customerId: customer.id,
-      sourceId,
-      assigneeId: salespersonId,
-      stageId: fallbackStage.id,
-      temperature: d.inquiryType === "FINANCING" ? "HOT" : "WARM",
-      score: 40,
-      financeType: d.inquiryType === "FINANCING" ? "FINANCE" : undefined,
-      customerNeeds: noteLines.join("\n"),
-      lastContactedAt: new Date(),
-    },
-  });
+  // Attach to the customer's existing active lead (a second inquiry, or an
+  // inquiry after they already booked) instead of forking a duplicate lead.
+  const existingLead = await findActiveLeadForCustomer(customer.id);
+  const isNewLead = !existingLead;
+  const lead = existingLead
+    ? await prisma.lead.update({
+        where: { id: existingLead.id },
+        data: {
+          // Never downgrade an already-hotter lead; a financing ask always
+          // promotes to HOT regardless of what it was. recomputeLeadScore()
+          // below re-derives this from financingRequestedAt right after, so
+          // this is just the immediate value until that runs.
+          temperature: d.inquiryType === "FINANCING" || existingLead.temperature === "HOT" ? "HOT" : "WARM",
+          financeType: d.inquiryType === "FINANCING" ? "FINANCE" : existingLead.financeType,
+          financingRequestedAt: d.inquiryType === "FINANCING" ? new Date() : existingLead.financingRequestedAt,
+          // Most-recent note first — matches the Leads list, which shows
+          // customerNeeds' first line as the "what they wanted" preview.
+          customerNeeds: [newNote, existingLead.customerNeeds].filter(Boolean).join("\n\n"),
+          lastContactedAt: new Date(),
+        },
+      })
+    : await prisma.lead.create({
+        data: {
+          customerId: customer.id,
+          sourceId,
+          assigneeId: salespersonId,
+          stageId: fallbackStage.id,
+          temperature: d.inquiryType === "FINANCING" ? "HOT" : "WARM",
+          score: 40,
+          financeType: d.inquiryType === "FINANCING" ? "FINANCE" : undefined,
+          financingRequestedAt: d.inquiryType === "FINANCING" ? new Date() : undefined,
+          customerNeeds: newNote,
+          lastContactedAt: new Date(),
+        },
+      });
 
-  await prisma.customerVehicle.create({
-    data: {
-      customerId: customer.id,
-      leadId: lead.id,
-      vehicleId: vehicle.id,
-      isPrimary: true,
-      interestLevel: "STRONG",
-    },
-  });
+  const existingInterest = await prisma.customerVehicle.findFirst({ where: { leadId: lead.id, vehicleId: vehicle.id } });
+  if (existingInterest) {
+    await prisma.customerVehicle.update({ where: { id: existingInterest.id }, data: { interestLevel: "STRONG" } });
+  } else {
+    const hasAnyInterest = (await prisma.customerVehicle.count({ where: { leadId: lead.id } })) > 0;
+    await prisma.customerVehicle.create({
+      data: { customerId: customer.id, leadId: lead.id, vehicleId: vehicle.id, isPrimary: !hasAnyInterest, interestLevel: "STRONG" },
+    });
+  }
 
   await logActivity({
     customerId: customer.id,
     leadId: lead.id,
     type: "NOTE_ADDED",
-    description: `${INQUIRY_TYPE_LABEL[d.inquiryType]} for the ${vehicle.year} ${vehicle.make} ${vehicle.model} via the website.`,
+    description: `${INQUIRY_TYPE_LABEL[d.inquiryType]} for the ${vehicleLabel} via the website.`,
   });
 
-  await runAutomation("NEW_LEAD", { customerId: customer.id, leadId: lead.id });
+  const customerName = `${customer.firstName} ${customer.lastName}`;
+
+  // A calendar/task-list task for this specific request, distinct from the
+  // Day 0/1/2… follow-up sequence tasks — every submission gets its own,
+  // even on a lead that already exists, so nothing the customer asked for
+  // gets lost in a shared sequence task.
+  await prisma.task.create({
+    data: {
+      customerId: customer.id,
+      leadId: lead.id,
+      title: `${INQUIRY_NOTIF_TITLE[d.inquiryType]} — ${vehicleLabel}`,
+      type: INQUIRY_TASK_TYPE[d.inquiryType],
+      priority: INQUIRY_TASK_PRIORITY[d.inquiryType],
+      dueDate: new Date(Date.now() + 60 * 60 * 1000),
+      notes: newNote,
+      assigneeId: salespersonId,
+      source: "AUTOMATION",
+    },
+  });
+
+  await notifyAdmin({
+    userId: salespersonId,
+    type: INQUIRY_NOTIF_TYPE[d.inquiryType],
+    title: INQUIRY_NOTIF_TITLE[d.inquiryType],
+    body: inquiryNotifBody(d.inquiryType, customerName, vehicleLabel),
+    link: `/customers/${customer.id}`,
+  });
+
+  // The lead-lifecycle automation (Day 0/1/2… sequence + generic "new lead"
+  // bell) only fires once, when the lead is actually new — a repeat
+  // inquiry on an existing lead already got its own tailored notify above.
+  if (isNewLead) await runAutomation("NEW_LEAD", { customerId: customer.id, leadId: lead.id });
   await recomputeLeadScore(lead.id, salespersonId);
 
   revalidatePath("/leads");
+  revalidatePath("/tasks");
   revalidatePath("/dashboard");
   revalidatePath(`/vehicles/${vehicle.id}`);
+  revalidatePath(`/customers/${customer.id}`);
 
   return { success: true };
 }

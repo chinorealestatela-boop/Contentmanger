@@ -80,6 +80,16 @@ export async function resolveSourceId(ref: string | undefined | null) {
   return source.id;
 }
 
+/** Shared by every public-site action that can produce a lead (booking,
+ * vehicle inquiries): a customer submitting a second request — book after
+ * already inquiring, ask about financing after already booking, etc. —
+ * must attach to their one active lead, never fork a duplicate. Only a
+ * customer with no active lead (brand new, or every prior lead closed/
+ * sold/lost) gets a new one created by the caller. */
+export async function findActiveLeadForCustomer(customerId: string) {
+  return prisma.lead.findFirst({ where: { customerId, status: "ACTIVE" }, orderBy: { createdAt: "desc" } });
+}
+
 // ── Vehicles for Step 1 ──────────────────────────────────────────────────
 
 export async function getBookingVehicles(q?: string) {
@@ -266,36 +276,67 @@ export async function submitBooking(_prev: BookingActionState, formData: FormDat
     });
   }
 
-  const lead = await prisma.lead.create({
-    data: {
-      customerId: customer.id,
-      sourceId,
-      assigneeId: salespersonId,
-      stageId: fallbackStage.id,
-      temperature: "WARM",
-      score: 55,
-      downPaymentRange: d.downPaymentRange,
-      monthlyPaymentRange: d.monthlyPaymentRange,
-      creditRange: d.creditRange,
-      currentlyDriving: d.currentlyDriving,
-      lastContactedAt: new Date(),
-      nextFollowUpAt: new Date(d.date),
-    },
-  });
+  // Find-or-create the lead the same way we find-or-create the customer —
+  // a returning visitor (already inquired about a vehicle, now booking)
+  // attaches this appointment to their existing active lead instead of
+  // forking a duplicate one.
+  const existingLead = await findActiveLeadForCustomer(customer.id);
+  const isNewLead = !existingLead;
+  const lead = existingLead
+    ? await prisma.lead.update({
+        where: { id: existingLead.id },
+        data: {
+          temperature: existingLead.temperature === "HOT" ? "HOT" : "WARM",
+          downPaymentRange: d.downPaymentRange ?? existingLead.downPaymentRange,
+          monthlyPaymentRange: d.monthlyPaymentRange ?? existingLead.monthlyPaymentRange,
+          creditRange: d.creditRange ?? existingLead.creditRange,
+          currentlyDriving: d.currentlyDriving ?? existingLead.currentlyDriving,
+          lastContactedAt: new Date(),
+          nextFollowUpAt: new Date(d.date),
+        },
+      })
+    : await prisma.lead.create({
+        data: {
+          customerId: customer.id,
+          sourceId,
+          assigneeId: salespersonId,
+          stageId: fallbackStage.id,
+          temperature: "WARM",
+          score: 55,
+          downPaymentRange: d.downPaymentRange,
+          monthlyPaymentRange: d.monthlyPaymentRange,
+          creditRange: d.creditRange,
+          currentlyDriving: d.currentlyDriving,
+          lastContactedAt: new Date(),
+          nextFollowUpAt: new Date(d.date),
+        },
+      });
 
-  await prisma.customerVehicle.create({
-    data: {
-      customerId: customer.id,
-      leadId: lead.id,
-      vehicleId: d.vehicleId || undefined,
-      year: d.vehicleId ? undefined : d.vehicleYear,
-      make: d.vehicleId ? undefined : d.vehicleMake,
-      model: d.vehicleId ? undefined : d.vehicleModel,
-      trim: d.vehicleId ? undefined : d.vehicleTrim,
-      isPrimary: true,
-      interestLevel: "STRONG",
-    },
-  });
+  if (d.vehicleId) {
+    const existingInterest = await prisma.customerVehicle.findFirst({ where: { leadId: lead.id, vehicleId: d.vehicleId } });
+    if (existingInterest) {
+      await prisma.customerVehicle.update({ where: { id: existingInterest.id }, data: { interestLevel: "STRONG" } });
+    } else {
+      const hasAnyInterest = (await prisma.customerVehicle.count({ where: { leadId: lead.id } })) > 0;
+      await prisma.customerVehicle.create({
+        data: { customerId: customer.id, leadId: lead.id, vehicleId: d.vehicleId, isPrimary: !hasAnyInterest, interestLevel: "STRONG" },
+      });
+    }
+  } else {
+    const hasAnyInterest = (await prisma.customerVehicle.count({ where: { leadId: lead.id } })) > 0;
+    await prisma.customerVehicle.create({
+      data: {
+        customerId: customer.id,
+        leadId: lead.id,
+        year: d.vehicleYear,
+        make: d.vehicleMake,
+        model: d.vehicleModel,
+        trim: d.vehicleTrim,
+        isPrimary: !hasAnyInterest,
+        interestLevel: "STRONG",
+      },
+    });
+  }
 
   if (d.currentlyDriving === "YES") {
     await prisma.tradeIn.create({
@@ -337,7 +378,7 @@ export async function submitBooking(_prev: BookingActionState, formData: FormDat
     description: `Booked a test drive online for ${d.date} at ${d.time} (confirmation ${confirmationCode}).`,
   });
 
-  await runAutomation("NEW_LEAD", { customerId: customer.id, leadId: lead.id });
+  if (isNewLead) await runAutomation("NEW_LEAD", { customerId: customer.id, leadId: lead.id });
   await runAutomation("APPOINTMENT_CREATED", { customerId: customer.id, leadId: lead.id });
   await recomputeLeadScore(lead.id, salespersonId);
 

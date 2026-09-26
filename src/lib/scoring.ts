@@ -20,6 +20,7 @@ export type ScoreInputs = {
   purchaseTimeframe: string | null; // IMMEDIATE | THIS_WEEK | THIS_MONTH | THIS_QUARTER | RESEARCHING
   vehicleAvailable: boolean;
   interactionCount: number;
+  daysSinceFinancingRequest: number | null; // null = never asked about financing
 };
 
 // Weighted point breakdown — kept as small named steps so the automation
@@ -42,6 +43,14 @@ export function scoreLead(inputs: ScoreInputs): { score: number; breakdown: { la
   if (inputs.creditAppStatus === "APPROVED") breakdown.push({ label: "Credit approved", points: 16 });
 
   if (inputs.hasTrade) breakdown.push({ label: "Has a trade-in", points: 5 });
+
+  // A customer actively asking about financing is a strong buying signal on
+  // its own — enough to read HOT even with no other engagement yet — that
+  // fades on its own as it ages rather than needing to be cleared manually.
+  if (inputs.daysSinceFinancingRequest !== null) {
+    if (inputs.daysSinceFinancingRequest <= 7) breakdown.push({ label: "Asked about financing this week", points: 70 });
+    else if (inputs.daysSinceFinancingRequest <= 30) breakdown.push({ label: "Asked about financing this month", points: 30 });
+  }
 
   switch (inputs.purchaseTimeframe) {
     case "IMMEDIATE":

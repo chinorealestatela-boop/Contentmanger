@@ -228,6 +228,14 @@ model Lead {
   hasCoBuyer      Boolean @default(false)
   coBuyerName     String?
 
+  // Set when the customer submits a "financing" vehicle inquiry from the
+  // public site — distinct from financeType (how they intend to pay,
+  // usually FINANCE for most leads and not itself urgent). Feeds a
+  // recency-weighted score bonus in scoring.ts so an active financing ask
+  // reliably scores HOT even before any other engagement exists, and fades
+  // on its own as it ages rather than needing to be manually cleared.
+  financingRequestedAt DateTime?
+
   // Bucketed buying-power answers captured on the public booking form (see
   // src/lib/constants.ts DOWN_PAYMENT_RANGES / MONTHLY_PAYMENT_RANGES /
   // CREDIT_RANGES). Kept separate from the free-numeric desiredPayment /

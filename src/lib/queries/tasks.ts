@@ -23,7 +23,11 @@ export async function getTasks(scope: Scope, view: TaskView) {
 
   return prisma.task.findMany({
     where,
-    include: { customer: true, lead: { include: { stage: true } }, assignee: true },
+    include: {
+      customer: true,
+      lead: { include: { stage: true, vehicleInterests: { include: { vehicle: true }, take: 1 } } },
+      assignee: true,
+    },
     orderBy: [{ dueDate: "asc" }],
   });
 }

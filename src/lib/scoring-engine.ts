@@ -38,6 +38,7 @@ export async function recomputeLeadScore(leadId: string, actorId?: string) {
     purchaseTimeframe: lead.purchaseTimeframe,
     vehicleAvailable: vehicle ? vehicle.status === "AVAILABLE" : true,
     interactionCount: lead.customer.communications.length,
+    daysSinceFinancingRequest: lead.financingRequestedAt ? daysBetween(lead.financingRequestedAt) : null,
   });
 
   const previousTemp = lead.temperature;
