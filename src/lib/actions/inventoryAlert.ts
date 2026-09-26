@@ -16,6 +16,7 @@ import { logActivity } from "@/lib/activity";
 import { runAutomation } from "@/lib/automation/engine";
 import { normalizePhone, isValidPhone } from "@/lib/phone";
 import { getPrimarySalespersonId, resolveSourceId } from "@/lib/actions/booking";
+import { notifyAdmin } from "@/lib/notify/adminAlert";
 
 const alertSchema = z.object({
   phone: z.string().trim().min(1, "Phone number is required."),
@@ -81,13 +82,14 @@ export async function submitInventoryAlertSignup(_prev: InventoryAlertActionStat
     where: { customerId: customer.id, sourceId, status: "ACTIVE" },
   });
 
+  let lead;
   if (existingAlertLead) {
-    await prisma.lead.update({
+    lead = await prisma.lead.update({
       where: { id: existingAlertLead.id },
       data: { lastContactedAt: new Date(), nextFollowUpAt: new Date() },
     });
   } else {
-    const lead = await prisma.lead.create({
+    lead = await prisma.lead.create({
       data: {
         customerId: customer.id,
         sourceId,
@@ -110,8 +112,37 @@ export async function submitInventoryAlertSignup(_prev: InventoryAlertActionStat
     await runAutomation("NEW_LEAD", { customerId: customer.id, leadId: lead.id });
   }
 
+  // A distinct task + notification every time, same as the vehicle-info/
+  // availability/financing inquiries — this is what surfaces the signup on
+  // the Calendar (unlike the generic "new lead" notify from runAutomation
+  // above, which only fires once and doesn't appear on the Calendar).
+  await prisma.task.create({
+    data: {
+      customerId: customer.id,
+      leadId: lead.id,
+      title: "New Inventory Alert Signup",
+      type: "INVENTORY_ALERT",
+      priority: "NORMAL",
+      dueDate: new Date(Date.now() + 60 * 60 * 1000),
+      notes: "Signed up on the website to be notified about new inventory.",
+      assigneeId: salespersonId,
+      source: "AUTOMATION",
+    },
+  });
+
+  await notifyAdmin({
+    userId: salespersonId,
+    type: "INVENTORY_ALERT",
+    title: "New Inventory Alert Signup",
+    body: `${customer.firstName} ${customer.lastName} signed up to be notified about new inventory.`,
+    link: `/customers/${customer.id}`,
+  });
+
   revalidatePath("/leads");
+  revalidatePath("/tasks");
+  revalidatePath("/calendar");
   revalidatePath("/dashboard");
+  revalidatePath(`/customers/${customer.id}`);
 
   return { success: true };
 }

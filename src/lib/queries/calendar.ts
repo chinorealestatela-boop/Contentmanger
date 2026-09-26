@@ -42,6 +42,12 @@ async function taskEvents(scope: Scope, where: { dueDate?: { gte: Date; lte: Dat
     where: {
       ...assigneeWhere,
       status: { not: "CANCELLED" },
+      // The Day 0/1/2/4/7/14/30 follow-up cadence (source "SEQUENCE") is
+      // deliberately left off the Calendar — one per active lead, every
+      // day, would flood the grid. Those still show in full on the Tasks
+      // list; the Calendar is reserved for one-off "something happened"
+      // events: a new booking/inquiry, a hot-lead alert, etc.
+      source: { not: "SEQUENCE" },
       ...(where.dueDate ? { dueDate: where.dueDate } : where.lt ? { dueDate: { lt: where.lt } } : {}),
     },
     include: {

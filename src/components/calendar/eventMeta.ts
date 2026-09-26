@@ -1,6 +1,6 @@
 import {
   Phone, PhoneCall, Car, Building2, Eye, DollarSign, ArrowLeftRight, Briefcase, Truck, MoreHorizontal, MessageCircle, AlertTriangle,
-  Mail, Search, Users,
+  Mail, Search, Users, Bell,
   type LucideIcon,
 } from "lucide-react";
 import { optionColor, APPOINTMENT_TYPES, TASK_TYPES } from "@/lib/constants";
@@ -38,6 +38,7 @@ export const TASK_EVENT_ICONS: Record<string, LucideIcon> = {
   VEHICLE_INFO: Eye,
   VEHICLE_AVAILABILITY: Search,
   FINANCING_REQUEST: DollarSign,
+  INVENTORY_ALERT: Bell,
   TRADE: ArrowLeftRight,
   CREDIT: Briefcase,
   DELIVERY: Truck,
