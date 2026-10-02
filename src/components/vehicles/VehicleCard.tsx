@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { Car, Users } from "lucide-react";
+import { Car, Users, ImageOff } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { formatCurrency } from "@/lib/format";
+import { parsePhotos } from "@/lib/utils";
 import { optionLabel, VEHICLE_STATUSES } from "@/lib/constants";
 
 type VehicleData = {
@@ -21,10 +22,12 @@ type VehicleData = {
   status: string;
   source: string;
   syncStatus: string;
+  photos: string | null;
   _count: { customerInterests: number };
 };
 
 export function VehicleCard({ vehicle }: { vehicle: VehicleData }) {
+  const hasPhoto = parsePhotos(vehicle.photos).length > 0;
   return (
     <Link href={`/vehicles/${vehicle.id}`} className="card flex flex-col overflow-hidden hover:shadow-md">
       <div className="flex h-32 items-center justify-center bg-[var(--bg-subtle)] text-[var(--text-faint)]">
@@ -40,6 +43,11 @@ export function VehicleCard({ vehicle }: { vehicle: VehicleData }) {
           <p className="text-[11px] text-[var(--text-faint)]">#{vehicle.stockNumber}</p>
           {vehicle.source === "AUTOMAXLV" && <Badge variant="neutral">automaxlv.com</Badge>}
           {vehicle.syncStatus === "NEEDS_REVIEW" && <Badge variant="warm">Needs Review</Badge>}
+          {!hasPhoto && (
+            <span className="flex items-center gap-1 text-[11px] font-semibold text-amber-600">
+              <ImageOff size={12} /> No photo — hidden from booking site
+            </span>
+          )}
         </div>
         <div className="mt-auto flex items-center justify-between pt-2">
           <span className="text-[15px] font-bold text-[var(--text)]">{formatCurrency(vehicle.internetPrice ?? vehicle.sellingPrice)}</span>

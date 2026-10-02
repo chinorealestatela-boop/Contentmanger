@@ -24,6 +24,14 @@ export default async function VehiclesPage({
           <h1 className="text-2xl font-semibold text-[var(--text)]">Vehicle Inventory</h1>
           <p className="text-[13px] text-[var(--text-muted)]">
             {stats.total} vehicles · {stats.available} available · {stats.hold} on hold · {stats.inTransit} in transit · {stats.sold} sold
+            {stats.missingPhotos > 0 && (
+              <>
+                {" · "}
+                <Link href="/vehicles?missingPhotos=true" className="font-semibold text-amber-600 hover:underline">
+                  {stats.missingPhotos} missing photos (hidden from booking site)
+                </Link>
+              </>
+            )}
           </p>
         </div>
         <Link href="/vehicles/new" className="btn btn-primary"><Plus size={15} /> Add Vehicle</Link>
@@ -50,6 +58,9 @@ export default async function VehiclesPage({
           <input name="color" placeholder="Color" defaultValue={sp.color ?? ""} className="input" />
           <label className="flex items-center gap-2 rounded-lg border border-[var(--border)] px-3 text-[13px]">
             <input type="checkbox" name="thirdRow" value="true" defaultChecked={sp.thirdRow === "true"} className="h-4 w-4" /> Third row
+          </label>
+          <label className="flex items-center gap-2 rounded-lg border border-[var(--border)] px-3 text-[13px]">
+            <input type="checkbox" name="missingPhotos" value="true" defaultChecked={sp.missingPhotos === "true"} className="h-4 w-4" /> Missing photos only
           </label>
         </div>
         <div className="flex justify-end gap-2">

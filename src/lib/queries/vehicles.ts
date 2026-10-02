@@ -10,9 +10,16 @@ export type VehicleFilters = {
   maxPrice?: string;
   thirdRow?: string;
   color?: string;
+  missingPhotos?: string;
   page?: number;
   pageSize?: number;
 };
+
+// Negation of HAS_PHOTO_WHERE (publicInventory.ts) — vehicles this excludes
+// from the booking/inventory site because they have no photo on file, even
+// though they're fully visible (and often still "Available") here in the
+// admin CRM.
+const MISSING_PHOTO_WHERE: Prisma.VehicleWhereInput = { OR: [{ photos: null }, { photos: "" }, { photos: "[]" }] };
 
 export async function listVehicles(filters: VehicleFilters = {}) {
   const page = filters.page ?? 1;
@@ -24,6 +31,7 @@ export async function listVehicles(filters: VehicleFilters = {}) {
     ...(filters.bodyStyle ? { bodyStyle: filters.bodyStyle } : {}),
     ...(filters.drivetrain ? { drivetrain: filters.drivetrain } : {}),
     ...(filters.thirdRow === "true" ? { seatingCapacity: { gte: 6 } } : {}),
+    ...(filters.missingPhotos === "true" ? MISSING_PHOTO_WHERE : {}),
     ...(filters.maxPrice
       ? {
           OR: [
@@ -73,12 +81,15 @@ export async function getVehicleDetail(id: string) {
 }
 
 export async function getInventoryStats() {
-  const [total, available, hold, sold, inTransit] = await Promise.all([
+  const [total, available, hold, sold, inTransit, missingPhotos] = await Promise.all([
     prisma.vehicle.count(),
     prisma.vehicle.count({ where: { status: "AVAILABLE" } }),
     prisma.vehicle.count({ where: { status: "HOLD" } }),
     prisma.vehicle.count({ where: { status: "SOLD" } }),
     prisma.vehicle.count({ where: { status: "IN_TRANSIT" } }),
+    // Available but hidden from the booking/inventory site because there's
+    // no photo on file yet — see HAS_PHOTO_WHERE in publicInventory.ts.
+    prisma.vehicle.count({ where: { status: "AVAILABLE", ...MISSING_PHOTO_WHERE } }),
   ]);
-  return { total, available, hold, sold, inTransit };
+  return { total, available, hold, sold, inTransit, missingPhotos };
 }
