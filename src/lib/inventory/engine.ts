@@ -169,18 +169,29 @@ export async function applyInventoryResult(fetchResult: () => Promise<InventoryF
 
     // Anything previously synced from AutoMax but not seen this pass is no
     // longer listed — retire it (never delete, never touch MANUAL-sourced
-    // rows). Applies the same way whether "not seen" means the live site
-    // stopped listing it or this CSV upload simply didn't include it.
-    const staleVehicles = await prisma.vehicle.findMany({
-      where: { source: SOURCE, status: { not: "UNAVAILABLE" }, id: { notIn: Array.from(seenVehicleIds) } },
-      select: { id: true },
-    });
-    if (staleVehicles.length > 0) {
-      await prisma.vehicle.updateMany({
-        where: { id: { in: staleVehicles.map((v) => v.id) } },
-        data: { status: "UNAVAILABLE", lastSyncedAt: new Date() },
+    // rows). Only applies to the live scrape, which fetches the site's
+    // *entire* listing every run, so "not seen" reliably means "no longer
+    // listed." A CSV upload has no such guarantee — it might be a curated
+    // batch (new arrivals, a photo-fix pass, etc.) covering only some of
+    // the fleet, not a full-inventory export, and there's no way to tell
+    // the difference from the file alone. Retiring on that basis already
+    // caused a real incident: a 39-vehicle photo-fix upload got treated as
+    // "this is now the entire inventory" and silently marked every other
+    // AutoMax-sourced vehicle Unavailable. Skip retirement for CSV
+    // uploads entirely — staff mark something sold/unavailable explicitly
+    // instead (Vehicles page status control).
+    if (trigger !== "CSV_UPLOAD") {
+      const staleVehicles = await prisma.vehicle.findMany({
+        where: { source: SOURCE, status: { not: "UNAVAILABLE" }, id: { notIn: Array.from(seenVehicleIds) } },
+        select: { id: true },
       });
-      retired = staleVehicles.length;
+      if (staleVehicles.length > 0) {
+        await prisma.vehicle.updateMany({
+          where: { id: { in: staleVehicles.map((v) => v.id) } },
+          data: { status: "UNAVAILABLE", lastSyncedAt: new Date() },
+        });
+        retired = staleVehicles.length;
+      }
     }
 
     await prisma.inventorySyncRun.update({

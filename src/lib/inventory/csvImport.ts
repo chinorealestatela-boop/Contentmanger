@@ -54,6 +54,14 @@ const HEADER_ALIASES: Record<string, string[]> = {
   description: ["description", "comments", "notes", "vehiclecomments"],
   features: ["features", "equipment", "options"],
   photos: ["photos", "images", "photourls", "imageurls", "photourl", "pictureurls", "imageurl", "picture", "pictureurl", "thumbnailurl", "thumbnail"],
+  // Separate from the generic "photos" field above: a DealerCenter export
+  // sometimes splits one primary photo from a semicolon-list of additional
+  // ones across two columns instead of putting everything in one. Combined
+  // back into a single photos array below (primary first) rather than
+  // picking just whichever of the two columns happens to come first in the
+  // header row, which the generic alias list alone would do.
+  primaryImageUrl: ["primaryimageurl", "primaryimage", "mainimage", "mainimageurl"],
+  additionalImageUrls: ["additionalimageurls", "additionalimages", "otherimages", "otherimageurls", "moreimages"],
   url: ["url", "vdpurl", "link", "listingurl", "detailurl"],
   status: ["status", "availability", "inventorystatus"],
 };
@@ -94,6 +102,28 @@ function toNumber(v: string | null): number | null {
   if (!v) return null;
   const n = Number(v.replace(/[^0-9.]/g, ""));
   return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+/** DealerCenter-style exports sometimes put literal placeholder text like
+ * "Image Coming Soon" in the photo column instead of leaving it blank when
+ * no photo has been uploaded yet. Treating that as a real photo would make
+ * the vehicle appear to have one (HAS_PHOTO_WHERE sees any non-empty
+ * value) and show a broken image on the public site — filter out anything
+ * that isn't actually a URL. */
+function isPhotoUrl(v: string): boolean {
+  return /^https?:\/\//i.test(v);
+}
+
+/** Combines the two ways a photo list shows up across export formats:
+ * either one generic multi-value "photos" column, or a DealerCenter-style
+ * split between a single primary image and a separate semicolon-list of
+ * additional ones (primary kept first, duplicates and placeholder text
+ * like "Image Coming Soon" dropped either way). */
+function extractPhotos(row: string[], index: Record<string, number>): string[] {
+  const primary = cell(row, index, "primaryImageUrl");
+  const additional = splitList(cell(row, index, "additionalImageUrls"));
+  const combined = primary || additional.length > 0 ? [primary, ...additional] : splitList(cell(row, index, "photos"));
+  return Array.from(new Set(combined.filter((p): p is string => !!p && isPhotoUrl(p))));
 }
 
 const SOLD_STATUS_PATTERN = /\b(sold|sale\s*pending|pending|no longer available|unavailable|hold)\b/i;
@@ -200,7 +230,7 @@ export function parseInventoryCsv(text: string): InventoryFetchResult {
       bodyStyle: cell(row, index, "bodyStyle"),
       features: splitList(cell(row, index, "features")),
       description: cell(row, index, "description"),
-      photos: splitList(cell(row, index, "photos")),
+      photos: extractPhotos(row, index),
       // No live VDP URL from a spreadsheet in general — sync.ts's
       // verifyVehicleStillListed() already treats a vehicle with no
       // sourceUrl as "trust the CRM's last-synced status" rather than
