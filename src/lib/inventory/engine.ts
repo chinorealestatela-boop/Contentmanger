@@ -84,6 +84,23 @@ export async function applyInventoryResult(fetchResult: () => Promise<InventoryF
   try {
     const { vehicles, unparsed } = await fetchResult();
 
+    // A fetch that technically succeeds but finds zero vehicles is almost
+    // never "the dealer now has no cars in stock" — it's far more likely
+    // the source is broken (e.g. automaxlv.com's Cloudflare protection
+    // returning a block/challenge page instead of listings — see
+    // automaxlv.ts's header). Treating that as a normal result would fall
+    // through to the retirement step below and mark every previously-
+    // synced vehicle UNAVAILABLE in one pass. Refuse instead, the same way
+    // a thrown error is refused: leave existing inventory exactly as-is.
+    if (vehicles.length === 0) {
+      const message = `Fetch returned 0 vehicles (${unparsed.length} unparsed) — refusing to retire the entire inventory over what's almost certainly a broken source rather than a real "nothing in stock." See automaxlv.ts for why this happens with automaxlv.com specifically.`;
+      await prisma.inventorySyncRun.update({
+        where: { id: run.id },
+        data: { status: "FAILED", finishedAt: new Date(), errorMessage: message, vehiclesFlagged: unparsed.length },
+      });
+      return { status: "FAILED", vehiclesSeen: 0, vehiclesCreated: 0, vehiclesUpdated: 0, vehiclesRetired: 0, vehiclesFlagged: unparsed.length, errorMessage: message };
+    }
+
     const seenVehicleIds = new Set<string>();
 
     for (const v of vehicles) {
