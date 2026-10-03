@@ -53,7 +53,7 @@ const HEADER_ALIASES: Record<string, string[]> = {
   bodyStyle: ["bodystyle", "body", "bodytype"],
   description: ["description", "comments", "notes", "vehiclecomments"],
   features: ["features", "equipment", "options"],
-  photos: ["photos", "images", "photourls", "imageurls", "photourl", "pictureurls"],
+  photos: ["photos", "images", "photourls", "imageurls", "photourl", "pictureurls", "imageurl", "picture", "pictureurl", "thumbnailurl", "thumbnail"],
   url: ["url", "vdpurl", "link", "listingurl", "detailurl"],
   status: ["status", "availability", "inventorystatus"],
 };
