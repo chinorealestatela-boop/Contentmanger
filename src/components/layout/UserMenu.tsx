@@ -34,7 +34,7 @@ export function UserMenu({
       {open && (
         <>
           <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} />
-          <div className="animate-fade-in card absolute right-0 z-40 mt-2 w-52 py-1.5">
+          <div className="animate-fade-in panel absolute right-0 z-40 mt-2 w-52 py-1.5 shadow-[var(--shadow-md)]">
             <Link href="/settings/profile" onClick={() => setOpen(false)} className="flex items-center gap-2.5 px-3.5 py-2 text-[13px] text-[var(--text)] hover:bg-white/[0.05]">
               <User size={15} /> My Profile
             </Link>

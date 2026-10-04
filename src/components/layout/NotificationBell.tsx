@@ -41,7 +41,7 @@ export function NotificationBell({ initial }: { initial: NotificationDTO[] }) {
       {open && (
         <>
           <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} />
-          <div className="animate-fade-in card absolute right-0 z-40 mt-2 w-80 max-w-[90vw]">
+          <div className="animate-fade-in panel absolute right-0 z-40 mt-2 w-80 max-w-[90vw] shadow-[var(--shadow-md)]">
             <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
               <span className="text-sm font-semibold">Notifications</span>
               {unread > 0 && (
