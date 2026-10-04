@@ -37,7 +37,7 @@ export function TaskRow({
         <Check size={13} />
       </button>
       <div className="min-w-0 flex-1">
-        <Link href={task.customerId ? `/customers/${task.customerId}` : task.bookingId ? `/bookings/${task.bookingId}` : "/tasks"} className="truncate text-[13px] font-medium text-[var(--text)] hover:text-[var(--brand-bright)]">
+        <Link href={task.customerId ? `/customers/${task.customerId}` : task.bookingId ? `/bookings/${task.bookingId}` : "/tasks"} className="block truncate text-[13px] font-medium text-[var(--text)] hover:text-[var(--brand-bright)]">
           {task.title}
         </Link>
         <p className="mt-0.5 truncate text-[11.5px] text-[var(--text-muted)]">
