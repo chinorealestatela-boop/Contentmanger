@@ -60,9 +60,9 @@ const HEADER_ALIASES: Record<string, string[]> = {
   // back into a single photos array below (primary first) rather than
   // picking just whichever of the two columns happens to come first in the
   // header row, which the generic alias list alone would do.
-  primaryImageUrl: ["primaryimageurl", "primaryimage", "mainimage", "mainimageurl"],
+  primaryImageUrl: ["primaryimageurl", "primaryimage", "mainimage", "mainimageurl", "frontimageurl", "frontimage"],
   additionalImageUrls: ["additionalimageurls", "additionalimages", "otherimages", "otherimageurls", "moreimages"],
-  url: ["url", "vdpurl", "link", "listingurl", "detailurl"],
+  url: ["url", "vdpurl", "link", "listingurl", "detailurl", "vehiclepageurl", "pageurl"],
   status: ["status", "availability", "inventorystatus"],
 };
 
