@@ -28,7 +28,7 @@ export default async function CustomerProfilePage({ params }: { params: Promise<
   const { id } = await params;
   const scope = await requireScope();
   await ensureFollowUpsFresh();
-  const customer = await getCustomerProfile(id);
+  const customer = await getCustomerProfile(id, scope);
   if (!customer) notFound();
 
   const [stages, lostReasons, availableVehicles, allCustomers, teamUsers, thankYouTemplateRow, referralSettings] = await Promise.all([

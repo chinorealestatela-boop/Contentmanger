@@ -43,9 +43,14 @@ export async function listCustomers(
   return { customers, total, page, pageSize, pageCount: Math.max(1, Math.ceil(total / pageSize)) };
 }
 
-export async function getCustomerProfile(customerId: string) {
-  return prisma.customer.findUnique({
-    where: { id: customerId },
+/** Scoped by the caller's own visibility, same as listCustomers — a
+ * salesperson must not be able to read another salesperson's full
+ * customer record (leads, appointments, notes, payment history, etc.)
+ * just by navigating to its URL. findFirst (not findUnique) because the
+ * added ownerId filter makes this a non-unique compound lookup. */
+export async function getCustomerProfile(customerId: string, scope: Scope) {
+  return prisma.customer.findFirst({
+    where: { id: customerId, ...customerScopeWhere(scope) },
     include: {
       owner: true,
       leads: {

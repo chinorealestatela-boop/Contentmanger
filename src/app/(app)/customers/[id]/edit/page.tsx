@@ -1,12 +1,12 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { requireScope } from "@/lib/queries/scope";
+import { requireScope, customerScopeWhere } from "@/lib/queries/scope";
 import { EditCustomerForm } from "@/components/customers/EditCustomerForm";
 
 export default async function EditCustomerPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  await requireScope();
-  const customer = await prisma.customer.findUnique({ where: { id } });
+  const scope = await requireScope();
+  const customer = await prisma.customer.findFirst({ where: { id, ...customerScopeWhere(scope) } });
   if (!customer) notFound();
 
   return (

@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { requireScope } from "@/lib/queries/scope";
+import { requireScope, customerScopeWhere } from "@/lib/queries/scope";
 import { logActivity } from "@/lib/activity";
 import { recordFollowUpAction } from "@/lib/followup";
 import { revalidatePath } from "next/cache";
@@ -28,7 +28,12 @@ export async function updateCustomer(_prev: SimpleActionState, formData: FormDat
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input." };
   const { customerId, ...rest } = parsed.data;
 
-  await prisma.customer.update({ where: { id: customerId }, data: rest });
+  // Ownership check, not just auth — without this a logged-in salesperson
+  // could edit any other salesperson's customer by posting this action
+  // with a different customerId directly (bypassing the UI entirely).
+  const result = await prisma.customer.updateMany({ where: { id: customerId, ...customerScopeWhere(scope) }, data: rest });
+  if (result.count === 0) return { error: "Customer not found." };
+
   await logActivity({ customerId, type: "CUSTOMER_UPDATED", description: "Contact information updated.", actorId: scope.userId });
   // A profile edit alone isn't proof a call/text/email happened — only
   // completes the generic FOLLOW_UP/OTHER bucket, never CALL/TEXT/EMAIL/
@@ -40,9 +45,15 @@ export async function updateCustomer(_prev: SimpleActionState, formData: FormDat
   return { success: "Saved." };
 }
 
+/** Moving a customer between salespeople's books is a team-management
+ * action, not something a restricted salesperson can do to their own or
+ * anyone else's records — gated to managers/admins (the same viewAll
+ * permission that lets them see everyone's customers in the first place). */
 export async function reassignCustomer(customerId: string, ownerId: string) {
   const scope = await requireScope();
-  await prisma.customer.update({ where: { id: customerId }, data: { ownerId } });
+  if (!scope.viewAll) return;
+  const result = await prisma.customer.updateMany({ where: { id: customerId }, data: { ownerId } });
+  if (result.count === 0) return;
   await prisma.lead.updateMany({ where: { customerId, status: "ACTIVE" }, data: { assigneeId: ownerId } });
   await logActivity({ customerId, type: "REASSIGNED", description: "Customer reassigned.", actorId: scope.userId });
   revalidatePath(`/customers/${customerId}`);
