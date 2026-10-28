@@ -219,6 +219,57 @@ export async function updateUserRole(userId: string, roleId: string) {
   revalidatePath("/settings/users");
 }
 
+const editUserSchema = z.object({
+  userId: z.string().min(1),
+  firstName: z.string().min(1, "First name is required."),
+  lastName: z.string().min(1, "Last name is required."),
+  email: z.string().email("Enter a valid email."),
+  title: z.string().optional(),
+});
+
+export async function updateUserAccount(_prev: SimpleActionState, formData: FormData): Promise<SimpleActionState> {
+  const scope = await requireScope();
+  if (scope.role !== "ADMIN") return { error: "Only admins can edit users." };
+
+  const parsed = editUserSchema.safeParse(Object.fromEntries(formData.entries()));
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input." };
+
+  const email = parsed.data.email.toLowerCase().trim();
+  const existing = await prisma.user.findUnique({ where: { email } });
+  if (existing && existing.id !== parsed.data.userId) return { error: "A user with that email already exists." };
+
+  await prisma.user.update({
+    where: { id: parsed.data.userId },
+    data: { firstName: parsed.data.firstName, lastName: parsed.data.lastName, email, title: parsed.data.title },
+  });
+
+  revalidatePath("/settings/users");
+  return { success: "User updated." };
+}
+
+const resetPasswordSchema = z.object({
+  userId: z.string().min(1),
+  password: z.string().min(8, "Password must be at least 8 characters."),
+});
+
+/** Admin-set password reset — distinct from changePassword above, which
+ * requires the user's own current password. An admin resetting someone
+ * else's forgotten/locked-out password can't supply that, by definition. */
+export async function resetUserPassword(_prev: SimpleActionState, formData: FormData): Promise<SimpleActionState> {
+  const scope = await requireScope();
+  if (scope.role !== "ADMIN") return { error: "Only admins can reset passwords." };
+
+  const parsed = resetPasswordSchema.safeParse(Object.fromEntries(formData.entries()));
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input." };
+
+  const passwordHash = await bcrypt.hash(parsed.data.password, 10);
+  await prisma.user.update({ where: { id: parsed.data.userId }, data: { passwordHash } });
+
+  revalidatePath("/settings/users");
+  return { success: "Password reset." };
+}
+
+
 // ── Roles & permissions (admin) ─────────────────────────────────────
 export async function updateRolePermissions(roleId: string, permissions: Permissions) {
   const scope = await requireScope();
