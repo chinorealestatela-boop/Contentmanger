@@ -4,8 +4,11 @@ import { vehicleLabelForAppointment } from "@/lib/messaging/notify";
 import { getBookingSettings } from "@/lib/availability";
 import { prisma } from "@/lib/prisma";
 import { ManagePanel } from "@/components/booking/ManagePanel";
+import { siteMetadata } from "@/lib/dealership";
 
-export const metadata = { title: "Manage Your Appointment | AutoMax LV" };
+export async function generateMetadata() {
+  return siteMetadata("Manage Your Appointment");
+}
 
 export default async function ManageAppointmentPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;

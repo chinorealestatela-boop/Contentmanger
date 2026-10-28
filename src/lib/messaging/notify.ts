@@ -5,6 +5,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { getBookingSettings } from "@/lib/availability";
+import { getDealershipProfile } from "@/lib/dealership";
 import { sendSms, type SmsType } from "@/lib/sms/provider";
 import { sendEmail, type EmailType } from "@/lib/email/provider";
 import * as tpl from "@/lib/messaging/templates";
@@ -13,12 +14,7 @@ import type { MessageContext } from "@/lib/messaging/templates";
 export type AppointmentEvent = "BOOKING_CONFIRMATION" | "REMINDER_24H" | "REMINDER_2H" | "RESCHEDULED" | "CANCELLED";
 
 export async function getDealershipInfo() {
-  const row = await prisma.setting.findUnique({ where: { key: "dealership" } });
-  const parsed = row ? JSON.parse(row.value) : {};
-  return {
-    name: parsed.name || "AutoMax LV",
-    phone: parsed.phone || "702-325-3898",
-  };
+  return getDealershipProfile();
 }
 
 export async function vehicleLabelForAppointment(appointmentId: string): Promise<string> {
@@ -56,7 +52,7 @@ export async function notifyAppointmentEvent(appointmentId: string, event: Appoi
     time: appt.time,
     confirmationCode: appt.confirmationCode,
     manageUrl: `${baseUrl}/manage/${appt.manageToken}`,
-    settings,
+    settings: { ...settings, location: dealership.address },
     dealershipName: dealership.name,
     dealershipPhone: dealership.phone,
   };

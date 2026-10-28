@@ -7,10 +7,11 @@ import { Badge } from "@/components/ui/Badge";
 import { createSmsTemplate, updateSmsTemplate, deleteSmsTemplate, toggleSmsTemplateActive } from "@/lib/actions/smsTemplates";
 import { renderTemplate } from "@/lib/payments/templates";
 import { PAYMENT_REMINDER_STAGES } from "@/lib/payments/status";
+import { FALLBACK_DEALERSHIP_NAME } from "@/lib/brand";
 
 type Template = { id: string; name: string; trigger: string | null; body: string; active: boolean; isDefault: boolean };
 
-const SAMPLE_VARS = { firstName: "John", amount: "$500", dueDate: "October 17", agentName: "Chino", dealershipName: "AutoMax LV" };
+const SAMPLE_VARS = { firstName: "John", amount: "$500", dueDate: "October 17", agentName: "Chino", dealershipName: FALLBACK_DEALERSHIP_NAME };
 
 const TRIGGER_LABEL: Record<string, string> = Object.fromEntries(PAYMENT_REMINDER_STAGES.map((s) => [s.value, s.label]));
 

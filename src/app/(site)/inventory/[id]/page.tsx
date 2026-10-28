@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft, CalendarCheck, MessageCircleHeart, ShieldCheck, Landmark } from "lucide-react";
 import { getPublicVehicle } from "@/lib/queries/publicInventory";
-import { prisma } from "@/lib/prisma";
+import { getDealershipProfile } from "@/lib/dealership";
+import { siteTitle } from "@/lib/brand";
 import { VehicleGallery } from "@/components/inventory/VehicleGallery";
 import { PaymentEstimator } from "@/components/inventory/PaymentEstimator";
 import { VehicleInquiryForm } from "@/components/inventory/VehicleInquiryForm";
@@ -15,21 +16,17 @@ export const revalidate = 60;
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const vehicle = await getPublicVehicle(id);
-  if (!vehicle) return { title: "Vehicle Not Found | AutoMax LV" };
-  return { title: `${vehicle.year} ${vehicle.make} ${vehicle.model} | AutoMax LV` };
+  const [vehicle, dealership] = await Promise.all([getPublicVehicle(id), getDealershipProfile()]);
+  if (!vehicle) return { title: siteTitle("Vehicle Not Found", dealership.name) };
+  return { title: siteTitle(`${vehicle.year} ${vehicle.make} ${vehicle.model}`, dealership.name) };
 }
 
 export default async function VehicleDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [vehicle, dealershipRow] = await Promise.all([
-    getPublicVehicle(id),
-    prisma.setting.findUnique({ where: { key: "dealership" } }),
-  ]);
+  const [vehicle, dealership] = await Promise.all([getPublicVehicle(id), getDealershipProfile()]);
   if (!vehicle) notFound();
 
-  const dealership = dealershipRow ? JSON.parse(dealershipRow.value) : {};
-  const dealershipName: string = dealership.name || "AutoMax LV";
+  const dealershipName = dealership.name;
   const title = `${vehicle.year} ${vehicle.make} ${vehicle.model}`;
   const price = vehicle.internetPrice ?? vehicle.sellingPrice;
 

@@ -24,6 +24,7 @@ import { notifyAdmin } from "@/lib/notify/adminAlert";
 import { formatDate } from "@/lib/format";
 import { BOOKING_SOURCE_MAP, DEFAULT_BOOKING_SOURCE } from "@/lib/constants";
 import { parsePhotos } from "@/lib/utils";
+import { getDealershipProfile } from "@/lib/dealership";
 
 // ── Shared helpers ─────────────────────────────────────────────────────
 
@@ -120,17 +121,16 @@ export async function fetchAvailableSlots(dateStr: string) {
 }
 
 export async function fetchBookingWindow() {
-  const [settings, dealershipRow] = await Promise.all([getBookingSettings(), prisma.setting.findUnique({ where: { key: "dealership" } })]);
-  const dealership = dealershipRow ? JSON.parse(dealershipRow.value) : {};
+  const [settings, dealership] = await Promise.all([getBookingSettings(), getDealershipProfile()]);
   return {
     maxBookingWindowDays: settings.maxBookingWindowDays,
     timezone: settings.timezone,
     hours: settings.hours,
     blackoutDates: settings.blackoutDates,
     agentName: settings.agentName,
-    location: settings.location,
-    dealershipName: dealership.name || "AutoMax LV",
-    dealershipPhone: dealership.phone || "702-325-3898",
+    location: dealership.address,
+    dealershipName: dealership.name,
+    dealershipPhone: dealership.phone,
   };
 }
 
@@ -192,7 +192,7 @@ export async function submitBooking(_prev: BookingActionState, formData: FormDat
   const consented = d.commConsent === "on" || d.commConsent === "true";
   const consentIp = (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() || null;
 
-  const settings = await getBookingSettings();
+  const [settings, dealership] = await Promise.all([getBookingSettings(), getDealershipProfile()]);
 
   // Re-validate the slot server-side — the client's list can be stale by
   // the time they hit submit.
@@ -360,7 +360,7 @@ export async function submitBooking(_prev: BookingActionState, formData: FormDat
       date: new Date(`${d.date}T00:00:00`),
       time: d.time,
       endTime,
-      location: settings.location,
+      location: dealership.address,
       type: "TEST_DRIVE",
       status: "SCHEDULED",
       source: "BOOKING",

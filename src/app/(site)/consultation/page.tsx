@@ -1,8 +1,11 @@
 import { fetchBookingWindow } from "@/lib/actions/booking";
 import { ConsultationBookingForm } from "@/components/consultation/ConsultationBookingForm";
 import { MessageCircle, Clock, PhoneCall } from "lucide-react";
+import { siteMetadata } from "@/lib/dealership";
 
-export const metadata = { title: "Free 15-Minute Consultation | AutoMax LV" };
+export async function generateMetadata() {
+  return siteMetadata("Free 15-Minute Consultation");
+}
 
 export default async function ConsultationPage() {
   const window_ = await fetchBookingWindow();

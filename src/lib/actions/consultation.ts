@@ -21,6 +21,7 @@ import { recomputeLeadScore } from "@/lib/scoring-engine";
 import { getBookingSettings, isSlotAvailable, getAvailableSlots } from "@/lib/availability";
 import { normalizePhone, isValidPhone } from "@/lib/phone";
 import { getPrimarySalespersonId, resolveSourceId } from "@/lib/actions/booking";
+import { getDealershipProfile } from "@/lib/dealership";
 
 export async function fetchConsultationSlots(dateStr: string) {
   return getAvailableSlots(dateStr);
@@ -50,7 +51,7 @@ export async function submitConsultationBooking(_prev: ConsultationActionState, 
   const consented = d.commConsent === "on" || d.commConsent === "true";
   const consentIp = (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() || null;
 
-  const settings = await getBookingSettings();
+  const [settings, dealership] = await Promise.all([getBookingSettings(), getDealershipProfile()]);
   const stillOpen = await isSlotAvailable(d.date, d.time, settings);
   if (!stillOpen) return { error: "That time was just taken. Please pick another." };
 
@@ -119,7 +120,7 @@ export async function submitConsultationBooking(_prev: ConsultationActionState, 
       date: new Date(`${d.date}T00:00:00`),
       time: d.time,
       endTime,
-      location: settings.location,
+      location: dealership.address,
       type: "CONSULTATION",
       status: "SCHEDULED",
       source: "BOOKING",

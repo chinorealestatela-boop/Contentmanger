@@ -5,8 +5,11 @@ import { formatCurrency } from "@/lib/format";
 import { parsePhotos, estimateMonthlyPayment } from "@/lib/utils";
 import { VehicleThumb } from "@/components/vehicles/VehicleThumb";
 import { HAS_PHOTO_WHERE } from "@/lib/queries/publicInventory";
+import { siteMetadata } from "@/lib/dealership";
 
-export const metadata = { title: "Schedule Your Test Drive | AutoMax LV" };
+export async function generateMetadata() {
+  return siteMetadata("Schedule Your Test Drive");
+}
 // Inventory changes as vehicles are added/sold from the admin dashboard —
 // revalidate periodically instead of only at build/deploy time.
 export const revalidate = 60;

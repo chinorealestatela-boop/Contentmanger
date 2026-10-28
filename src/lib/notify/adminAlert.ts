@@ -81,7 +81,7 @@ function emailHtml(title: string, body: string | undefined, url: string | undefi
   return `
 <div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:480px;margin:0 auto;color:#171717">
   <div style="background:#ffffff;border:1px solid #e5e5e5;border-top:4px solid #d81324;border-radius:12px;padding:20px 24px">
-    <p style="margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:.04em;color:#d81324;text-transform:uppercase">AutoMax LV CRM</p>
+    <p style="margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:.04em;color:#d81324;text-transform:uppercase">H&amp;H Autos</p>
     <h1 style="font-size:18px;margin:0 0 10px;color:#111">${title}</h1>
     ${body ? `<p style="font-size:14px;color:#333;margin:0 0 14px">${body}</p>` : ""}
     ${url ? `<a href="${url}" style="display:inline-block;background:#d81324;color:#fff;text-decoration:none;font-weight:600;font-size:13.5px;padding:9px 16px;border-radius:8px">Open in CRM</a>` : ""}

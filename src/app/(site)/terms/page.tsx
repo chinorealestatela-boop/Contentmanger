@@ -1,18 +1,19 @@
 import Link from "next/link";
-import { prisma } from "@/lib/prisma";
+import { getDealershipProfile, siteMetadata } from "@/lib/dealership";
 
-export const metadata = { title: "Terms & Conditions | AutoMax LV" };
+export async function generateMetadata() {
+  return siteMetadata("Terms & Conditions");
+}
 
 // Reads dealership Settings — revalidate periodically so a name/phone/
 // address change in Settings shows up here without a full redeploy.
 export const revalidate = 60;
 
 export default async function TermsPage() {
-  const row = await prisma.setting.findUnique({ where: { key: "dealership" } });
-  const dealership = row ? JSON.parse(row.value) : {};
-  const name: string = dealership.name || "AutoMax LV";
-  const address: string | undefined = dealership.address;
-  const phone: string = dealership.phone || "702-325-3898";
+  const dealership = await getDealershipProfile();
+  const name = dealership.name;
+  const address = dealership.address;
+  const phone = dealership.phone;
 
   return (
     <div className="mx-auto max-w-2xl space-y-5 px-4 py-12 text-[14px] leading-relaxed text-[var(--text-muted)] sm:px-6">

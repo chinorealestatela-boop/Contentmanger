@@ -5,8 +5,11 @@ import { PublicVehicleCard } from "@/components/inventory/PublicVehicleCard";
 import { InventoryControls } from "@/components/inventory/InventoryControls";
 import { InventoryAlertBanner } from "@/components/inventory/InventoryAlertBanner";
 import { Pagination } from "@/components/ui/Pagination";
+import { siteMetadata } from "@/lib/dealership";
 
-export const metadata = { title: "Available Vehicles | AutoMax LV" };
+export async function generateMetadata() {
+  return siteMetadata("Available Vehicles");
+}
 // Inventory changes as vehicles are added/sold/marked unavailable from the
 // admin dashboard — revalidate periodically instead of only at build time.
 export const revalidate = 60;

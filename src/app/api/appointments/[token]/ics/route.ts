@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { buildAppointmentICS } from "@/lib/ics";
 import { vehicleLabelForAppointment } from "@/lib/messaging/notify";
 import { getBookingSettings } from "@/lib/availability";
+import { getDealershipProfile } from "@/lib/dealership";
 
 // GET /api/appointments/[token]/ics — downloads a calendar invite for one
 // appointment. `token` is the appointment's unguessable manageToken, the
@@ -13,13 +14,17 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ tok
   const appt = await prisma.appointment.findUnique({ where: { manageToken: token } });
   if (!appt || !appt.endTime) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const [vehicleLabel, settings] = await Promise.all([vehicleLabelForAppointment(appt.id), getBookingSettings()]);
+  const [vehicleLabel, settings, dealership] = await Promise.all([
+    vehicleLabelForAppointment(appt.id),
+    getBookingSettings(),
+    getDealershipProfile(),
+  ]);
 
   const ics = buildAppointmentICS({
     uid: appt.id,
     title: `Test Drive: ${vehicleLabel}`,
-    description: `Test drive appointment with ${settings.agentName} at ${settings.location}. Confirmation #${appt.confirmationCode}.`,
-    location: appt.location ?? settings.location,
+    description: `Test drive appointment with ${settings.agentName} at ${dealership.address}. Confirmation #${appt.confirmationCode}.`,
+    location: dealership.address,
     date: appt.date,
     startTime: appt.time,
     endTime: appt.endTime,

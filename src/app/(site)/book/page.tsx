@@ -1,7 +1,10 @@
 import { getBookingVehicles, fetchBookingWindow } from "@/lib/actions/booking";
 import { BookingWizard } from "@/components/booking/BookingWizard";
+import { siteMetadata } from "@/lib/dealership";
 
-export const metadata = { title: "Book Your Test Drive | AutoMax LV" };
+export async function generateMetadata() {
+  return siteMetadata("Book Your Test Drive");
+}
 
 export default async function BookPage({ searchParams }: { searchParams: Promise<{ vehicle?: string; ref?: string }> }) {
   const sp = await searchParams;
