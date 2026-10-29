@@ -89,7 +89,7 @@ export default async function VehicleDetailPage({ params }: { params: Promise<{ 
             <a href="#interested" className="btn btn-secondary justify-center py-2.5">
               <ShieldCheck size={15} /> Check Availability
             </a>
-            <a href="https://www.automaxlv.com/apply-online/" target="_blank" rel="noopener noreferrer" className="btn btn-secondary justify-center py-2.5 sm:col-span-2">
+            <a href="https://www.hnhautosales.com/apply-online/" target="_blank" rel="noopener noreferrer" className="btn btn-secondary justify-center py-2.5 sm:col-span-2">
               <Landmark size={15} /> Apply for Financing
             </a>
           </div>
