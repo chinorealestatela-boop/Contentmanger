@@ -7,6 +7,7 @@ import { logActivity } from "@/lib/activity";
 import { runAutomation, enrollInSequence } from "@/lib/automation/engine";
 import { recomputeLeadScore } from "@/lib/scoring-engine";
 import { recordFollowUpAction } from "@/lib/followup";
+import { normalizePhone } from "@/lib/phone";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { SimpleActionState } from "@/lib/actions/communications";
@@ -73,13 +74,23 @@ export async function createLead(_prev: LeadActionState, formData: FormData): Pr
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input." };
   const d = parsed.data;
 
+  // Same normalization the public booking/inquiry forms apply — a
+  // salesperson typing a lead in by hand must not end up with a
+  // differently-formatted (or silently wrong) phone number than one a
+  // customer submitted themselves.
+  let normalizedPhone: string | undefined;
+  if (d.phone) {
+    normalizedPhone = normalizePhone(d.phone) ?? undefined;
+    if (!normalizedPhone) return { error: "Enter a valid 10-digit phone number." };
+  }
+
   let customerId = d.existingCustomerId;
   if (!customerId) {
     const customer = await prisma.customer.create({
       data: {
         firstName: d.firstName,
         lastName: d.lastName,
-        phone: d.phone,
+        phone: normalizedPhone,
         email: d.email,
         address: d.address,
         city: d.city,

@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireScope, customerScopeWhere } from "@/lib/queries/scope";
 import { logActivity } from "@/lib/activity";
 import { recordFollowUpAction } from "@/lib/followup";
+import { normalizePhone } from "@/lib/phone";
 import { revalidatePath } from "next/cache";
 import type { SimpleActionState } from "@/lib/actions/communications";
 
@@ -27,6 +28,17 @@ export async function updateCustomer(_prev: SimpleActionState, formData: FormDat
   const parsed = schema.safeParse(Object.fromEntries(formData.entries()));
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input." };
   const { customerId, ...rest } = parsed.data;
+
+  // Same normalization the public forms apply — this plain-text field has
+  // no input mask, so without this a typo'd or inconsistently-formatted
+  // number saved here would silently diverge from how every other phone
+  // number in the CRM is stored.
+  const phoneInput = rest.phone?.trim();
+  if (phoneInput) {
+    const normalized = normalizePhone(phoneInput);
+    if (!normalized) return { error: "Enter a valid 10-digit phone number." };
+    rest.phone = normalized;
+  }
 
   // Ownership check, not just auth — without this a logged-in salesperson
   // could edit any other salesperson's customer by posting this action

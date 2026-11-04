@@ -22,9 +22,22 @@ export function isValidPhone(raw: string): boolean {
 
 /** Formats a raw phone string as (555) 123-4567 while the user types, for
  * a nicer-feeling input. Falls back to the raw string once it stops
- * looking like a plain 10-digit US number. */
+ * looking like a plain 10-digit US number.
+ *
+ * Root cause of the "extra 1" bug (confirmed by reproducing it): a
+ * customer who dials out of habit with the leading US country code
+ * ("1-702-555-1234") was having that leading 1 treated as the start of
+ * the area code — slicing to 10 digits kept "1705551234" (dropping the
+ * true last digit) instead of recognizing 11 digits as country-code +
+ * number. normalizePhone() then saw a bare 10-digit string and prepended
+ * its own "+1", producing a doubled "+11705551234" with the real last
+ * digit gone. Stripping a redundant leading 1 (at 11 digits) before
+ * slicing fixes it at the source, so normalizePhone always receives the
+ * true 10-digit number either way. */
 export function formatPhoneInput(raw: string): string {
-  const digits = raw.replace(/\D/g, "").slice(0, 10);
+  let digits = raw.replace(/\D/g, "");
+  if (digits.length === 11 && digits.startsWith("1")) digits = digits.slice(1);
+  digits = digits.slice(0, 10);
   if (digits.length <= 3) return digits;
   if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
   return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
