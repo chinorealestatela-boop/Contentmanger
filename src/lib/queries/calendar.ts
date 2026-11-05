@@ -92,32 +92,43 @@ async function paymentEvents(scope: Scope, where: { dueDate?: { gte: Date; lte: 
     },
     include: {
       customer: { select: { firstName: true, lastName: true, phone: true, ownerId: true } },
-      lead: { select: { assigneeId: true } },
+      lead: { select: { assigneeId: true, vehicleInterests: { include: { vehicle: true }, take: 1 } } },
     },
   });
 
   const inScope = scope.viewAll ? payments : payments.filter((p) => (p.lead?.assigneeId ?? p.customer.ownerId) === scope.userId);
 
-  return inScope.map((p): CalendarEvent => ({
-    id: p.id,
-    kind: "payment",
-    customerId: p.customerId,
-    customerName: `${p.customer.firstName} ${p.customer.lastName}`,
-    customerPhone: p.customer.phone,
-    leadId: p.leadId,
-    title: `Payment Due — ${formatCurrency(p.amount)}`,
-    subtitle: p.status === "LATE" ? "Late" : "Scheduled Payment",
-    date: p.dueDate,
-    time: PAYMENT_EVENT_TIME,
-    endTime: null,
-    location: null,
-    type: p.status === "LATE" ? "PAYMENT_LATE" : "PAYMENT_DUE",
-    status: p.status,
-    notes: p.notes,
-    vehicleId: null,
-    salespersonId: null,
-    reminderOffsetMinutes: null,
-  }));
+  return inScope.map((p): CalendarEvent => {
+    // Same vehicle lookup taskEvents() uses — the deal's primary vehicle
+    // of interest, if one was recorded on the lead this payment is tied
+    // to ("Vehicle associated with the deal (if available)").
+    const vi = p.lead?.vehicleInterests[0];
+    // Just the vehicle label here — EventRow already derives its own
+    // "Scheduled Payment"/"Late" typeLabel and status badge for `kind ===
+    // "payment"` from event.type/status, so subtitle only needs to carry
+    // what those don't already show.
+    const vehicleLabel = vi ? (vi.vehicle ? `${vi.vehicle.year} ${vi.vehicle.make} ${vi.vehicle.model}` : [vi.year, vi.make, vi.model].filter(Boolean).join(" ") || null) : null;
+    return {
+      id: p.id,
+      kind: "payment",
+      customerId: p.customerId,
+      customerName: `${p.customer.firstName} ${p.customer.lastName}`,
+      customerPhone: p.customer.phone,
+      leadId: p.leadId,
+      title: `Payment Due — ${formatCurrency(p.amount)}`,
+      subtitle: vehicleLabel,
+      date: p.dueDate,
+      time: PAYMENT_EVENT_TIME,
+      endTime: null,
+      location: null,
+      type: p.status === "LATE" ? "PAYMENT_LATE" : "PAYMENT_DUE",
+      status: p.status,
+      notes: p.notes,
+      vehicleId: null,
+      salespersonId: null,
+      reminderOffsetMinutes: null,
+    };
+  });
 }
 
 export async function getCalendarEvents(scope: Scope, range: { start: Date; end: Date }): Promise<CalendarEvent[]> {

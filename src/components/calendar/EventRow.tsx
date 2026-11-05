@@ -46,7 +46,7 @@ export function EventRow({ event, showDate = false, pickers }: { event: Calendar
             </span>
           </div>
           <p className="truncate text-[12px] text-[var(--text-muted)]">
-            {typeLabel}{event.subtitle && (event.kind === "appointment" || event.kind === "task") ? ` · ${event.subtitle}` : ""}
+            {typeLabel}{event.subtitle && (event.kind === "appointment" || event.kind === "task" || event.kind === "payment") ? ` · ${event.subtitle}` : ""}
           </p>
           {(event.kind === "followup" || event.kind === "payment" || event.kind === "task") && event.title && (
             <p className="truncate text-[12px] text-[var(--text-faint)]">{event.title}</p>

@@ -3,7 +3,7 @@ import { Plus } from "lucide-react";
 import { startOfDay, endOfDay, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays } from "date-fns";
 import { requireScope, listTeamUsers, customerScopeWhere } from "@/lib/queries/scope";
 import { ensureFollowUpsFresh } from "@/lib/queries/followups";
-import { getCalendarEvents, getPastEvents } from "@/lib/queries/calendar";
+import { getCalendarEvents, getPastEvents, type CalendarEvent } from "@/lib/queries/calendar";
 import { CalendarMonthView } from "@/components/calendar/CalendarMonthView";
 import { CalendarWeekView } from "@/components/calendar/CalendarWeekView";
 import { CalendarDayView } from "@/components/calendar/CalendarDayView";
@@ -28,12 +28,37 @@ const VIEWS: { value: View; label: string }[] = [
   { value: "past", label: "Past" },
 ];
 
+// Payment-related task category / filter (Feature 6): separates regular
+// appointments, follow-ups, and other tasks from scheduled Pick
+// Payments and the overdue ones that most need attention, without
+// touching how getCalendarEvents/getPastEvents fetch — it's a pure
+// client-of-the-data filter applied to whatever range the active view
+// already loaded.
+type Category = "all" | "appointment" | "followup" | "task" | "payment_due" | "payment_late";
+
+const CATEGORIES: { value: Category; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "appointment", label: "Appointments" },
+  { value: "followup", label: "Follow-Ups" },
+  { value: "task", label: "Tasks" },
+  { value: "payment_due", label: "Future Down Payments" },
+  { value: "payment_late", label: "Overdue Payments" },
+];
+
+function matchesCategory(e: CalendarEvent, cat: Category): boolean {
+  if (cat === "all") return true;
+  if (cat === "payment_due") return e.kind === "payment" && e.type === "PAYMENT_DUE";
+  if (cat === "payment_late") return e.kind === "payment" && e.type === "PAYMENT_LATE";
+  return e.kind === cat;
+}
+
 export default async function CalendarPage({
   searchParams,
 }: {
-  searchParams: Promise<{ view?: string; year?: string; month?: string; day?: string }>;
+  searchParams: Promise<{ view?: string; year?: string; month?: string; day?: string; cat?: string }>;
 }) {
   const sp = await searchParams;
+  const category: Category = CATEGORIES.find((c) => c.value === sp.cat)?.value ?? "all";
   const scope = await requireScope();
   await ensureFollowUpsFresh();
 
@@ -54,22 +79,22 @@ export default async function CalendarPage({
   let content: React.ReactNode;
 
   if (view === "month") {
-    const events = await getCalendarEvents(scope, { start: startOfWeek(startOfMonth(anchor)), end: endOfWeek(endOfMonth(anchor)) });
+    const events = (await getCalendarEvents(scope, { start: startOfWeek(startOfMonth(anchor)), end: endOfWeek(endOfMonth(anchor)) })).filter((e) => matchesCategory(e, category));
     content = <CalendarMonthView year={year} month={month} events={events} />;
   } else if (view === "week") {
-    const events = await getCalendarEvents(scope, { start: startOfWeek(anchor), end: endOfWeek(anchor) });
+    const events = (await getCalendarEvents(scope, { start: startOfWeek(anchor), end: endOfWeek(anchor) })).filter((e) => matchesCategory(e, category));
     content = <CalendarWeekView anchor={anchor} events={events} />;
   } else if (view === "day") {
-    const events = await getCalendarEvents(scope, { start: startOfDay(anchor), end: endOfDay(anchor) });
+    const events = (await getCalendarEvents(scope, { start: startOfDay(anchor), end: endOfDay(anchor) })).filter((e) => matchesCategory(e, category));
     content = <CalendarDayView day={anchor} events={events} pickers={pickers} />;
   } else if (view === "today") {
-    const events = await getCalendarEvents(scope, { start: startOfDay(now), end: endOfDay(now) });
+    const events = (await getCalendarEvents(scope, { start: startOfDay(now), end: endOfDay(now) })).filter((e) => matchesCategory(e, category));
     content = <ListCard title="Today's Activities" empty="Nothing scheduled for today." events={events} pickers={pickers} />;
   } else if (view === "upcoming") {
-    const events = await getCalendarEvents(scope, { start: startOfDay(now), end: endOfDay(addDays(now, 90)) });
+    const events = (await getCalendarEvents(scope, { start: startOfDay(now), end: endOfDay(addDays(now, 90)) })).filter((e) => matchesCategory(e, category));
     content = <ListCard title="Upcoming Activities" empty="Nothing scheduled in the next 90 days." events={events} showDate pickers={pickers} />;
   } else {
-    const events = await getPastEvents(scope, 50);
+    const events = (await getPastEvents(scope, 50)).filter((e) => matchesCategory(e, category));
     content = <ListCard title="Past Activities" empty="No past activity yet." events={events} showDate pickers={pickers} />;
   }
 
@@ -87,13 +112,34 @@ export default async function CalendarPage({
         {VIEWS.map((v) => (
           <Link
             key={v.value}
-            href={`/calendar?view=${v.value}&year=${year}&month=${month}&day=${day}`}
+            href={`/calendar?view=${v.value}&year=${year}&month=${month}&day=${day}&cat=${category}`}
             className={cn(
               "rounded-md px-3 py-1.5 text-[12.5px] font-medium transition-colors",
               view === v.value ? "bg-[var(--brand)] text-white" : "text-[var(--text-muted)] hover:bg-[var(--bg-subtle)]"
             )}
           >
             {v.label}
+          </Link>
+        ))}
+      </div>
+
+      <div className="flex flex-wrap gap-1.5">
+        {CATEGORIES.map((c) => (
+          <Link
+            key={c.value}
+            href={`/calendar?view=${view}&year=${year}&month=${month}&day=${day}&cat=${c.value}`}
+            className={cn(
+              "rounded-full px-3 py-1 text-[12px] font-medium transition-colors",
+              category === c.value
+                ? c.value === "payment_late"
+                  ? "bg-red-600 text-white"
+                  : c.value === "payment_due"
+                    ? "bg-emerald-600 text-white"
+                    : "bg-[var(--brand)] text-white"
+                : "border border-[var(--border)] text-[var(--text-muted)] hover:bg-[var(--bg-subtle)]"
+            )}
+          >
+            {c.label}
           </Link>
         ))}
       </div>

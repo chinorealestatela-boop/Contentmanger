@@ -8,6 +8,7 @@ import { runAutomation, enrollInSequence } from "@/lib/automation/engine";
 import { recomputeLeadScore } from "@/lib/scoring-engine";
 import { recordFollowUpAction } from "@/lib/followup";
 import { normalizePhone } from "@/lib/phone";
+import { createPaymentPlanRecord, markPaymentPaid } from "@/lib/actions/payments";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { SimpleActionState } from "@/lib/actions/communications";
@@ -63,6 +64,18 @@ const intakeSchema = z.object({
   prefDrivetrain: optionalStr,
   prefThirdRow: optionalStr,
   prefColor: optionalStr,
+
+  // Pick Payment / future down-payment — attaches a payment schedule to
+  // the new customer/lead at intake time using the exact same
+  // PaymentPlan+Payment machinery the "Schedule Payment" button on an
+  // existing customer's profile uses (see createPaymentPlanRecord in
+  // src/lib/actions/payments.ts), rather than a second payment system.
+  enablePickPayment: optionalStr,
+  pickPaymentInitialAmount: optionalNum, // already collected today (the "$500 down today" half of the example)
+  pickPaymentAmount: optionalNum, // the future amount still owed (the "$1,500 in 30 days" half)
+  pickPaymentDueDate: optionalStr,
+  pickPaymentNotes: optionalStr,
+  pickPaymentStatus: optionalStr, // "PENDING" | "PAID" — Overdue is never a choice here, it's computed automatically once a Pending payment's due date passes (see src/lib/payments/reminders.ts)
 });
 
 export type LeadActionState = (SimpleActionState & { customerId?: string }) | null;
@@ -82,6 +95,11 @@ export async function createLead(_prev: LeadActionState, formData: FormData): Pr
   if (d.phone) {
     normalizedPhone = normalizePhone(d.phone) ?? undefined;
     if (!normalizedPhone) return { error: "Enter a valid 10-digit phone number." };
+  }
+
+  const wantsPickPayment = d.enablePickPayment === "on" || d.enablePickPayment === "true";
+  if (wantsPickPayment && (!d.pickPaymentAmount || d.pickPaymentAmount <= 0 || !d.pickPaymentDueDate)) {
+    return { error: "Enter the Pick Payment amount and due date, or turn Pick Payment off." };
   }
 
   let customerId = d.existingCustomerId;
@@ -162,6 +180,31 @@ export async function createLead(_prev: LeadActionState, formData: FormData): Pr
         estimatedValue: d.tradeEstValue ?? 0,
       },
     });
+  }
+
+  if (wantsPickPayment && d.pickPaymentAmount && d.pickPaymentDueDate) {
+    const plan = await createPaymentPlanRecord({
+      customerId,
+      leadId: lead.id,
+      totalRequired: (d.pickPaymentInitialAmount ?? 0) + d.pickPaymentAmount,
+      amountPaidUpfront: d.pickPaymentInitialAmount ?? 0,
+      notes: d.pickPaymentNotes,
+      payments: [{ amount: d.pickPaymentAmount, dueDate: new Date(`${d.pickPaymentDueDate}T00:00:00`) }],
+      createdById: scope.userId,
+    });
+
+    // "Paid" at intake means the future payment was actually collected
+    // before the lead was even saved (e.g. backfilling a deal that
+    // already closed) — reuse markPaymentPaid exactly as the Payment
+    // Tracker's "Mark Paid" button does, rather than hand-writing a
+    // second paid-at-creation code path.
+    if (d.pickPaymentStatus === "PAID") {
+      const payment = plan.payments[0];
+      const fd = new FormData();
+      fd.set("paymentId", payment.id);
+      fd.set("amountPaid", String(payment.amount));
+      await markPaymentPaid(null, fd);
+    }
   }
 
   await logActivity({

@@ -21,6 +21,9 @@ export function NewLeadForm({
 }) {
   const [state, formAction, pending] = useActionState(createLead, null);
   const [hasTrade, setHasTrade] = useState(false);
+  const [pickPaymentEnabled, setPickPaymentEnabled] = useState(false);
+  const [pickPaymentInitial, setPickPaymentInitial] = useState("");
+  const [pickPaymentAmount, setPickPaymentAmount] = useState("");
   const router = useRouter();
 
   useEffect(() => {
@@ -95,6 +98,55 @@ export function NewLeadForm({
           <input type="checkbox" name="hasCoBuyer" className="h-4 w-4 rounded border-[var(--border)]" /> Has a co-buyer
         </label>
         <Field label="Co-Buyer Name" name="coBuyerName" />
+      </FormSection>
+
+      <FormSection title="Pick Payment / Future Payment Due">
+        <label className="flex items-center gap-2 text-[13px] text-[var(--text)]">
+          <input type="checkbox" name="enablePickPayment" checked={pickPaymentEnabled} onChange={(e) => setPickPaymentEnabled(e.target.checked)} className="h-4 w-4 rounded border-[var(--border)]" />
+          Enable Pick Payment for this customer
+        </label>
+        {pickPaymentEnabled && (
+          <>
+            <p className="text-xs text-[var(--text-muted)]">
+              e.g. customer puts $500 down today and agrees to pay another $1,500 in 30 days — enter $500 as the initial payment and $1,500 as the future payment due.
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="label">Initial Payment Collected Today ($)</label>
+                <input name="pickPaymentInitialAmount" type="number" step="0.01" min="0" className="input" placeholder="0" value={pickPaymentInitial} onChange={(e) => setPickPaymentInitial(e.target.value)} />
+              </div>
+              <div>
+                <label className="label">Future Payment Due ($)</label>
+                <input name="pickPaymentAmount" type="number" step="0.01" min="0.01" required={pickPaymentEnabled} className="input" value={pickPaymentAmount} onChange={(e) => setPickPaymentAmount(e.target.value)} />
+              </div>
+            </div>
+            {(pickPaymentInitial || pickPaymentAmount) && (
+              <p className="text-[12.5px] text-[var(--text-muted)]">
+                Total down payment: <span className="font-semibold text-[var(--text)]">${(Number(pickPaymentInitial || 0) + Number(pickPaymentAmount || 0)).toLocaleString()}</span>
+              </p>
+            )}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="label">Payment Due Date</label>
+                <input name="pickPaymentDueDate" type="date" required={pickPaymentEnabled} className="input" />
+              </div>
+              <div>
+                <label className="label">Payment Status</label>
+                <select name="pickPaymentStatus" defaultValue="PENDING" className="input">
+                  <option value="PENDING">Pending</option>
+                  <option value="PAID">Paid</option>
+                </select>
+              </div>
+            </div>
+            <p className="text-xs text-[var(--text-muted)]">
+              &ldquo;Overdue&rdquo; isn&rsquo;t a choice here — it&rsquo;s applied automatically if a Pending payment&rsquo;s due date passes unpaid.
+            </p>
+            <TextField label="Payment Notes (optional)" name="pickPaymentNotes" />
+            <p className="text-xs text-[var(--text-muted)]">
+              Saving the lead attaches this to the customer&rsquo;s Payment Tracker, puts it on the calendar, and schedules the standard 7/3/1-day, due-date, and overdue reminders.
+            </p>
+          </>
+        )}
       </FormSection>
 
       <FormSection title="Trade-In">

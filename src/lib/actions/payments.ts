@@ -27,6 +27,63 @@ const createPlanSchema = z.object({
   paymentDueDates: z.array(z.string().min(1)),
 });
 
+/** The actual create — pulled out of the createPaymentPlan form action so
+ * createLead (Feature: Pick Payment during lead/customer intake) can
+ * attach a future-payment schedule to a brand-new customer in the exact
+ * same way the "Schedule Payment" button does for an existing one,
+ * without a second, parallel payment-creation code path. Returns the
+ * created plan with its payments so a caller that needs the new
+ * Payment's id (e.g. to immediately mark it paid) doesn't have to
+ * re-query for it. */
+export async function createPaymentPlanRecord(params: {
+  customerId: string;
+  leadId?: string;
+  totalRequired: number;
+  amountPaidUpfront?: number;
+  notes?: string;
+  payments: { amount: number; dueDate: Date }[];
+  createdById: string;
+}) {
+  const { customerId, leadId, totalRequired, amountPaidUpfront = 0, notes, payments, createdById } = params;
+
+  const plan = await prisma.paymentPlan.create({
+    data: {
+      customerId,
+      leadId,
+      totalRequired,
+      amountPaidUpfront,
+      notes,
+      createdById,
+      payments: {
+        create: payments.map((p) => ({
+          customerId,
+          leadId,
+          amount: p.amount,
+          dueDate: p.dueDate,
+        })),
+      },
+    },
+    include: { payments: true },
+  });
+
+  await logActivity({
+    customerId,
+    leadId,
+    type: "PAYMENT_PLAN_CREATED",
+    description: `Future payment schedule created: ${payments.length} payment${payments.length === 1 ? "" : "s"} totaling $${payments.reduce((a, b) => a + b.amount, 0).toLocaleString()}.`,
+    actorId: createdById,
+    metadata: { planId: plan.id },
+  });
+  await recordFollowUpAction({ customerId, leadId, actorId: createdById, taskTypes: ["FOLLOW_UP", "OTHER", "CREDIT"], source: "Down payment schedule created" });
+
+  revalidatePath(`/customers/${customerId}`);
+  revalidatePath("/payments");
+  revalidatePath("/dashboard");
+  revalidatePath("/calendar");
+
+  return plan;
+}
+
 export async function createPaymentPlan(_prev: SimpleActionState, formData: FormData): Promise<SimpleActionState> {
   const scope = await requireScope();
 
@@ -46,39 +103,16 @@ export async function createPaymentPlan(_prev: SimpleActionState, formData: Form
     return { error: "Every payment needs both an amount and a due date." };
   }
 
-  const plan = await prisma.paymentPlan.create({
-    data: {
-      customerId: d.customerId,
-      leadId: d.leadId,
-      totalRequired: d.totalRequired,
-      amountPaidUpfront: d.amountPaidUpfront,
-      notes: d.notes,
-      createdById: scope.userId,
-      payments: {
-        create: d.paymentAmounts.map((amount, i) => ({
-          customerId: d.customerId,
-          leadId: d.leadId,
-          amount,
-          dueDate: new Date(`${d.paymentDueDates[i]}T00:00:00`),
-        })),
-      },
-    },
-  });
-
-  await logActivity({
+  await createPaymentPlanRecord({
     customerId: d.customerId,
     leadId: d.leadId,
-    type: "PAYMENT_PLAN_CREATED",
-    description: `Future payment schedule created: ${d.paymentAmounts.length} payment${d.paymentAmounts.length === 1 ? "" : "s"} totaling $${d.paymentAmounts.reduce((a, b) => a + b, 0).toLocaleString()}.`,
-    actorId: scope.userId,
-    metadata: { planId: plan.id },
+    totalRequired: d.totalRequired,
+    amountPaidUpfront: d.amountPaidUpfront,
+    notes: d.notes,
+    payments: d.paymentAmounts.map((amount, i) => ({ amount, dueDate: new Date(`${d.paymentDueDates[i]}T00:00:00`) })),
+    createdById: scope.userId,
   });
-  await recordFollowUpAction({ customerId: d.customerId, leadId: d.leadId, actorId: scope.userId, taskTypes: ["FOLLOW_UP", "OTHER", "CREDIT"], source: "Down payment schedule created" });
 
-  revalidatePath(`/customers/${d.customerId}`);
-  revalidatePath("/payments");
-  revalidatePath("/dashboard");
-  revalidatePath("/calendar");
   return { success: "Payment schedule created." };
 }
 
