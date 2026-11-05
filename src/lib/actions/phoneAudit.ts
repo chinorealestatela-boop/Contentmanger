@@ -35,7 +35,7 @@ const MASK_BUG_SHAPE = /^\+11\d{9}$/;
 // apart from the bug shape above.
 const OTHER_INTERNATIONAL = /^\+(?!1)\d{10,15}$/;
 
-export type PhoneAuditEntry = { id: string; name: string; before: string; after?: string };
+export type PhoneAuditEntry = { id: string; name: string; before: string; after?: string; recovered?: string };
 
 export type PhoneAuditResult =
   | { error: string }
@@ -80,8 +80,19 @@ export async function runPhoneAudit(): Promise<PhoneAuditResult> {
       fixed.push({ id: c.id, name, before: phone, after: normalized });
     } else if (normalized && MASK_BUG_SHAPE.test(normalized)) {
       // The classic mask-bug shape — not safe to auto-correct, the true
-      // last digit is already gone.
-      corrupted.push({ id: c.id, name, before: phone });
+      // last digit is already gone. But the OTHER 9 digits of the real
+      // number ARE recoverable: the old mask took the first 10 digits the
+      // customer typed, which is "1" (their own habitual leading 1) plus
+      // the true number's first 9 digits — so stripping that phantom
+      // leading "1" off the stored value's 10-digit chunk reconstructs the
+      // real area code and the first 6 digits of the real number. Only the
+      // actual last digit (the 11th character typed, past the mask's old
+      // cutoff) is genuinely gone and has to come from the customer.
+      const recoveredDigits = normalized.match(/^\+11(\d{9})$/)?.[1];
+      const recovered = recoveredDigits
+        ? `(${recoveredDigits.slice(0, 3)}) ${recoveredDigits.slice(3, 6)}-${recoveredDigits.slice(6, 9)}_`
+        : undefined;
+      corrupted.push({ id: c.id, name, before: phone, recovered });
     } else {
       unparseable.push({ id: c.id, name, before: phone });
     }

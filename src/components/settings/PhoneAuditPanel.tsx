@@ -56,8 +56,9 @@ export function PhoneAuditPanel() {
           <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-700">
             <AlertTriangle size={16} className="mt-0.5 shrink-0" />
             <span>
-              <strong>{result.corrupted.length}</strong> hit the actual bug — the true last digit is gone and can&rsquo;t be recovered. These need a
-              text, call, or new form submission from the customer to get the real number back.
+              <strong>{result.corrupted.length}</strong> hit the actual bug — the true last digit is gone and can&rsquo;t be recovered. Where shown
+              below, the other 9 digits <em>are</em> recoverable (the area code and first 6 digits) — just confirm the last digit with the
+              customer, then update it from their profile&rsquo;s Edit screen.
             </span>
           </div>
 
@@ -67,6 +68,11 @@ export function PhoneAuditPanel() {
                 <li key={c.id}>
                   <Link href={`/customers/${c.id}`} className="text-[var(--brand)] hover:underline">{c.name}</Link>{" "}
                   <span className="text-[var(--text-faint)]">— currently saved as {c.before}</span>
+                  {c.recovered && (
+                    <span className="text-[var(--text-faint)]">
+                      {" "}— likely <strong className="text-[var(--text)]">{c.recovered}</strong> (confirm the last digit)
+                    </span>
+                  )}
                 </li>
               ))}
             </ul>
