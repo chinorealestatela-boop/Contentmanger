@@ -15,12 +15,12 @@
 // The field-mapping "template" isn't a rigid set of pixel coordinates —
 // coordinates break the moment the photo is rotated, cropped differently,
 // or lit differently, which the spec explicitly requires this feature to
-// tolerate. Instead the template lives in this prompt: a precise
-// description of the dealership's actual form layout (filled in once we
-// have a reference photo of it — see the TODO below) that a vision model
-// uses the same way a person would, which is robust to exactly the kind
-// of variation (rotation, lighting, handwriting, camera/phone) a fixed
-// coordinate grid is not.
+// tolerate. Instead the template lives in SYSTEM_PROMPT below: a precise,
+// section-by-section description of the dealership's actual "Down Payment
+// Agreement" form (calibrated against a real reference photo) that a
+// vision model applies the same way a person would, which is robust to
+// exactly the kind of variation (rotation, lighting, handwriting, camera/
+// phone) a fixed coordinate grid is not.
 
 import Anthropic from "@anthropic-ai/sdk";
 
@@ -149,29 +149,42 @@ const EXTRACTION_TOOL: Anthropic.Tool = {
   },
 };
 
-// TODO once the dealership's actual lead-form photo is provided: replace
-// this generic description with a precise walkthrough of that exact
-// form's sections/labels (e.g. "the top-right box labeled 'Down Today $'
-// is the initial payment; the line below labeled 'Balance Due by' followed
-// by a blank and a date is the one future Pick Payment this form
-// supports"). A specific, correct description of the real layout will beat
-// this generic one on accuracy every time — this is the "permanent
-// field-mapping configuration" the feature spec asks for, expressed as
-// prompt instructions a vision model can apply despite rotation/lighting/
-// handwriting variation, rather than as pixel coordinates that break under
-// exactly that variation.
-const SYSTEM_PROMPT = `You read photos of handwritten/printed dealership car-lead intake forms and extract their fields into structured data for a CRM.
+// Calibrated against H&H Auto Sales' actual "Down Payment Agreement" form
+// (reference photo provided 2026-11-05). That form is narrower than a
+// general lead-intake sheet — it's a post-sale document formalizing a
+// deferred-down-payment arrangement, not something filled out at first
+// contact — so it has no salesperson, email, financing-type, or
+// appointment fields at all. That's expected for this form, not a
+// scanning failure: those fields should simply come back null. If a
+// different, earlier-stage lead-intake sheet ever gets scanned instead,
+// the general field descriptions after this form's own section still
+// apply, as a fallback.
+const SYSTEM_PROMPT = `You read photos of dealership paperwork (primarily "Down Payment Agreement" forms from H&H Auto Sales, but possibly other lead/deal forms) and extract them into structured data for a CRM.
 
 Rules, in order of importance:
 1. Never invent or guess a value. If a field is blank, illegible, or not present on the form, its value is null (or false for hasTrade, or [] for the array fields) — not a plausible-sounding guess.
-2. If you can read a field but aren't confident you read it correctly (ambiguous handwriting, a smudged digit, a date that could be two different months), still report your best reading as the value, but add that field's name to lowConfidenceFields so a human can double-check it. Do not leave it null just because you're unsure — null specifically means "nothing is there."
+2. If you can read a field but aren't confident you read it correctly (ambiguous handwriting, a smudged digit, a date that could be two different months, a crossed-out/corrected figure, or two fields on the form that don't reconcile with each other), still report your best reading as the value, but add that field's name to lowConfidenceFields and explain the ambiguity in qualityNotes so a human can double-check it. Do not leave it null just because you're unsure — null specifically means "nothing is there."
 3. Dollar amounts: strip "$" and commas, return a plain number.
-4. Dates: resolve to ISO yyyy-mm-dd. If the form only gives a day/month without a year, assume the nearest future occurrence of that date relative to today. If you truly cannot resolve a date (e.g. only "next month" is written with no specific day), leave dueDate/appointmentDate null and explain in qualityNotes or the payment's description instead of guessing a date.
-5. Future payments ("Pick Payments"): a form may describe one or several separate future amounts, each with its own due date — e.g. "$500 today, $1,500 due 12/5" is ONE pick payment ($1,500 due 12/5; the $500 goes in initialPaymentToday, not in pickPayments since it's collected today, not a future obligation). "$750 due 11/20 and $750 due 12/20" is TWO pick payments. Only include an entry in pickPayments for an amount that is genuinely still owed in the future — never duplicate the initial/upfront amount into this array.
-6. Phone numbers: report digits as written; don't reformat beyond removing obvious handwriting artifacts.
-7. imageQuality: "ok" unless something about the photo itself (not the form's content) is the problem — out of focus, part of the form cut off from frame, or glare/shadow making a section genuinely unreadable. A form that's simply mostly blank (customer didn't fill in every field) is still "ok" — that's a form-content fact, not an image-quality problem.
+4. Dates: resolve to ISO yyyy-mm-dd. If the form only gives a day/month without a year, assume the nearest future occurrence of that date relative to today. If you truly cannot resolve a date, leave it null and explain in qualityNotes or the payment's description instead of guessing.
+5. Phone numbers: report digits as written; don't reformat beyond removing obvious handwriting artifacts.
+6. imageQuality: "ok" unless something about the photo itself (not the form's content) is the problem — out of focus, part of the form cut off from frame, or glare/shadow making a section genuinely unreadable. A form that's simply mostly blank (customer didn't fill in every field) is still "ok" — that's a form-content fact, not an image-quality problem.
 
-The dealership's lead form is a single page with printed field labels and handwritten customer/deal information filled in next to or below each label (checkboxes for some multiple-choice fields). Read it the way a person would: find each printed label, then read whatever is written in its associated blank, regardless of the photo's rotation, lighting, or the handwriting style.`;
+THE H&H AUTO SALES "DOWN PAYMENT AGREEMENT" FORM — read it exactly like this:
+
+- It's identified by the boxed heading "DOWN PAYMENT AGREEMENT" with "H&H Auto Sales" letterhead (3112 Fremont St, Las Vegas, NV 89104) printed below it.
+- "Buyer Name(s):" is ONE field holding the customer's full name, not separate first/last name boxes. Split it yourself: the first word is firstName, everything after is lastName — even if that's more than one word (e.g. "Osnier Gonzalez Rodriguez" -> firstName "Osnier", lastName "Gonzalez Rodriguez"; this double-surname pattern is common and correct, don't try to guess which word is a "real" last name beyond this simple split).
+- "Address" is followed by TWO lines: a street address line, then a "City, State Zip" line directly below it (comma before the state, e.g. "Las Vegas, NV 89104") — split that second line into city/state/zip.
+- "Home Phone:" and "Cell Phone:" are two separate printed labels, often filled in with the same number. Use Cell Phone as the phone value; fall back to Home Phone only if Cell Phone is blank.
+- "Collateral:" is the vehicle on THIS deal (what's being financed) — it's this form's label for vehicle of interest. Parse it as "YYYY Make Model" into vehicleYear/vehicleMake/vehicleModel (e.g. "2016 Nissan Sentra" -> 2016 / Nissan / Sentra).
+- "Stock #:" next to Collateral is vehicleStockNumber.
+- "Contract Date:" is when the agreement was signed — there's no dedicated CRM field for it, so note it in salesNotes (e.g. "Down payment agreement signed 11/02/2026"). Don't confuse it with a payment due date.
+- "Cash Down: $___ Due:___" is the amount collected at/near signing -> initialPaymentToday, with its own due date (usually the same as Contract Date). Watch for a printed amount that's been crossed out with a different amount handwritten above it — a correction. When that happens, cross-check against "Total Down" below (see next point) before deciding which figure is right.
+- "Deferred Down Payment(s):" is followed by several blank "$___ Due:___" rows (this form has 7 slots; most are usually blank). Each row that has BOTH an amount and a date filled in is one entry in pickPayments, kind "REMAINING_DOWN_PAYMENT". Skip any row left entirely blank.
+- "Total Down: $___" is a printed/typed checksum, not another payment — it should equal Cash Down + the sum of every filled Deferred Down Payment row. Use it to validate your reading of Cash Down: if your extracted numbers don't add up to Total Down, that's exactly the kind of discrepancy rule 2 above means — report your best reading of Cash Down, add "initialPaymentToday" to lowConfidenceFields, and explain the mismatch in qualityNotes (e.g. "Cash Down looks corrected to $2,500, but Cash Down + Deferred ($500) should equal the printed Total Down of $2,000, which only matches if Cash Down is actually $1,500 — verify by hand"). Never create a payment record for Total Down itself.
+- Signature lines and dates at the bottom carry no CRM field — don't extract them.
+- This form has no salesperson name, email address, financing type, desired payment, or appointment date anywhere on it. Leave salespersonName/appointmentDate/appointmentTime/financeType/desiredPayment/downPayment/email null for this form type — that's correct, not missing data to chase.
+
+FALLBACK for any other lead/intake form (printed labels with handwritten answers next to or below them, checkboxes for multiple-choice fields): read it the way a person would — find each printed label, then read whatever is written in its associated blank — regardless of the photo's rotation, lighting, or handwriting style.`;
 
 export async function extractLeadFormFromImage(params: { base64: string; mediaType: string }): Promise<ExtractResult> {
   if (!isAiScanConfigured()) {
