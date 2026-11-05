@@ -69,8 +69,9 @@ export default async function DashboardPage() {
         <p className="text-[13.5px] text-[var(--text-muted)]">Here&rsquo;s who needs you today.</p>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <Link href="/leads/scan" className="btn btn-primary justify-center py-3.5 text-[14px]"><ScanLine size={17} /> Scan License</Link>
+      <div className="grid grid-cols-3 gap-3">
+        <Link href="/leads/ai-scan" className="btn btn-primary justify-center py-3.5 text-[14px]"><ScanLine size={17} /> Scan New Lead</Link>
+        <Link href="/leads/scan" className="btn btn-secondary justify-center py-3.5 text-[14px]"><ScanLine size={17} /> Scan License</Link>
         <Link href="/leads/new" className="btn btn-secondary justify-center py-3.5 text-[14px]"><UserPlus2 size={17} /> New Lead</Link>
       </div>
 

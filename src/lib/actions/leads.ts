@@ -70,10 +70,15 @@ const intakeSchema = z.object({
   // PaymentPlan+Payment machinery the "Schedule Payment" button on an
   // existing customer's profile uses (see createPaymentPlanRecord in
   // src/lib/actions/payments.ts), rather than a second payment system.
+  // pickPaymentAmount/pickPaymentDueDate are parallel arrays (read via
+  // formData.getAll, same convention as createPaymentPlan's
+  // paymentAmount/paymentDueDate rows) so a form with several distinct
+  // future payments — e.g. a scanned lead sheet listing two separate
+  // amounts/dates — creates one Payment row per pair, not just one.
   enablePickPayment: optionalStr,
   pickPaymentInitialAmount: optionalNum, // already collected today (the "$500 down today" half of the example)
-  pickPaymentAmount: optionalNum, // the future amount still owed (the "$1,500 in 30 days" half)
-  pickPaymentDueDate: optionalStr,
+  pickPaymentAmounts: z.array(z.coerce.number().positive()).default([]),
+  pickPaymentDueDates: z.array(z.string().min(1)).default([]),
   pickPaymentNotes: optionalStr,
   pickPaymentStatus: optionalStr, // "PENDING" | "PAID" — Overdue is never a choice here, it's computed automatically once a Pending payment's due date passes (see src/lib/payments/reminders.ts)
 });
@@ -82,7 +87,15 @@ export type LeadActionState = (SimpleActionState & { customerId?: string }) | nu
 
 export async function createLead(_prev: LeadActionState, formData: FormData): Promise<LeadActionState> {
   const scope = await requireScope();
-  const raw = Object.fromEntries(formData.entries());
+  // Object.fromEntries(formData.entries()) would silently keep only the
+  // LAST value for a repeated key, so the pickPaymentAmount/
+  // pickPaymentDueDate rows (one <input> per future payment) have to be
+  // pulled out with getAll() before the rest of the fields are flattened.
+  const raw = {
+    ...Object.fromEntries(formData.entries()),
+    pickPaymentAmounts: formData.getAll("pickPaymentAmount"),
+    pickPaymentDueDates: formData.getAll("pickPaymentDueDate"),
+  };
   const parsed = intakeSchema.safeParse(raw);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input." };
   const d = parsed.data;
@@ -98,8 +111,11 @@ export async function createLead(_prev: LeadActionState, formData: FormData): Pr
   }
 
   const wantsPickPayment = d.enablePickPayment === "on" || d.enablePickPayment === "true";
-  if (wantsPickPayment && (!d.pickPaymentAmount || d.pickPaymentAmount <= 0 || !d.pickPaymentDueDate)) {
-    return { error: "Enter the Pick Payment amount and due date, or turn Pick Payment off." };
+  if (wantsPickPayment && d.pickPaymentAmounts.length === 0) {
+    return { error: "Enter at least one Pick Payment amount and due date, or turn Pick Payment off." };
+  }
+  if (wantsPickPayment && d.pickPaymentAmounts.length !== d.pickPaymentDueDates.length) {
+    return { error: "Every Pick Payment needs both an amount and a due date." };
   }
 
   let customerId = d.existingCustomerId;
@@ -182,28 +198,29 @@ export async function createLead(_prev: LeadActionState, formData: FormData): Pr
     });
   }
 
-  if (wantsPickPayment && d.pickPaymentAmount && d.pickPaymentDueDate) {
+  if (wantsPickPayment && d.pickPaymentAmounts.length > 0) {
     const plan = await createPaymentPlanRecord({
       customerId,
       leadId: lead.id,
-      totalRequired: (d.pickPaymentInitialAmount ?? 0) + d.pickPaymentAmount,
+      totalRequired: (d.pickPaymentInitialAmount ?? 0) + d.pickPaymentAmounts.reduce((a, b) => a + b, 0),
       amountPaidUpfront: d.pickPaymentInitialAmount ?? 0,
       notes: d.pickPaymentNotes,
-      payments: [{ amount: d.pickPaymentAmount, dueDate: new Date(`${d.pickPaymentDueDate}T00:00:00`) }],
+      payments: d.pickPaymentAmounts.map((amount, i) => ({ amount, dueDate: new Date(`${d.pickPaymentDueDates[i]}T00:00:00`) })),
       createdById: scope.userId,
     });
 
-    // "Paid" at intake means the future payment was actually collected
-    // before the lead was even saved (e.g. backfilling a deal that
-    // already closed) — reuse markPaymentPaid exactly as the Payment
-    // Tracker's "Mark Paid" button does, rather than hand-writing a
-    // second paid-at-creation code path.
+    // "Paid" at intake means the future payment(s) were actually
+    // collected before the lead was even saved (e.g. backfilling a deal
+    // that already closed) — reuse markPaymentPaid for each one exactly
+    // as the Payment Tracker's "Mark Paid" button does, rather than
+    // hand-writing a second paid-at-creation code path.
     if (d.pickPaymentStatus === "PAID") {
-      const payment = plan.payments[0];
-      const fd = new FormData();
-      fd.set("paymentId", payment.id);
-      fd.set("amountPaid", String(payment.amount));
-      await markPaymentPaid(null, fd);
+      for (const payment of plan.payments) {
+        const fd = new FormData();
+        fd.set("paymentId", payment.id);
+        fd.set("amountPaid", String(payment.amount));
+        await markPaymentPaid(null, fd);
+      }
     }
   }
 

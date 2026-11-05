@@ -48,3 +48,8 @@ next-env.d.ts
 # Generated at build time by scripts/generate-postgres-schema.mjs — never
 # hand-edit; the canonical schema is prisma/schema.prisma.
 /prisma/schema.postgres.prisma
+
+# Local-disk fallback for uploaded images when Vercel Blob isn't configured
+# (see src/lib/storage/images.ts) — never real deliverables, just whatever
+# a developer scanned/uploaded while testing locally.
+/public/uploads/

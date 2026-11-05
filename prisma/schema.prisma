@@ -49,23 +49,24 @@ model User {
   updatedAt         DateTime  @updatedAt
   lastLoginAt       DateTime?
 
-  customers      Customer[]           @relation("CustomerOwner")
-  leads          Lead[]               @relation("LeadAssignee")
-  tasks          Task[]               @relation("TaskAssignee")
-  appointments   Appointment[]        @relation("AppointmentSalesperson")
-  testDrives     TestDrive[]          @relation("TestDriveSalesperson")
-  activities     Activity[]           @relation("ActivityActor")
-  communications Communication[]      @relation("CommunicationActor")
-  notes          Note[]               @relation("NoteAuthor")
-  sales          Sale[]               @relation("SaleSalesperson")
-  notifications  Notification[]
-  resetTokens    PasswordResetToken[]
-  sessions       Session[]
-  followUps      FollowUp[]           @relation("FollowUpAssignee")
-  pushSubscriptions PushSubscription[]
-  paymentPlansCreated PaymentPlan[]   @relation("PaymentPlanCreatedBy")
-  paymentsMarkedPaid  Payment[]       @relation("PaymentPaidBy")
-  referralsCreated    Referral[]      @relation("ReferralCreatedBy")
+  customers           Customer[]           @relation("CustomerOwner")
+  leads               Lead[]               @relation("LeadAssignee")
+  tasks               Task[]               @relation("TaskAssignee")
+  appointments        Appointment[]        @relation("AppointmentSalesperson")
+  testDrives          TestDrive[]          @relation("TestDriveSalesperson")
+  activities          Activity[]           @relation("ActivityActor")
+  communications      Communication[]      @relation("CommunicationActor")
+  notes               Note[]               @relation("NoteAuthor")
+  sales               Sale[]               @relation("SaleSalesperson")
+  notifications       Notification[]
+  resetTokens         PasswordResetToken[]
+  sessions            Session[]
+  followUps           FollowUp[]           @relation("FollowUpAssignee")
+  pushSubscriptions   PushSubscription[]
+  paymentPlansCreated PaymentPlan[]        @relation("PaymentPlanCreatedBy")
+  paymentsMarkedPaid  Payment[]            @relation("PaymentPaidBy")
+  referralsCreated    Referral[]           @relation("ReferralCreatedBy")
+  documentsUploaded   CustomerDocument[]   @relation("DocumentUploadedBy")
 }
 
 // One row per browser/device the user has enabled push notifications on
@@ -164,8 +165,9 @@ model Customer {
   emailMessages       EmailMessage[]
   paymentPlans        PaymentPlan[]
   payments            Payment[]
-  referralsMade       Referral[] @relation("ReferralsMade")
-  referredByRecord    Referral?  @relation("ReferredCustomer")
+  referralsMade       Referral[]           @relation("ReferralsMade")
+  referredByRecord    Referral?            @relation("ReferredCustomer")
+  documents           CustomerDocument[]
 
   @@index([lastName, firstName])
 }
@@ -285,6 +287,7 @@ model Lead {
   appointments        Appointment[]
   paymentPlans        PaymentPlan[]
   payments            Payment[]
+  documents           CustomerDocument[]
 
   @@index([assigneeId, status])
   @@index([temperature])
@@ -698,6 +701,37 @@ model Note {
   createdAt DateTime @default(now())
 }
 
+// A file attached to a customer's profile — currently just the AI Lead
+// Scanner's original scanned lead-form photo (type SCANNED_LEAD_FORM), kept
+// so the physical paperwork can always be compared against what ended up
+// in the CRM. url points at wherever src/lib/storage/images.ts actually
+// stored the file (a Vercel Blob URL in production, or a /uploads/ path
+// under public/ in local dev — see that file's header comment). extractedData
+// is a JSON snapshot of exactly what the AI read off the image at scan time,
+// kept for audit purposes even if the customer's fields are edited later.
+model CustomerDocument {
+  id         String   @id @default(cuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  leadId     String?
+  lead       Lead?    @relation(fields: [leadId], references: [id], onDelete: SetNull)
+
+  type        String  @default("SCANNED_LEAD_FORM") // SCANNED_LEAD_FORM | OTHER
+  url         String
+  fileName    String?
+  contentType String?
+  sizeBytes   Int?
+
+  extractedData String? // JSON — the AI's extracted fields + confidence at scan time
+
+  uploadedById String
+  uploadedBy   User   @relation("DocumentUploadedBy", fields: [uploadedById], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([customerId])
+}
+
 // ─────────────────────────────────────────────────────────────────────────
 // FUTURE / DOWN-PAYMENT TRACKING
 // ─────────────────────────────────────────────────────────────────────────
@@ -711,15 +745,15 @@ model Note {
 // of each Payment's amountPaid (see src/lib/payments/status.ts), never
 // stored, so it can never drift out of sync with the individual payments.
 model PaymentPlan {
-  id         String    @id @default(cuid())
+  id         String   @id @default(cuid())
   customerId String
-  customer   Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
   leadId     String?
-  lead       Lead?     @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  lead       Lead?    @relation(fields: [leadId], references: [id], onDelete: SetNull)
 
   totalRequired     Float // total down payment originally required
-  amountPaidUpfront Float  @default(0) // already collected at signing, before this schedule
-  status            String @default("ACTIVE") // ACTIVE | COMPLETED | CANCELLED
+  amountPaidUpfront Float   @default(0) // already collected at signing, before this schedule
+  status            String  @default("ACTIVE") // ACTIVE | COMPLETED | CANCELLED
   notes             String?
 
   // Deferred-payment-completion follow-up (additive — see
@@ -732,8 +766,8 @@ model PaymentPlan {
   // still null, so re-reading or re-rendering this plan can never create
   // a second one.
   completedAt    DateTime?
-  followUpTaskId String?    @unique
-  followUpTask   Task?      @relation("PaymentPlanFollowUpTask", fields: [followUpTaskId], references: [id], onDelete: SetNull)
+  followUpTaskId String?   @unique
+  followUpTask   Task?     @relation("PaymentPlanFollowUpTask", fields: [followUpTaskId], references: [id], onDelete: SetNull)
 
   createdById String
   createdBy   User   @relation("PaymentPlanCreatedBy", fields: [createdById], references: [id])
@@ -766,15 +800,15 @@ model Payment {
   leadId     String?
   lead       Lead?    @relation(fields: [leadId], references: [id], onDelete: SetNull)
 
-  amount         Float
-  dueDate        DateTime
-  status         String    @default("PENDING") // PENDING | PAID | PARTIALLY_PAID | LATE | CANCELLED | WAIVED — LATE is set automatically by the reminder sweep when dueDate passes with no payment recorded (src/lib/payments/reminders.ts), never chosen directly by a user
-  amountPaid     Float     @default(0)
-  paidAt         DateTime?
-  paidById       String?
-  paidBy         User?     @relation("PaymentPaidBy", fields: [paidById], references: [id])
+  amount          Float
+  dueDate         DateTime
+  status          String    @default("PENDING") // PENDING | PAID | PARTIALLY_PAID | LATE | CANCELLED | WAIVED — LATE is set automatically by the reminder sweep when dueDate passes with no payment recorded (src/lib/payments/reminders.ts), never chosen directly by a user
+  amountPaid      Float     @default(0)
+  paidAt          DateTime?
+  paidById        String?
+  paidBy          User?     @relation("PaymentPaidBy", fields: [paidById], references: [id])
   referenceNumber String? // confirmation/reference # for the payment received, if any
-  notes          String?
+  notes           String?
 
   // Which reminder stages have already fired for this exact payment, so
   // the reminder sweep (src/lib/payments/reminders.ts) never sends the
@@ -837,8 +871,8 @@ model Referral {
   referredCustomerId String   @unique
   referredCustomer   Customer @relation("ReferredCustomer", fields: [referredCustomerId], references: [id], onDelete: Cascade)
 
-  rewardAmount Float  @default(200)
-  status       String @default("PENDING") // PENDING | PAID | INELIGIBLE
+  rewardAmount Float   @default(200)
+  status       String  @default("PENDING") // PENDING | PAID | INELIGIBLE
   notes        String?
 
   createdById String?

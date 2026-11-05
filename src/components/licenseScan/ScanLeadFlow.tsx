@@ -40,7 +40,7 @@ export function ScanLeadFlow({
     setParsed(result);
     setStep("CHECKING");
     const { firstName = "", lastName = "" } = result.fields;
-    const found = firstName && lastName ? await findPossibleDuplicates(firstName, lastName) : [];
+    const found = firstName && lastName ? await findPossibleDuplicates({ firstName, lastName }) : [];
     if (found.length > 0) {
       setMatches(found);
       setStep("MATCH");

@@ -13,6 +13,7 @@ import { MessageLogSection } from "@/components/customers/MessageLogSection";
 import { ProfileActions } from "@/components/customers/ProfileActions";
 import { FollowUpsSection } from "@/components/customers/FollowUpsSection";
 import { PaymentPlanSection } from "@/components/customers/PaymentPlanSection";
+import { DocumentsSection } from "@/components/customers/DocumentsSection";
 import { ReferralSection } from "@/components/customers/ReferralSection";
 import { AppointmentActionButtons } from "@/components/appointments/AppointmentEditControls";
 import { getThankYouTemplate } from "@/lib/payments/templates";
@@ -174,6 +175,11 @@ export default async function CustomerProfilePage({ params }: { params: Promise<
               thankYouTemplate={thankYouTemplate}
               referralAmount={referralAmount}
             />
+          </SectionCard>
+
+          {/* Scanned forms (AI Lead Scanner) */}
+          <SectionCard title="Scanned Forms">
+            <DocumentsSection documents={customer.documents} />
           </SectionCard>
 
           {/* Referral program */}

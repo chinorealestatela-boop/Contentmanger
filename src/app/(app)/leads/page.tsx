@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Plus, Download } from "lucide-react";
+import { Plus, Download, ScanLine } from "lucide-react";
 import { requireScope } from "@/lib/queries/scope";
 import { listLeads } from "@/lib/queries/leads";
 import { prisma } from "@/lib/prisma";
@@ -60,6 +60,9 @@ export default async function LeadsPage({
           <a href={exportHref} className="btn btn-secondary">
             <Download size={15} /> Download CSV
           </a>
+          <Link href="/leads/ai-scan" className="btn btn-secondary">
+            <ScanLine size={15} /> Scan New Lead
+          </Link>
           <Link href="/leads/new" className="btn btn-primary">
             <Plus size={15} /> New Lead
           </Link>

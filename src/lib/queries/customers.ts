@@ -82,6 +82,7 @@ export async function getCustomerProfile(customerId: string, scope: Scope) {
       referredByRecord: {
         include: { referrer: { select: { id: true, firstName: true, lastName: true } } },
       },
+      documents: { orderBy: { createdAt: "desc" }, include: { uploadedBy: true } },
     },
   });
 }
