@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { User, Lock, Bell, Workflow, Tag, XCircle, Repeat, Zap, Building2, Users, Shield, Plug } from "lucide-react";
+import { User, Lock, Bell, Workflow, Tag, XCircle, Repeat, Zap, Building2, Users, Shield, Plug, Phone } from "lucide-react";
 import { requireScope } from "@/lib/queries/scope";
 import { SettingsShell } from "@/components/settings/SettingsShell";
 
@@ -21,6 +21,7 @@ export default async function SettingsIndexPage() {
       { href: "/settings/dealership", icon: Building2, label: "Dealership", desc: "Business profile settings." },
       { href: "/settings/users", icon: Users, label: "User Management", desc: "Manage team accounts." },
       { href: "/settings/roles", icon: Shield, label: "Roles & Permissions", desc: "Configure access levels." },
+      { href: "/settings/phone-audit", icon: Phone, label: "Phone Number Audit", desc: "Find and fix numbers affected by the mask bug." },
     ] : []),
   ];
 
