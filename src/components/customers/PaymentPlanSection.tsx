@@ -1,14 +1,14 @@
 "use client";
 
 import { useActionState, useEffect, useState, useTransition } from "react";
-import { Pencil, StickyNote, XCircle, CheckCircle2, HandCoins, Gift, Clipboard, ClipboardCheck } from "lucide-react";
+import { Pencil, StickyNote, XCircle, CheckCircle2, HandCoins, Gift, Clipboard, ClipboardCheck, Plus, Trash2 } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { EmptyRow } from "@/components/ui/SectionCard";
 import { Badge } from "@/components/ui/Badge";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/format";
 import { computeRemainingBalance, getPaymentDisplayStatus, PAYMENT_DISPLAY_STATUS_META, type PaymentDisplayStatus } from "@/lib/payments/status";
 import { renderThankYouTemplate } from "@/lib/payments/templates";
-import { markPaymentPaid, updatePayment, cancelPayment, markPaymentWaived, addPaymentNote } from "@/lib/actions/payments";
+import { markPaymentPaid, updatePayment, cancelPayment, markPaymentWaived, addPaymentNote, addPaymentsToPlan } from "@/lib/actions/payments";
 import { completeTask, reopenTask } from "@/lib/actions/tasks";
 
 type PaymentRow = {
@@ -64,6 +64,7 @@ export function PaymentPlanSection({
   referralAmount: number;
 }) {
   const [modalPayment, setModalPayment] = useState<{ kind: "PAID" | "EDIT" | "NOTE"; payment: PaymentRow } | null>(null);
+  const [addPaymentPlanId, setAddPaymentPlanId] = useState<string | null>(null);
 
   if (plans.length === 0) {
     return <EmptyRow>No future payment schedule on file. Use the &ldquo;Future Payment&rdquo; button above to add one.</EmptyRow>;
@@ -82,7 +83,12 @@ export function PaymentPlanSection({
                 <span><span className="text-[var(--text-faint)]">Remaining:</span> <span className={`font-bold ${remaining > 0 ? "text-amber-600" : "text-emerald-600"}`}>{formatCurrency(remaining)}</span></span>
                 {plan.completedAt && <span><span className="text-[var(--text-faint)]">Completed:</span> <span className="font-semibold text-[var(--text)]">{formatDate(plan.completedAt)}</span></span>}
               </div>
-              {plan.status !== "ACTIVE" && <Badge variant={plan.status === "COMPLETED" ? "sold" : "lost"}>{plan.status}</Badge>}
+              <div className="flex shrink-0 items-center gap-2">
+                {plan.status === "ACTIVE" && (
+                  <button onClick={() => setAddPaymentPlanId(plan.id)} className="btn btn-secondary btn-sm"><Plus size={13} /> Add Pick Payment</button>
+                )}
+                {plan.status !== "ACTIVE" && <Badge variant={plan.status === "COMPLETED" ? "sold" : "lost"}>{plan.status}</Badge>}
+              </div>
             </div>
             <ul className="divide-y divide-[var(--border)]">
               {plan.payments.map((p) => {
@@ -144,7 +150,73 @@ export function PaymentPlanSection({
       {modalPayment?.kind === "PAID" && <MarkPaidModal payment={modalPayment.payment} onClose={() => setModalPayment(null)} />}
       {modalPayment?.kind === "EDIT" && <EditPaymentModal payment={modalPayment.payment} onClose={() => setModalPayment(null)} />}
       {modalPayment?.kind === "NOTE" && <NoteModal payment={modalPayment.payment} onClose={() => setModalPayment(null)} />}
+      {addPaymentPlanId && <AddPaymentModal planId={addPaymentPlanId} onClose={() => setAddPaymentPlanId(null)} />}
     </div>
+  );
+}
+
+/** Appends one or more new pick-payment dates to an existing plan —
+ * "Add Pick Payment" in the plan header above. Same row-editor shape as
+ * the "Schedule Payment" modal (ProfileActions.tsx's PaymentPlanModal)
+ * for a consistent feel, but calls addPaymentsToPlan instead of
+ * createPaymentPlan: this only ever adds rows to the plan it's opened
+ * from, never starts a second, separate plan and never touches a payment
+ * that's already saved. */
+function AddPaymentModal({ planId, onClose }: { planId: string; onClose: () => void }) {
+  const [state, formAction, pending] = useActionState(addPaymentsToPlan, null);
+  useCloseOnSuccess(state, onClose);
+  const [rows, setRows] = useState<{ amount: string; dueDate: string }[]>([{ amount: "", dueDate: "" }]);
+
+  return (
+    <Modal title="Add Pick Payment" onClose={onClose} width="max-w-lg">
+      <form action={formAction} className="space-y-4">
+        <input type="hidden" name="planId" value={planId} />
+        {state?.error && <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{state.error}</p>}
+        <p className="text-[12.5px] text-[var(--text-muted)]">Adds new payment date(s) to this existing schedule — it won&rsquo;t change or remove any payment already on file.</p>
+
+        <div className="space-y-2">
+          <label className="label">New Pick Payment(s)</label>
+          {rows.map((row, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <span className="w-14 shrink-0 text-[12px] text-[var(--text-faint)]">#{i + 1}</span>
+              <input
+                name="paymentAmount"
+                type="number"
+                step="0.01"
+                required
+                placeholder="Amount"
+                className="input"
+                value={row.amount}
+                onChange={(e) => setRows((r) => r.map((x, idx) => (idx === i ? { ...x, amount: e.target.value } : x)))}
+                autoFocus={i === 0}
+              />
+              <input
+                name="paymentDueDate"
+                type="date"
+                required
+                className="input"
+                value={row.dueDate}
+                onChange={(e) => setRows((r) => r.map((x, idx) => (idx === i ? { ...x, dueDate: e.target.value } : x)))}
+              />
+              <button
+                type="button"
+                onClick={() => setRows((r) => (r.length > 1 ? r.filter((_, idx) => idx !== i) : r))}
+                className="shrink-0 rounded-lg p-1.5 text-red-500 hover:bg-red-50"
+                aria-label="Remove payment"
+              >
+                <Trash2 size={15} />
+              </button>
+            </div>
+          ))}
+          <button type="button" onClick={() => setRows((r) => [...r, { amount: "", dueDate: "" }])} className="btn btn-ghost btn-sm"><Plus size={13} /> Add Another Pick Payment</button>
+        </div>
+
+        <div className="flex justify-end gap-2">
+          <button type="button" onClick={onClose} className="btn btn-ghost">Cancel</button>
+          <button type="submit" disabled={pending} className="btn btn-primary">{pending ? "Saving…" : "Save"}</button>
+        </div>
+      </form>
+    </Modal>
   );
 }
 

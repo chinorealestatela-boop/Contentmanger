@@ -116,6 +116,77 @@ export async function createPaymentPlan(_prev: SimpleActionState, formData: Form
   return { success: "Payment schedule created." };
 }
 
+const addPaymentsSchema = z.object({
+  planId: z.string().min(1),
+  // Same parallel-array convention as createPlanSchema above (one row per
+  // repeated "Payment #N" pair in the form — see AddPaymentModal).
+  paymentAmounts: z.array(z.coerce.number().positive()).min(1, "Add at least one payment."),
+  paymentDueDates: z.array(z.string().min(1)),
+});
+
+/** Adds one or more new pick-payment dates to an EXISTING plan — distinct
+ * from createPaymentPlan, which always starts a brand-new plan (with its
+ * own Total Required baseline). This is what "Add Another Pick Payment"
+ * on an already-saved schedule calls: it only ever appends new Payment
+ * rows, never touches or replaces any payment that's already there, so an
+ * existing payment's date/amount/status is untouched by this action.
+ *
+ * totalRequired grows by the sum of the newly added payments so
+ * computeRemainingBalance (totalRequired - amountPaidUpfront - credited)
+ * keeps reflecting reality — without this, "Remaining" would silently
+ * undercount by exactly the amount just added, which would be a worse
+ * bug than not having this feature at all. */
+export async function addPaymentsToPlan(_prev: SimpleActionState, formData: FormData): Promise<SimpleActionState> {
+  const scope = await requireScope();
+  const parsed = addPaymentsSchema.safeParse({
+    planId: formData.get("planId"),
+    paymentAmounts: formData.getAll("paymentAmount"),
+    paymentDueDates: formData.getAll("paymentDueDate"),
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input." };
+  const d = parsed.data;
+
+  if (d.paymentAmounts.length !== d.paymentDueDates.length || d.paymentDueDates.some((v) => !v)) {
+    return { error: "Every payment needs both an amount and a due date." };
+  }
+
+  const plan = await prisma.paymentPlan.findUnique({ where: { id: d.planId } });
+  if (!plan) return { error: "Payment plan not found." };
+
+  const additionalTotal = d.paymentAmounts.reduce((a, b) => a + b, 0);
+
+  await prisma.paymentPlan.update({
+    where: { id: d.planId },
+    data: {
+      totalRequired: plan.totalRequired + additionalTotal,
+      payments: {
+        create: d.paymentAmounts.map((amount, i) => ({
+          customerId: plan.customerId,
+          leadId: plan.leadId,
+          amount,
+          dueDate: new Date(`${d.paymentDueDates[i]}T00:00:00`),
+        })),
+      },
+    },
+  });
+
+  await logActivity({
+    customerId: plan.customerId,
+    leadId: plan.leadId,
+    type: "PAYMENT_UPDATED",
+    description: `Added ${d.paymentAmounts.length} more pick payment${d.paymentAmounts.length === 1 ? "" : "s"} totaling $${additionalTotal.toLocaleString()} to the existing payment schedule.`,
+    actorId: scope.userId,
+    metadata: { planId: d.planId },
+  });
+  await recordFollowUpAction({ customerId: plan.customerId, leadId: plan.leadId, actorId: scope.userId, taskTypes: ["FOLLOW_UP", "OTHER", "CREDIT"], source: "Additional pick payment(s) added" });
+
+  revalidatePath(`/customers/${plan.customerId}`);
+  revalidatePath("/payments");
+  revalidatePath("/dashboard");
+  revalidatePath("/calendar");
+  return { success: "Payment(s) added." };
+}
+
 const markPaidSchema = z.object({
   paymentId: z.string().min(1),
   amountPaid: z.coerce.number().positive("Enter the amount received."),
