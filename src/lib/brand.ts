@@ -2,7 +2,13 @@
 // the "dealership" settings row (see getDealershipProfile); these are used
 // only when that row is missing or a field is blank.
 
-export const FALLBACK_DEALERSHIP_NAME = "H&H Autos";
+export const FALLBACK_DEALERSHIP_NAME = "H&H Auto";
+
+/** Saved profiles may still store the old plural name. Public copy uses the singular. */
+export function normalizeDealershipName(name: string): string {
+  return name === "H&H Autos" ? FALLBACK_DEALERSHIP_NAME : name;
+}
+
 export const FALLBACK_DEALERSHIP_ADDRESS = "3112 E Fremont St, Las Vegas, NV 89104";
 export const FALLBACK_DEALERSHIP_PHONE = "702-325-3898";
 

@@ -4,7 +4,7 @@
 // src/components/settings/PushSubscribeButton.tsx (subscribe flow).
 
 self.addEventListener("push", (event) => {
-  let data = { title: "H&H Autos", body: "You have a new notification.", url: "/dashboard" };
+  let data = { title: "H&H Auto", body: "You have a new notification.", url: "/dashboard" };
   try {
     if (event.data) data = { ...data, ...event.data.json() };
   } catch {

@@ -4,6 +4,7 @@ import {
   FALLBACK_DEALERSHIP_ADDRESS,
   FALLBACK_DEALERSHIP_NAME,
   FALLBACK_DEALERSHIP_PHONE,
+  normalizeDealershipName,
   siteTitle,
 } from "@/lib/brand";
 
@@ -29,7 +30,7 @@ export function profileFromSettingValue(value: string | null | undefined): Deale
     }
   }
   return {
-    name: nonempty(parsed.name) ?? FALLBACK_DEALERSHIP_NAME,
+    name: normalizeDealershipName(nonempty(parsed.name) ?? FALLBACK_DEALERSHIP_NAME),
     address: nonempty(parsed.address) ?? FALLBACK_DEALERSHIP_ADDRESS,
     phone: nonempty(parsed.phone) ?? FALLBACK_DEALERSHIP_PHONE,
   };

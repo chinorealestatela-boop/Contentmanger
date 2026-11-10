@@ -3,6 +3,7 @@ import { requireScope } from "@/lib/queries/scope";
 import { prisma } from "@/lib/prisma";
 import { SettingsShell } from "@/components/settings/SettingsShell";
 import { DealershipForm } from "@/components/settings/DealershipForm";
+import { normalizeDealershipName } from "@/lib/brand";
 
 export default async function DealershipSettingsPage() {
   const scope = await requireScope();
@@ -10,6 +11,7 @@ export default async function DealershipSettingsPage() {
 
   const setting = await prisma.setting.findUnique({ where: { key: "dealership" } });
   const initial = setting ? JSON.parse(setting.value) : { name: "" };
+  if (typeof initial.name === "string") initial.name = normalizeDealershipName(initial.name);
 
   return (
     <SettingsShell isAdmin={scope.role === "ADMIN"} title="Dealership" subtitle="Business profile shown across the CRM.">

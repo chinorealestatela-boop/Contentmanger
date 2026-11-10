@@ -29,7 +29,7 @@ export function buildAppointmentICS(params: {
   return [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
-    "PRODID:-//H&H Autos//Test Drive Booking//EN",
+    "PRODID:-//H&H Auto//Test Drive Booking//EN",
     "CALSCALE:GREGORIAN",
     "METHOD:PUBLISH",
     "BEGIN:VEVENT",
