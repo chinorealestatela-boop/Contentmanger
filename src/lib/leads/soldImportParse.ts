@@ -1,25 +1,49 @@
-// Pure parser for the "Sold Customers / Down Payment Report" CSV export
-// (DealerCenter, via Chino's own report — column names match exactly what
-// that report produces). No prisma import here on purpose, same reasoning
-// as src/lib/inventory/csvImport.ts: this file is safe to unit-test/run
-// standalone, and the DB-writing half lives separately in
-// src/lib/actions/soldImport.ts.
+// Pure parser for TWO CSV export shapes Chino's reports come in. No prisma
+// import here on purpose, same reasoning as src/lib/inventory/csvImport.ts:
+// this file is safe to unit-test/run standalone, and the DB-writing half
+// lives separately in src/lib/actions/soldImport.ts.
+//
+// 1. "Sold Customers / Down Payment Report" (DealerCenter) — the original
+//    format this parser was built for: explicit Required Down Payment +
+//    Amount Paid columns, a Next Payment Date/Amount pair specifically for
+//    the remaining down-payment installment.
+// 2. "SOLD CUSTOMER AUDIT" — a richer, Transaction_ID-keyed export with a
+//    single Down_Payment column (no separate required/paid split), a real
+//    Selling_Price, VIN/stock/trim/mileage, co-buyer and secondary-phone
+//    columns, and loan/lender detail (Lien_Holder, Amount_Financed,
+//    First_Payment_Due_Date/Amount, verification-status columns). Detected
+//    per-file by which money columns are actually present (never both
+//    shapes in the same file), not by a format flag — same header-alias
+//    approach as the first format, just with more aliases.
+//
+// IMPORTANT distinction the audit format requires getting right:
+// First_Payment_Due_Date/Amount is the customer's first LOAN payment to
+// their lender (Westlake, Credit Acceptance, a credit union, ...) — money
+// owed to the BANK, never to this dealership. It must never be imported as
+// a Pick Payment (this CRM's down-payment-collection tracker) or it would
+// show the dealership as owed money it was never owed. It's carried
+// through as reference notes on the Sale instead — see soldImport.ts.
 
 import { parseCsv, normalizeHeader } from "@/lib/csv";
 
 const HEADER_ALIASES: Record<string, string[]> = {
-  firstName: ["firstname"],
-  lastName: ["lastname"],
-  fullName: ["fullname"],
-  phone: ["phonenumber", "phone"],
+  firstName: ["firstname", "customerfirstname"],
+  lastName: ["lastname", "customerlastname"],
+  fullName: ["fullname", "customerfullname"],
+  phone: ["phonenumber", "phone", "primaryphone"],
+  secondaryPhone: ["secondaryphone"],
   email: ["emailaddress", "email"],
-  primarySalesperson: ["primarysalesperson"],
+  coBuyerName: ["cobuyername"],
+  primarySalesperson: ["primarysalesperson", "salesperson"],
   vehicleYear: ["vehicleyear"],
   vehicleMake: ["vehiclemake"],
   vehicleModel: ["vehiclemodel"],
+  vehicleTrim: ["vehicletrim"],
   vin: ["vin"],
   stockNumber: ["stocknumber"],
-  transactionDate: ["transactiondate"],
+  mileage: ["mileage"],
+  transactionDate: ["transactiondate", "saledate"],
+  // Format 1 only — explicit required-vs-collected split.
   requiredDownPayment: ["requireddownpayment"],
   amountPaid: ["amountpaid"],
   remainingBalance: ["remainingdownpaymentbalance"],
@@ -27,10 +51,33 @@ const HEADER_ALIASES: Record<string, string[]> = {
   nextPaymentDate: ["nextpaymentdate"],
   nextPaymentAmount: ["nextpaymentamount"],
   additionalSchedule: ["additionalpaymentschedule"],
-  paymentNotes: ["paymentnotes"],
+  // Format 2 only — a single collected-at-signing figure; any remaining
+  // deferred amount, if mentioned at all, is free text in the audit notes
+  // (see extractDeferredDownPayment below), not its own column.
+  downPayment: ["downpayment"],
+  reportedSellingPrice: ["sellingprice"],
+  financingTypeRaw: ["financingtype"],
+  // Format 2 loan/lender reference info — never down-payment tracking,
+  // see header comment above. Carried through as notes only.
+  lienHolder: ["lienholder"],
+  lenderAccountReference: ["lenderaccountreference"],
+  contractDate: ["contractdate"],
+  amountFinanced: ["amountfinanced"],
+  firstPaymentDueDate: ["firstpaymentduedate"],
+  firstPaymentAmount: ["firstpaymentamount"],
+  paymentFrequency: ["paymentfrequency"],
+  lenderPaymentPhone: ["lenderpaymentphone"],
+  lenderPaymentWebsite: ["lenderpaymentwebsite"],
+  firstPaymentVerificationStatus: ["firstpaymentverificationstatus"],
+  dealVerificationStatus: ["dealverificationstatus"],
+  missingInformation: ["missinginformation"],
+  // paymentNotes carries either format's free-text notes column — same
+  // target field so every downstream use (deferred-amount extraction,
+  // CASH/FINANCE detection, notes concatenation) works for both.
+  paymentNotes: ["paymentnotes", "auditnotes"],
 };
 
-const REQUIRED_FIELDS = ["vin", "stockNumber", "vehicleYear", "vehicleMake", "vehicleModel", "requiredDownPayment", "amountPaid"];
+const REQUIRED_FIELDS = ["vin", "stockNumber", "vehicleYear", "vehicleMake", "vehicleModel"];
 
 function buildHeaderIndex(headerRow: string[]): Record<string, number> {
   const normalized = headerRow.map(normalizeHeader);
@@ -55,16 +102,30 @@ function parseMoney(v: string | null): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-/** MM/DD/YYYY → local-midnight Date. Returns null for blank/unparseable
- * input rather than guessing — a missing due date should surface as
- * missing, never silently become "today". */
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
+/** MM/DD/YYYY or YYYY-MM-DD → local-midnight Date (format 1 uses the
+ * former, format 2 the latter). Returns null for blank/unparseable input
+ * rather than guessing — a missing due date should surface as missing,
+ * never silently become "today". */
 function parseDate(v: string | null): Date | null {
   if (!v) return null;
-  const m = v.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if (!m) return null;
-  const [, mm, dd, yyyy] = m;
-  const d = new Date(Number(yyyy), Number(mm) - 1, Number(dd));
-  return Number.isNaN(d.getTime()) ? null : d;
+  const t = v.trim();
+  const slash = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (slash) {
+    const [, mm, dd, yyyy] = slash;
+    const d = new Date(Number(yyyy), Number(mm) - 1, Number(dd));
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  const iso = t.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (iso) {
+    const [, yyyy, mm, dd] = iso;
+    const d = new Date(Number(yyyy), Number(mm) - 1, Number(dd));
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  return null;
 }
 
 /** "Funded $13,927.46 (08/20/2026)" → 13927.46. This is the amount the
@@ -81,6 +142,42 @@ function extractFundedAmount(notes: string | null): number | null {
 function extractFinanceType(notes: string | null): "CASH" | "FINANCE" {
   if (notes && /full cash purchase|no financing/i.test(notes)) return "CASH";
   return "FINANCE"; // covers "Financed - <lender>" and "BHPH account" (dealer-financed)
+}
+
+/** Format 2's explicit Financing_Type column ("Retail Installment Contract
+ * (third-party lender)", "Buy-Here-Pay-Here", "Other - NEEDS REVIEW", ...)
+ * is more reliable than scraping free-text notes for it — use it directly
+ * when the column is present. Only an explicit "cash" mention counts as
+ * CASH; everything else (including an ambiguous "Other - NEEDS REVIEW"
+ * row — its own ambiguity gets preserved in notes, never silently
+ * resolved here) is treated as FINANCE, same default format 1 uses. */
+function financeTypeFromColumn(raw: string | null): "CASH" | "FINANCE" | null {
+  if (!raw) return null;
+  return /cash/i.test(raw) ? "CASH" : "FINANCE";
+}
+
+/** Format 2 has no structured "remaining balance" column — a deferred
+ * portion of the down payment only shows up as free text in the audit
+ * notes, e.g. "Deferred down payment $500.00". Extracts just the amount;
+ * never a due date (none is ever given alongside it in this report), so
+ * the caller schedules it the same no-known-date way format 1's balance
+ * already falls back to (see soldImport.ts) rather than inventing one. */
+function extractDeferredDownPayment(notes: string | null): number | null {
+  if (!notes) return null;
+  const m = notes.match(/deferred\s+down\s+payment\s+\$?([\d,]+\.?\d*)/i);
+  return m ? parseMoney(m[1]) : null;
+}
+
+/** "Veronica Perez Rubio (co-buyer phone (725) 310-9427)" → name with the
+ * parenthetical stripped, plus the phone extracted separately (there's no
+ * dedicated co-buyer-phone column, so it only ever shows up embedded in
+ * this one like this). Returns the plain name unchanged, phone null, when
+ * there's no parenthetical to begin with. */
+function splitCoBuyerNamePhone(raw: string | null): { name: string | null; phone: string | null } {
+  if (!raw) return { name: null, phone: null };
+  const m = raw.match(/^(.*?)\s*\(co-buyer phone\s*(.+?)\)\s*$/i);
+  if (!m) return { name: raw.trim() || null, phone: null };
+  return { name: m[1].trim() || null, phone: m[2].trim() || null };
 }
 
 /** "$300.00 due 09/23/2026" → {amount, dueDate}. The Additional Payment
@@ -103,11 +200,15 @@ export type ParsedSoldRow = {
   firstName: string;
   lastName: string;
   phone: string | null;
+  secondaryPhone: string | null; // format 2 only — no dedicated Customer field, carried as a note
   email: string | null;
+  coBuyerName: string | null;
+  coBuyerPhone: string | null; // extracted out of Co_Buyer_Name's parenthetical, no dedicated column
   primarySalesperson: string | null;
   vehicleYear: number;
   vehicleMake: string;
   vehicleModel: string; // model+trim+body style as one string — see header comment in soldImport.ts for why this isn't split further
+  mileage: number | null;
   vin: string;
   stockNumber: string;
   transactionDate: Date;
@@ -115,12 +216,28 @@ export type ParsedSoldRow = {
   amountPaid: number;
   remainingBalance: number;
   fundedAmount: number | null;
+  reportedSellingPrice: number | null; // format 2's actual Selling_Price — when present, strictly better than estimateSalePrice()'s guess (see soldImport.ts)
   financeType: "CASH" | "FINANCE";
   nextPaymentDate: Date | null;
   nextPaymentAmount: number | null;
   additionalPayment: { amount: number; dueDate: Date } | null;
   additionalScheduleRaw: string | null; // kept when it didn't parse to a firm amount+date
   paymentNotes: string | null;
+  // Format 2 loan/lender reference fields — informational only, never a
+  // Pick Payment (see the file header comment for why). soldImport.ts
+  // folds whichever of these are present into the Sale's notes.
+  lienHolder: string | null;
+  lenderAccountReference: string | null;
+  contractDate: Date | null;
+  amountFinanced: number | null;
+  firstPaymentDueDate: Date | null;
+  firstPaymentAmount: number | null;
+  paymentFrequency: string | null;
+  lenderPaymentPhone: string | null;
+  lenderPaymentWebsite: string | null;
+  firstPaymentVerificationStatus: string | null;
+  dealVerificationStatus: string | null;
+  missingInformation: string | null;
 };
 
 export type SoldImportParseResult = {
@@ -153,6 +270,15 @@ export function parseSoldCustomersCsv(text: string): SoldImportParseResult {
       errors: [{ row: "(file)", reason: `Missing expected column(s): ${missing.join(", ")}. Found headers: ${headerRow.join(", ") || "(none)"}.` }],
     };
   }
+  // Exactly one of the two money-column shapes must be present (see the
+  // file header comment) — format 1's explicit Required Down Payment, or
+  // format 2's single Down Payment column.
+  if (index.requiredDownPayment === undefined && index.downPayment === undefined) {
+    return {
+      rows: [],
+      errors: [{ row: "(file)", reason: `Missing a down payment column — expected "Required Down Payment" or "Down Payment". Found headers: ${headerRow.join(", ") || "(none)"}.` }],
+    };
+  }
 
   const parsed: ParsedSoldRow[] = [];
   const errors: { row: string; reason: string }[] = [];
@@ -171,11 +297,15 @@ export function parseSoldCustomersCsv(text: string): SoldImportParseResult {
     const yearRaw = cell(row, index, "vehicleYear");
     const vehicleYear = yearRaw ? Number(yearRaw.replace(/[^0-9]/g, "")) : NaN;
     const vehicleMake = cell(row, index, "vehicleMake");
-    const vehicleModel = cell(row, index, "vehicleModel");
+    let vehicleModel = cell(row, index, "vehicleModel");
     if (!Number.isFinite(vehicleYear) || vehicleYear < 1900 || !vehicleMake || !vehicleModel) {
       errors.push({ row: rowLabel, reason: "Missing or invalid Vehicle Year/Make/Model." });
       continue;
     }
+    const vehicleTrim = cell(row, index, "vehicleTrim");
+    if (vehicleTrim) vehicleModel = `${vehicleModel} ${vehicleTrim}`;
+    const mileageRaw = cell(row, index, "mileage");
+    const mileage = mileageRaw ? Number(mileageRaw.replace(/[^0-9]/g, "")) : null;
 
     let firstName = cell(row, index, "firstName") ?? "";
     let lastName = cell(row, index, "lastName") ?? "";
@@ -198,29 +328,49 @@ export function parseSoldCustomersCsv(text: string): SoldImportParseResult {
       continue;
     }
 
-    const requiredDownPayment = parseMoney(cell(row, index, "requiredDownPayment"));
-    const amountPaid = parseMoney(cell(row, index, "amountPaid"));
+    const paymentNotes = cell(row, index, "paymentNotes");
+
+    // Money columns: format 1 gives required/paid directly; format 2 gives
+    // one collected-at-signing figure, with any deferred remainder (if
+    // mentioned at all) only in the notes — see the file header comment.
+    let requiredDownPayment: number | null;
+    let amountPaid: number | null;
+    if (index.requiredDownPayment !== undefined) {
+      requiredDownPayment = parseMoney(cell(row, index, "requiredDownPayment"));
+      amountPaid = parseMoney(cell(row, index, "amountPaid"));
+    } else {
+      const collected = parseMoney(cell(row, index, "downPayment"));
+      const deferred = extractDeferredDownPayment(paymentNotes);
+      amountPaid = collected;
+      requiredDownPayment = collected !== null ? round2(collected + (deferred ?? 0)) : null;
+    }
     if (requiredDownPayment === null || amountPaid === null) {
-      errors.push({ row: rowLabel, reason: "Missing or unparseable Required Down Payment / Amount Paid." });
+      errors.push({ row: rowLabel, reason: "Missing or unparseable down payment amount." });
       continue;
     }
     const remainingBalanceCell = parseMoney(cell(row, index, "remainingBalance"));
     const remainingBalance = remainingBalanceCell ?? Math.max(0, requiredDownPayment - amountPaid);
 
-    const paymentNotes = cell(row, index, "paymentNotes");
     const additionalRaw = cell(row, index, "additionalSchedule");
     const additionalPayment = extractAdditionalSchedule(additionalRaw);
+
+    const financingTypeRaw = cell(row, index, "financingTypeRaw");
+    const coBuyer = splitCoBuyerNamePhone(cell(row, index, "coBuyerName"));
 
     parsed.push({
       rowLabel,
       firstName,
       lastName,
       phone: cell(row, index, "phone"),
+      secondaryPhone: cell(row, index, "secondaryPhone"),
       email: cell(row, index, "email"),
+      coBuyerName: coBuyer.name,
+      coBuyerPhone: coBuyer.phone,
       primarySalesperson: cell(row, index, "primarySalesperson"),
       vehicleYear,
       vehicleMake,
       vehicleModel,
+      mileage,
       vin,
       stockNumber,
       transactionDate,
@@ -228,12 +378,25 @@ export function parseSoldCustomersCsv(text: string): SoldImportParseResult {
       amountPaid,
       remainingBalance,
       fundedAmount: extractFundedAmount(paymentNotes),
-      financeType: extractFinanceType(paymentNotes),
+      reportedSellingPrice: parseMoney(cell(row, index, "reportedSellingPrice")),
+      financeType: financeTypeFromColumn(financingTypeRaw) ?? extractFinanceType(paymentNotes),
       nextPaymentDate: parseDate(cell(row, index, "nextPaymentDate")),
       nextPaymentAmount: parseMoney(cell(row, index, "nextPaymentAmount")),
       additionalPayment,
       additionalScheduleRaw: additionalRaw && !additionalPayment ? additionalRaw : null,
-      paymentNotes,
+      paymentNotes: financingTypeRaw ? [financingTypeRaw, paymentNotes].filter(Boolean).join(" | ") : paymentNotes,
+      lienHolder: cell(row, index, "lienHolder"),
+      lenderAccountReference: cell(row, index, "lenderAccountReference"),
+      contractDate: parseDate(cell(row, index, "contractDate")),
+      amountFinanced: parseMoney(cell(row, index, "amountFinanced")),
+      firstPaymentDueDate: parseDate(cell(row, index, "firstPaymentDueDate")),
+      firstPaymentAmount: parseMoney(cell(row, index, "firstPaymentAmount")),
+      paymentFrequency: cell(row, index, "paymentFrequency"),
+      lenderPaymentPhone: cell(row, index, "lenderPaymentPhone"),
+      lenderPaymentWebsite: cell(row, index, "lenderPaymentWebsite"),
+      firstPaymentVerificationStatus: cell(row, index, "firstPaymentVerificationStatus"),
+      dealVerificationStatus: cell(row, index, "dealVerificationStatus"),
+      missingInformation: cell(row, index, "missingInformation"),
     });
   }
 
