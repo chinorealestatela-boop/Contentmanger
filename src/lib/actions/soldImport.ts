@@ -9,8 +9,11 @@
 // separate system.
 //
 // Safe to re-run: a vehicle only ever sells once, so a row whose VIN/stock
-// number already has a Sale on file is skipped rather than creating a
-// duplicate deal (see the vehicle-not-found branch below).
+// number already has a Sale on file doesn't get a second deal created —
+// but it still gets a one-time check: if that customer has no First
+// Payment on file yet (e.g. they were imported before this field was
+// wired up), this run backfills it from the row's lender columns without
+// touching anything else about that already-imported deal.
 
 import { prisma } from "@/lib/prisma";
 import { requireScope } from "@/lib/queries/scope";
@@ -25,6 +28,12 @@ export type SoldImportResult = {
   totalRows: number;
   imported: number;
   skippedDuplicate: number;
+  // Rows whose vehicle already had a sale on file (imported before the
+  // First Payment feature existed) where re-running this same CSV was
+  // still useful: the customer was missing a First Payment, and this run
+  // filled it in from the row's lender columns without touching anything
+  // else about that already-imported deal.
+  backfilledFirstPayments: number;
   errors: { row: string; reason: string }[];
   unmatchedSalespeople: { row: string; name: string }[];
   // Rows with a First Payment Due Date or Amount on file, but not both —
@@ -39,6 +48,7 @@ const FAILED_STUB: Omit<SoldImportResult, "errorMessage"> = {
   totalRows: 0,
   imported: 0,
   skippedDuplicate: 0,
+  backfilledFirstPayments: 0,
   errors: [],
   unmatchedSalespeople: [],
   missingFirstPaymentInfo: [],
@@ -73,6 +83,64 @@ function matchSalesperson(name: string | null, users: { id: string; firstName: s
 function estimateSalePrice(row: ParsedSoldRow): number {
   const base = row.fundedAmount !== null ? row.fundedAmount + row.requiredDownPayment : row.requiredDownPayment;
   return round2(base);
+}
+
+type FirstPaymentOutcome = { status: "CREATED" } | { status: "MISSING_INFO"; reason: string } | { status: "SKIPPED_HAS_FIRST" };
+
+/** Creates a First Payment (bank/lender) row from a parsed CSV row, used
+ * both for a brand-new import and for backfilling a customer imported
+ * before this field existed (see the existingSale branch below) — same
+ * never-guess rule either way: only created when BOTH the due date and
+ * amount are on file. */
+async function createFirstPaymentFromRow(params: {
+  row: ParsedSoldRow;
+  customerId: string;
+  leadId: string | null;
+  actorId: string;
+  todayStr: string;
+}): Promise<FirstPaymentOutcome> {
+  const { row, customerId, leadId, actorId, todayStr } = params;
+  if (!row.firstPaymentDueDate && row.firstPaymentAmount === null) return { status: "SKIPPED_HAS_FIRST" };
+  if (!(row.firstPaymentDueDate && row.firstPaymentAmount !== null)) {
+    return {
+      status: "MISSING_INFO",
+      reason: row.firstPaymentDueDate
+        ? "First Payment Due Date is on file but First Payment Amount is missing — not imported, enter it manually on the customer's profile."
+        : "First Payment Amount is on file but First Payment Due Date is missing — not imported, enter it manually on the customer's profile.",
+    };
+  }
+
+  const lenderNoteParts = [
+    row.lenderAccountReference ? `Account ref: ${row.lenderAccountReference}` : null,
+    row.amountFinanced !== null ? `Amount financed: $${row.amountFinanced.toLocaleString()}` : null,
+    row.paymentFrequency ? `Frequency: ${row.paymentFrequency}` : null,
+    row.lenderPaymentPhone ? `Lender phone: ${row.lenderPaymentPhone}` : null,
+    row.lenderPaymentWebsite ? `Lender website: ${row.lenderPaymentWebsite}` : null,
+    row.firstPaymentVerificationStatus ? `Verification: ${row.firstPaymentVerificationStatus}` : null,
+  ].filter((v): v is string => Boolean(v));
+
+  await prisma.payment.create({
+    data: {
+      customerId,
+      leadId: leadId ?? undefined,
+      paymentType: "FIRST",
+      paidToName: row.lienHolder ?? undefined,
+      amount: row.firstPaymentAmount,
+      dueDate: row.firstPaymentDueDate,
+      status: dateOnlyStr(row.firstPaymentDueDate) < todayStr ? "LATE" : "PENDING",
+      notes: lenderNoteParts.length > 0 ? lenderNoteParts.join(" | ") : undefined,
+    },
+  });
+  await logActivity({
+    customerId,
+    leadId: leadId ?? undefined,
+    type: "FIRST_PAYMENT_CREATED",
+    description: `First bank payment imported: $${row.firstPaymentAmount.toLocaleString()} due ${dateOnlyStr(row.firstPaymentDueDate)}${
+      row.lienHolder ? ` to ${row.lienHolder}` : ""
+    }.`,
+    actorId,
+  });
+  return { status: "CREATED" };
 }
 
 export async function importSoldCustomersCsv(_prev: SoldImportResult | null, formData: FormData): Promise<SoldImportResult> {
@@ -115,6 +183,7 @@ export async function importSoldCustomersCsv(_prev: SoldImportResult | null, for
   const missingFirstPaymentInfo: { row: string; reason: string }[] = [];
   let imported = 0;
   let skippedDuplicate = 0;
+  let backfilledFirstPayments = 0;
 
   for (const row of rows) {
     try {
@@ -134,6 +203,26 @@ export async function importSoldCustomersCsv(_prev: SoldImportResult | null, for
         const existingSale = await prisma.sale.findFirst({ where: { vehicleId: vehicle.id } });
         if (existingSale) {
           skippedDuplicate++;
+          // Backfill: this deal was already imported (likely before the
+          // First Payment feature existed, or just without this field),
+          // but the row sitting right here still has the lender info —
+          // if that customer has no First Payment on file yet, add it
+          // now. Nothing else about the existing deal is touched.
+          const hasFirstPayment = await prisma.payment.findFirst({
+            where: { customerId: existingSale.customerId, paymentType: "FIRST" },
+            select: { id: true },
+          });
+          if (!hasFirstPayment) {
+            const outcome = await createFirstPaymentFromRow({
+              row,
+              customerId: existingSale.customerId,
+              leadId: existingSale.leadId,
+              actorId: scope.userId,
+              todayStr,
+            });
+            if (outcome.status === "CREATED") backfilledFirstPayments++;
+            else if (outcome.status === "MISSING_INFO") missingFirstPaymentInfo.push({ row: row.rowLabel, reason: outcome.reason });
+          }
           continue;
         }
       }
@@ -266,45 +355,8 @@ export async function importSoldCustomersCsv(_prev: SoldImportResult | null, for
       // uncertain, mark Needs Review — never guess"). This is intentionally
       // separate from the Pick Payment schedule above: it's money owed to
       // the lender, not the dealership (see soldImportParse.ts header).
-      if (row.firstPaymentDueDate && row.firstPaymentAmount !== null) {
-        const lenderNoteParts = [
-          row.lenderAccountReference ? `Account ref: ${row.lenderAccountReference}` : null,
-          row.amountFinanced !== null ? `Amount financed: $${row.amountFinanced.toLocaleString()}` : null,
-          row.paymentFrequency ? `Frequency: ${row.paymentFrequency}` : null,
-          row.lenderPaymentPhone ? `Lender phone: ${row.lenderPaymentPhone}` : null,
-          row.lenderPaymentWebsite ? `Lender website: ${row.lenderPaymentWebsite}` : null,
-          row.firstPaymentVerificationStatus ? `Verification: ${row.firstPaymentVerificationStatus}` : null,
-        ].filter((v): v is string => Boolean(v));
-
-        await prisma.payment.create({
-          data: {
-            customerId: customer.id,
-            leadId: lead.id,
-            paymentType: "FIRST",
-            paidToName: row.lienHolder ?? undefined,
-            amount: row.firstPaymentAmount,
-            dueDate: row.firstPaymentDueDate,
-            status: dateOnlyStr(row.firstPaymentDueDate) < todayStr ? "LATE" : "PENDING",
-            notes: lenderNoteParts.length > 0 ? lenderNoteParts.join(" | ") : undefined,
-          },
-        });
-        await logActivity({
-          customerId: customer.id,
-          leadId: lead.id,
-          type: "FIRST_PAYMENT_CREATED",
-          description: `First bank payment imported: $${row.firstPaymentAmount.toLocaleString()} due ${dateOnlyStr(row.firstPaymentDueDate)}${
-            row.lienHolder ? ` to ${row.lienHolder}` : ""
-          }.`,
-          actorId: scope.userId,
-        });
-      } else if (row.firstPaymentDueDate || row.firstPaymentAmount !== null) {
-        missingFirstPaymentInfo.push({
-          row: row.rowLabel,
-          reason: row.firstPaymentDueDate
-            ? "First Payment Due Date is on file but First Payment Amount is missing — not imported, enter it manually on the customer's profile."
-            : "First Payment Amount is on file but First Payment Due Date is missing — not imported, enter it manually on the customer's profile.",
-        });
-      }
+      const firstPaymentOutcome = await createFirstPaymentFromRow({ row, customerId: customer.id, leadId: lead.id, actorId: scope.userId, todayStr });
+      if (firstPaymentOutcome.status === "MISSING_INFO") missingFirstPaymentInfo.push({ row: row.rowLabel, reason: firstPaymentOutcome.reason });
 
       await logActivity({
         customerId: customer.id,
@@ -343,5 +395,5 @@ export async function importSoldCustomersCsv(_prev: SoldImportResult | null, for
   revalidatePath("/calendar");
   revalidatePath("/vehicles");
 
-  return { status: "SUCCESS", totalRows: rows.length, imported, skippedDuplicate, errors, unmatchedSalespeople, missingFirstPaymentInfo };
+  return { status: "SUCCESS", totalRows: rows.length, imported, skippedDuplicate, backfilledFirstPayments, errors, unmatchedSalespeople, missingFirstPaymentInfo };
 }

@@ -106,6 +106,15 @@ function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
+/** The audit report sometimes puts a placeholder like "MISSING - NEEDS
+ * REVIEW" directly in a text cell (seen in Lien_Holder) instead of
+ * leaving it blank — treat that the same as no value on file rather than
+ * storing it as if it were a real name. */
+function cleanPlaceholder(v: string | null): string | null {
+  if (!v) return null;
+  return /^(missing|unknown|n\/?a|tbd)\b/i.test(v.trim()) ? null : v;
+}
+
 /** MM/DD/YYYY or YYYY-MM-DD → local-midnight Date (format 1 uses the
  * former, format 2 the latter). Returns null for blank/unparseable input
  * rather than guessing — a missing due date should surface as missing,
@@ -385,7 +394,7 @@ export function parseSoldCustomersCsv(text: string): SoldImportParseResult {
       additionalPayment,
       additionalScheduleRaw: additionalRaw && !additionalPayment ? additionalRaw : null,
       paymentNotes: financingTypeRaw ? [financingTypeRaw, paymentNotes].filter(Boolean).join(" | ") : paymentNotes,
-      lienHolder: cell(row, index, "lienHolder"),
+      lienHolder: cleanPlaceholder(cell(row, index, "lienHolder")),
       lenderAccountReference: cell(row, index, "lenderAccountReference"),
       contractDate: parseDate(cell(row, index, "contractDate")),
       amountFinanced: parseMoney(cell(row, index, "amountFinanced")),

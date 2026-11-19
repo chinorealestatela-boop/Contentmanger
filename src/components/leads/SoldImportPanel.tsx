@@ -39,8 +39,8 @@ export function SoldImportPanel() {
             <span>
               {result.status === "SUCCESS"
                 ? `Imported ${result.imported} of ${result.totalRows} rows${result.skippedDuplicate ? ` — ${result.skippedDuplicate} already on file, skipped` : ""}${
-                    result.errors.length ? ` — ${result.errors.length} row(s) had a problem, see below` : ""
-                  }.`
+                    result.backfilledFirstPayments ? ` — ${result.backfilledFirstPayments} already-imported customer(s) were missing a First Payment, now added` : ""
+                  }${result.errors.length ? ` — ${result.errors.length} row(s) had a problem, see below` : ""}.`
                 : `Import failed: ${result.errorMessage}`}
             </span>
           </div>
