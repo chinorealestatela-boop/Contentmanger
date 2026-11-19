@@ -1,13 +1,14 @@
 import {
   Phone, PhoneCall, Car, Building2, Eye, DollarSign, ArrowLeftRight, Briefcase, Truck, MoreHorizontal, MessageCircle, AlertTriangle,
-  Mail, Search, Users, Bell,
+  Mail, Search, Users, Bell, Landmark,
   type LucideIcon,
 } from "lucide-react";
 import { optionColor, APPOINTMENT_TYPES, TASK_TYPES } from "@/lib/constants";
 
 // Icon per calendar event type (Appointment.type values + the synthetic
-// "FOLLOW_UP"/"PAYMENT_DUE"/"PAYMENT_LATE" types used for FollowUp and
-// Payment rows on the unified calendar).
+// "FOLLOW_UP" / "PAYMENT_FIRST_DUE" / "PAYMENT_FIRST_LATE" /
+// "PAYMENT_PICK_DUE" / "PAYMENT_PICK_LATE" types used for FollowUp and
+// Payment rows on the unified calendar — see queries/calendar.ts).
 export const EVENT_ICONS: Record<string, LucideIcon> = {
   CUSTOMER_CALL: Phone,
   FOLLOW_UP_CALL: PhoneCall,
@@ -20,8 +21,10 @@ export const EVENT_ICONS: Record<string, LucideIcon> = {
   SALES_APPOINTMENT: Briefcase,
   DELIVERY: Truck,
   CONSULTATION: MessageCircle,
-  PAYMENT_DUE: DollarSign,
-  PAYMENT_LATE: AlertTriangle,
+  PAYMENT_FIRST_DUE: Landmark,
+  PAYMENT_FIRST_LATE: AlertTriangle,
+  PAYMENT_PICK_DUE: DollarSign,
+  PAYMENT_PICK_LATE: AlertTriangle,
   OTHER: MoreHorizontal,
 };
 
@@ -46,11 +49,17 @@ export const TASK_EVENT_ICONS: Record<string, LucideIcon> = {
   OTHER: MoreHorizontal,
 };
 
+// Payment Type color coding (applies everywhere a payment date shows —
+// calendar, customer profile, dashboard, reminders): FIRST (bank/lender)
+// is always red, PICK (dealership down payment) is always green,
+// regardless of due/late status — status still shows via the separate
+// badge EventRow/PaymentRow render, so color here means "who it's owed
+// to," not "how urgent."
 export function eventColor(type: string, kind?: string) {
   if (kind === "task") return optionColor(TASK_TYPES, type);
   if (type === "FOLLOW_UP") return "#0891b2";
-  if (type === "PAYMENT_LATE") return "#dc2626";
-  if (type === "PAYMENT_DUE") return "#16a34a";
+  if (type.startsWith("PAYMENT_FIRST")) return "#DC2626";
+  if (type.startsWith("PAYMENT_PICK")) return "#16A34A";
   return optionColor(APPOINTMENT_TYPES, type);
 }
 

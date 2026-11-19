@@ -27,6 +27,10 @@ export type SoldImportResult = {
   skippedDuplicate: number;
   errors: { row: string; reason: string }[];
   unmatchedSalespeople: { row: string; name: string }[];
+  // Rows with a First Payment Due Date or Amount on file, but not both —
+  // never guessed into a Payment row (see "If uncertain, mark Needs
+  // Review — never guess"); surfaced here so Chino can enter it manually.
+  missingFirstPaymentInfo: { row: string; reason: string }[];
   errorMessage?: string;
 };
 
@@ -37,6 +41,7 @@ const FAILED_STUB: Omit<SoldImportResult, "errorMessage"> = {
   skippedDuplicate: 0,
   errors: [],
   unmatchedSalespeople: [],
+  missingFirstPaymentInfo: [],
 };
 
 const MAX_CSV_BYTES = 5 * 1024 * 1024;
@@ -107,6 +112,7 @@ export async function importSoldCustomersCsv(_prev: SoldImportResult | null, for
 
   const errors = [...parseErrors];
   const unmatchedSalespeople: { row: string; name: string }[] = [];
+  const missingFirstPaymentInfo: { row: string; reason: string }[] = [];
   let imported = 0;
   let skippedDuplicate = 0;
 
@@ -182,6 +188,12 @@ export async function importSoldCustomersCsv(_prev: SoldImportResult | null, for
         });
       }
 
+      const salesNotesParts = [
+        row.paymentNotes,
+        row.dealVerificationStatus ? `Deal verification: ${row.dealVerificationStatus}` : null,
+        row.missingInformation ? `Missing info flagged on report: ${row.missingInformation}` : null,
+      ].filter((v): v is string => Boolean(v));
+
       const lead = await prisma.lead.create({
         data: {
           customerId: customer.id,
@@ -191,7 +203,7 @@ export async function importSoldCustomersCsv(_prev: SoldImportResult | null, for
           soldAt: row.transactionDate,
           financeType: row.financeType,
           downPayment: row.requiredDownPayment,
-          salesNotes: row.paymentNotes ?? undefined,
+          salesNotes: salesNotesParts.length > 0 ? salesNotesParts.join(" | ") : undefined,
         },
       });
 
@@ -249,6 +261,51 @@ export async function importSoldCustomersCsv(_prev: SoldImportResult | null, for
         }
       }
 
+      // First Payment (bank/lender) — only created when BOTH the due date
+      // and amount are on file; never guessed from one alone (see "If
+      // uncertain, mark Needs Review — never guess"). This is intentionally
+      // separate from the Pick Payment schedule above: it's money owed to
+      // the lender, not the dealership (see soldImportParse.ts header).
+      if (row.firstPaymentDueDate && row.firstPaymentAmount !== null) {
+        const lenderNoteParts = [
+          row.lenderAccountReference ? `Account ref: ${row.lenderAccountReference}` : null,
+          row.amountFinanced !== null ? `Amount financed: $${row.amountFinanced.toLocaleString()}` : null,
+          row.paymentFrequency ? `Frequency: ${row.paymentFrequency}` : null,
+          row.lenderPaymentPhone ? `Lender phone: ${row.lenderPaymentPhone}` : null,
+          row.lenderPaymentWebsite ? `Lender website: ${row.lenderPaymentWebsite}` : null,
+          row.firstPaymentVerificationStatus ? `Verification: ${row.firstPaymentVerificationStatus}` : null,
+        ].filter((v): v is string => Boolean(v));
+
+        await prisma.payment.create({
+          data: {
+            customerId: customer.id,
+            leadId: lead.id,
+            paymentType: "FIRST",
+            paidToName: row.lienHolder ?? undefined,
+            amount: row.firstPaymentAmount,
+            dueDate: row.firstPaymentDueDate,
+            status: dateOnlyStr(row.firstPaymentDueDate) < todayStr ? "LATE" : "PENDING",
+            notes: lenderNoteParts.length > 0 ? lenderNoteParts.join(" | ") : undefined,
+          },
+        });
+        await logActivity({
+          customerId: customer.id,
+          leadId: lead.id,
+          type: "FIRST_PAYMENT_CREATED",
+          description: `First bank payment imported: $${row.firstPaymentAmount.toLocaleString()} due ${dateOnlyStr(row.firstPaymentDueDate)}${
+            row.lienHolder ? ` to ${row.lienHolder}` : ""
+          }.`,
+          actorId: scope.userId,
+        });
+      } else if (row.firstPaymentDueDate || row.firstPaymentAmount !== null) {
+        missingFirstPaymentInfo.push({
+          row: row.rowLabel,
+          reason: row.firstPaymentDueDate
+            ? "First Payment Due Date is on file but First Payment Amount is missing — not imported, enter it manually on the customer's profile."
+            : "First Payment Amount is on file but First Payment Due Date is missing — not imported, enter it manually on the customer's profile.",
+        });
+      }
+
       await logActivity({
         customerId: customer.id,
         leadId: lead.id,
@@ -286,5 +343,5 @@ export async function importSoldCustomersCsv(_prev: SoldImportResult | null, for
   revalidatePath("/calendar");
   revalidatePath("/vehicles");
 
-  return { status: "SUCCESS", totalRows: rows.length, imported, skippedDuplicate, errors, unmatchedSalespeople };
+  return { status: "SUCCESS", totalRows: rows.length, imported, skippedDuplicate, errors, unmatchedSalespeople, missingFirstPaymentInfo };
 }

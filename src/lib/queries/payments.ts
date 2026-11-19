@@ -16,6 +16,8 @@ export type PaymentListItem = {
   amountPaid: number;
   notes: string | null;
   referenceNumber: string | null;
+  paymentType: string; // FIRST | PICK — see the Payment model's comment in prisma/schema.prisma
+  paidToName: string | null;
   customerId: string;
   customerName: string;
   customerPhone: string | null;
@@ -65,6 +67,8 @@ export async function getPaymentDashboardData(scope: Scope) {
     amountPaid: p.amountPaid,
     notes: p.notes,
     referenceNumber: p.referenceNumber,
+    paymentType: p.paymentType,
+    paidToName: p.paidToName,
     customerId: p.customerId,
     customerName: `${p.customer.firstName} ${p.customer.lastName}`,
     customerPhone: p.customer.phone,

@@ -11,7 +11,7 @@ import { FALLBACK_DEALERSHIP_NAME } from "@/lib/brand";
 
 type Template = { id: string; name: string; trigger: string | null; body: string; active: boolean; isDefault: boolean };
 
-const SAMPLE_VARS = { firstName: "John", amount: "$500", dueDate: "October 17", agentName: "Chino", dealershipName: FALLBACK_DEALERSHIP_NAME };
+const SAMPLE_VARS = { firstName: "John", amount: "$500", dueDate: "October 17", agentName: "Chino", dealershipName: FALLBACK_DEALERSHIP_NAME, paymentLabel: "pick payment" };
 
 const TRIGGER_LABEL: Record<string, string> = Object.fromEntries(PAYMENT_REMINDER_STAGES.map((s) => [s.value, s.label]));
 
@@ -90,7 +90,8 @@ function TemplateModal({ template, onClose }: { template?: Template; onClose: ()
         <div>
           <label className="label">Message</label>
           <textarea name="body" required rows={4} className="input" value={body} onChange={(e) => setBody(e.target.value)} />
-          <p className="mt-1 text-[11px] text-[var(--text-faint)]">Variables: {"{{firstName}} {{amount}} {{dueDate}} {{agentName}} {{dealershipName}}"}</p>
+          <p className="mt-1 text-[11px] text-[var(--text-faint)]">Variables: {"{{firstName}} {{amount}} {{dueDate}} {{agentName}} {{dealershipName}} {{paymentLabel}}"}</p>
+          <p className="mt-1 text-[11px] text-[var(--text-faint)]">{"{{paymentLabel}}"} reads as &ldquo;pick payment&rdquo; or &ldquo;first payment to [lender]&rdquo; depending on the payment — use it so one template fits both types.</p>
         </div>
         <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-subtle)] p-3">
           <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-faint)]">Preview</p>

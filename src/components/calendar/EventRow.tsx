@@ -25,9 +25,10 @@ export function EventRow({ event, showDate = false, pickers }: { event: Calendar
   // consistency rather than special-cased in just this one file.
   const Icon = eventIcon(event.type, event.kind);
   const color = eventColor(event.type, event.kind);
+  const isFirstPayment = event.kind === "payment" && event.type.startsWith("PAYMENT_FIRST");
   const typeLabel =
     event.kind === "followup" ? "Follow-Up Call" :
-    event.kind === "payment" ? "Scheduled Payment" :
+    event.kind === "payment" ? (isFirstPayment ? "First Payment" : "Pick Payment") :
     event.kind === "task" ? optionLabel(TASK_TYPES, event.type) :
     optionLabel(APPOINTMENT_TYPES, event.type);
 
@@ -40,8 +41,15 @@ export function EventRow({ event, showDate = false, pickers }: { event: Calendar
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-2">
-            <p className="truncate text-[13.5px] font-semibold text-[var(--text)]">{event.customerName}</p>
-            <span className="shrink-0 text-[12px] font-semibold tabular-nums text-[var(--text)]">
+            <p className="flex min-w-0 items-center gap-1.5 truncate text-[13.5px] font-semibold text-[var(--text)]">
+              {event.customerName}
+              {event.kind === "payment" && (
+                <span className="shrink-0 rounded-full px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-wide text-white" style={{ background: color }}>
+                  {isFirstPayment ? "First" : "Pick"}
+                </span>
+              )}
+            </p>
+            <span className="shrink-0 text-[12px] font-semibold tabular-nums" style={{ color: event.kind === "payment" ? color : "var(--text)" }}>
               {showDate ? `${formatDate(event.date, "MMM d")} · ` : ""}{formatTime12h(event.time)}{event.endTime ? `–${formatTime12h(event.endTime)}` : ""}
             </span>
           </div>

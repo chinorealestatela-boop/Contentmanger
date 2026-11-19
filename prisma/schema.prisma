@@ -791,14 +791,33 @@ model PaymentPlan {
 // background job re-stamping rows every night — see
 // src/lib/payments/status.ts.
 model Payment {
-  id     String      @id @default(cuid())
-  planId String
-  plan   PaymentPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  id     String       @id @default(cuid())
+  // Optional: a PICK payment always belongs to a PaymentPlan (the down-
+  // payment schedule it's an installment of); a FIRST payment never does
+  // — it isn't part of what the dealership is owed, so it must never be
+  // counted in a plan's totalRequired/amountPaidUpfront/remaining-balance
+  // math (see computeRemainingBalance in src/lib/payments/status.ts,
+  // which only ever sums a specific plan's own payments and so already
+  // excludes any planId: null row with zero extra code).
+  planId String?
+  plan   PaymentPlan? @relation(fields: [planId], references: [id], onDelete: Cascade)
 
   customerId String
   customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
   leadId     String?
   lead       Lead?    @relation(fields: [leadId], references: [id], onDelete: SetNull)
+
+  // FIRST = the customer's first loan payment to their bank/lender (money
+  // owed to a third party, never to this dealership) | PICK = a deferred
+  // down-payment installment owed to the dealership — this is what every
+  // Payment row meant before this field existed, which is exactly why
+  // the default is PICK: every row already in the database before this
+  // migration is unambiguously a Pick Payment, with nothing to guess at.
+  paymentType String  @default("PICK") // FIRST | PICK
+  // Who the money is owed to — a lender/bank name for FIRST ("Westlake
+  // Financial", a credit union, or the in-house BHPH account treated as
+  // a lender per that decision), or left blank/"Dealership" for PICK.
+  paidToName  String?
 
   amount          Float
   dueDate         DateTime
@@ -828,6 +847,7 @@ model Payment {
   @@index([planId])
   @@index([dueDate])
   @@index([status])
+  @@index([paymentType])
 }
 
 // Editable, reusable SMS copy for payment reminders (Feature 3 — "do not

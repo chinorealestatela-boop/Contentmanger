@@ -13,6 +13,8 @@ import { MessageLogSection } from "@/components/customers/MessageLogSection";
 import { ProfileActions } from "@/components/customers/ProfileActions";
 import { FollowUpsSection } from "@/components/customers/FollowUpsSection";
 import { PaymentPlanSection } from "@/components/customers/PaymentPlanSection";
+import { FirstPaymentSection } from "@/components/customers/FirstPaymentSection";
+import { PaymentTypeLegend } from "@/components/payments/PaymentTypeLegend";
 import { DocumentsSection } from "@/components/customers/DocumentsSection";
 import { ReferralSection } from "@/components/customers/ReferralSection";
 import { AppointmentActionButtons } from "@/components/appointments/AppointmentEditControls";
@@ -167,8 +169,18 @@ export default async function CustomerProfilePage({ params }: { params: Promise<
             )}
           </SectionCard>
 
-          {/* Future / down payments */}
-          <SectionCard title="Downpayment & Payment Tracking" id="payment-tracking">
+          {/* First Payment (bank/lender) + Pick Payments (dealership down
+              payment) — kept as two separate sections, never one generic
+              "payment date" field, so the two can never be confused. */}
+          <div id="payment-tracking" className="space-y-3">
+            <PaymentTypeLegend />
+          </div>
+
+          <SectionCard title="First Payment (Bank / Lender)">
+            <FirstPaymentSection payments={customer.payments} />
+          </SectionCard>
+
+          <SectionCard title="Pick Payments (Dealership Down Payment)">
             <PaymentPlanSection
               plans={customer.paymentPlans}
               customerFirstName={customer.firstName}

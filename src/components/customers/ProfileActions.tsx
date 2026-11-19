@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
-import { Phone, MessageSquare, Mail, StickyNote, CheckSquare, CalendarPlus, Car, ArrowLeftRight, FileEdit, Workflow, Trophy, XCircle, Gauge, PhoneCall, DollarSign, Plus, Trash2 } from "lucide-react";
+import { Phone, MessageSquare, Mail, StickyNote, CheckSquare, CalendarPlus, Car, ArrowLeftRight, FileEdit, Workflow, Trophy, XCircle, Gauge, PhoneCall, DollarSign, Landmark, Plus, Trash2 } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { logCommunication } from "@/lib/actions/communications";
 import { addNote } from "@/lib/actions/notes";
@@ -13,10 +13,10 @@ import { addVehicleInterest } from "@/lib/actions/vehicleInterests";
 import { addTradeIn } from "@/lib/actions/tradeins";
 import { logTestDrive } from "@/lib/actions/testdrives";
 import { changeLeadStage, markSold, markLost } from "@/lib/actions/leads";
-import { createPaymentPlan } from "@/lib/actions/payments";
+import { createPaymentPlan, createFirstPayment } from "@/lib/actions/payments";
 import { TASK_TYPES, TASK_PRIORITIES, APPOINTMENT_TYPES, APPRAISAL_STATUSES, FINANCE_TYPES, CUSTOMER_REACTIONS, FOLLOWUP_REMINDER_OPTIONS } from "@/lib/constants";
 
-type Kind = "CALL" | "TEXT" | "EMAIL" | "NOTE" | "TASK" | "FOLLOWUP" | "CALENDAR" | "VEHICLE" | "TRADE" | "TESTDRIVE" | "LOG" | "STAGE" | "SOLD" | "LOST" | "PAYMENTPLAN" | null;
+type Kind = "CALL" | "TEXT" | "EMAIL" | "NOTE" | "TASK" | "FOLLOWUP" | "CALENDAR" | "VEHICLE" | "TRADE" | "TESTDRIVE" | "LOG" | "STAGE" | "SOLD" | "LOST" | "PAYMENTPLAN" | "FIRSTPAYMENT" | null;
 
 export function ProfileActions({
   customerId,
@@ -50,7 +50,8 @@ export function ProfileActions({
       <button className={btn} onClick={() => setModal("VEHICLE")}><Car size={13} /> Add Vehicle</button>
       <button className={btn} onClick={() => setModal("TRADE")}><ArrowLeftRight size={13} /> Add Trade</button>
       <button className={btn} onClick={() => setModal("TESTDRIVE")}><Gauge size={13} /> Log Test Drive</button>
-      <button className={btn} onClick={() => setModal("PAYMENTPLAN")}><DollarSign size={13} /> Schedule Payment</button>
+      <button className={btn} onClick={() => setModal("PAYMENTPLAN")}><DollarSign size={13} className="text-emerald-600" /> Schedule Pick Payment</button>
+      <button className={btn} onClick={() => setModal("FIRSTPAYMENT")}><Landmark size={13} className="text-red-600" /> Add First Payment</button>
       <button className={btn} onClick={() => setModal("LOG")}><FileEdit size={13} /> Log Activity</button>
       {leadId && (
         <>
@@ -69,6 +70,7 @@ export function ProfileActions({
       {modal === "TRADE" && <TradeModal customerId={customerId} onClose={() => setModal(null)} />}
       {modal === "TESTDRIVE" && <TestDriveModal customerId={customerId} leadId={leadId} vehicles={vehicles} onClose={() => setModal(null)} />}
       {modal === "PAYMENTPLAN" && <PaymentPlanModal customerId={customerId} leadId={leadId} onClose={() => setModal(null)} />}
+      {modal === "FIRSTPAYMENT" && <FirstPaymentModal customerId={customerId} leadId={leadId} onClose={() => setModal(null)} />}
       {modal === "LOG" && <LogModal customerId={customerId} leadId={leadId} onClose={() => setModal(null)} />}
       {modal === "STAGE" && leadId && <StageModal leadId={leadId} stages={stages} onClose={() => setModal(null)} />}
       {modal === "SOLD" && leadId && <SoldModal leadId={leadId} vehicles={vehicles} onClose={() => setModal(null)} />}
@@ -488,6 +490,40 @@ function PaymentPlanModal({ customerId, leadId, onClose }: { customerId: string;
 
         <div><label className="label">Notes</label><textarea name="notes" rows={2} className="input" placeholder="e.g. Approved for financing pending remaining down payment." /></div>
         <FormFooter pending={pending} onClose={onClose} label="Save Payment Schedule" />
+      </form>
+    </Modal>
+  );
+}
+
+/** First Payment — the customer's first loan payment to their bank/lender
+ * (or first BHPH installment), kept deliberately separate from the Pick
+ * Payment scheduler above: its own button, its own small one-record form,
+ * never a type dropdown bolted onto the same form the two could get
+ * mixed up in. There's normally just one of these per customer, so unlike
+ * Pick Payment there's no multi-row editor here. */
+function FirstPaymentModal({ customerId, leadId, onClose }: { customerId: string; leadId: string | null; onClose: () => void }) {
+  const [state, formAction, pending] = useActionState(createFirstPayment, null);
+  useCloseOnSuccess(state, onClose);
+
+  return (
+    <Modal title="Add First Payment" onClose={onClose} width="max-w-lg">
+      <form action={formAction} className="space-y-4">
+        <input type="hidden" name="customerId" value={customerId} />
+        {leadId && <input type="hidden" name="leadId" value={leadId} />}
+        {state?.error && <ErrorBox msg={state.error} />}
+        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[12.5px] text-red-700">
+          This is the customer&rsquo;s first loan payment to their bank or lender — money owed to the lender, not to the dealership. It never counts toward a Pick Payment schedule&rsquo;s balance.
+        </p>
+        <div>
+          <label className="label">Bank / Lender Name</label>
+          <input name="paidToName" required className="input" placeholder="e.g. Westlake Financial, or the BHPH account name" autoFocus />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div><label className="label">Amount</label><input name="amount" type="number" step="0.01" required className="input" /></div>
+          <div><label className="label">Due Date</label><input name="dueDate" type="date" required className="input" /></div>
+        </div>
+        <div><label className="label">Notes</label><textarea name="notes" rows={2} className="input" placeholder="e.g. Confirmed with customer, auto-pay set up." /></div>
+        <FormFooter pending={pending} onClose={onClose} label="Save First Payment" />
       </form>
     </Modal>
   );

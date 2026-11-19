@@ -15,33 +15,37 @@ export type TemplateVars = {
   dueDate: string; // pre-formatted, e.g. "October 17"
   agentName: string;
   dealershipName: string;
+  // "pick payment" or "first payment to {lender}" — lets a template read
+  // "your {{paymentLabel}} of {{amount}}" and say the right thing for
+  // either payment type without needing two copies of every template.
+  paymentLabel: string;
 };
 
 const DEFAULT_TEMPLATES: { trigger: PaymentReminderStage; name: string; body: string }[] = [
   {
     trigger: "7_DAYS_BEFORE",
     name: "7 Days Before — Default",
-    body: "Hi {{firstName}}, this is {{agentName}} from {{dealershipName}}. Just a reminder that you have a {{amount}} payment scheduled for {{dueDate}}. Please reach out to me if you have any questions.",
+    body: "Hi {{firstName}}, this is {{agentName}} from {{dealershipName}}. Just a reminder that you have a {{amount}} {{paymentLabel}} scheduled for {{dueDate}}. Please reach out to me if you have any questions.",
   },
   {
     trigger: "3_DAYS_BEFORE",
     name: "3 Days Before — Default",
-    body: "Hi {{firstName}}, this is {{agentName}} from {{dealershipName}}. Your {{amount}} payment is coming up on {{dueDate}}. Let me know if you have any questions.",
+    body: "Hi {{firstName}}, this is {{agentName}} from {{dealershipName}}. Your {{amount}} {{paymentLabel}} is coming up on {{dueDate}}. Let me know if you have any questions.",
   },
   {
     trigger: "1_DAY_BEFORE",
     name: "1 Day Before — Default",
-    body: "Hi {{firstName}}, this is {{agentName}} from {{dealershipName}}. Just a reminder that your {{amount}} payment is due tomorrow. Please let me know if you have any questions.",
+    body: "Hi {{firstName}}, this is {{agentName}} from {{dealershipName}}. Just a reminder that your {{amount}} {{paymentLabel}} is due tomorrow. Please let me know if you have any questions.",
   },
   {
     trigger: "DUE_DATE",
     name: "Due Today — Default",
-    body: "Hi {{firstName}}, this is {{agentName}} from {{dealershipName}}. Your scheduled {{amount}} payment is due today. Please reach out if you need anything.",
+    body: "Hi {{firstName}}, this is {{agentName}} from {{dealershipName}}. Your scheduled {{amount}} {{paymentLabel}} is due today. Please reach out if you need anything.",
   },
   {
     trigger: "OVERDUE",
     name: "Overdue — Default",
-    body: "Hi {{firstName}}, this is {{agentName}} from {{dealershipName}}. Our records show that your scheduled payment of {{amount}} is past due. Please contact me so we can get everything taken care of.",
+    body: "Hi {{firstName}}, this is {{agentName}} from {{dealershipName}}. Our records show that your scheduled {{paymentLabel}} of {{amount}} is past due. Please contact me so we can get everything taken care of.",
   },
 ];
 
@@ -74,7 +78,19 @@ export function renderTemplate(body: string, vars: TemplateVars): string {
     .replaceAll("{{amount}}", vars.amount)
     .replaceAll("{{dueDate}}", vars.dueDate)
     .replaceAll("{{agentName}}", vars.agentName)
-    .replaceAll("{{dealershipName}}", vars.dealershipName);
+    .replaceAll("{{dealershipName}}", vars.dealershipName)
+    .replaceAll("{{paymentLabel}}", vars.paymentLabel);
+}
+
+/** "pick payment" or "first payment to {lender}" — the phrase every
+ * reminder (SMS, task, admin notification, activity log) uses so a Pick
+ * payment and a First payment are never described with the same generic
+ * word "payment." */
+export function paymentLabelFor(payment: { paymentType: string; paidToName: string | null }): string {
+  if (payment.paymentType === "FIRST") {
+    return payment.paidToName ? `first payment to ${payment.paidToName}` : "first bank payment";
+  }
+  return "pick payment";
 }
 
 // ── Thank-you / referral message (deferred-payment-completion follow-up) ──

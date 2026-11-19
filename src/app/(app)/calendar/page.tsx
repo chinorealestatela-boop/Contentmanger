@@ -8,6 +8,7 @@ import { CalendarMonthView } from "@/components/calendar/CalendarMonthView";
 import { CalendarWeekView } from "@/components/calendar/CalendarWeekView";
 import { CalendarDayView } from "@/components/calendar/CalendarDayView";
 import { EventRow } from "@/components/calendar/EventRow";
+import { PaymentTypeLegend } from "@/components/payments/PaymentTypeLegend";
 import { prisma } from "@/lib/prisma";
 import { cn } from "@/lib/utils";
 
@@ -28,27 +29,31 @@ const VIEWS: { value: View; label: string }[] = [
   { value: "past", label: "Past" },
 ];
 
-// Payment-related task category / filter (Feature 6): separates regular
-// appointments, follow-ups, and other tasks from scheduled Pick
-// Payments and the overdue ones that most need attention, without
-// touching how getCalendarEvents/getPastEvents fetch — it's a pure
+// Payment-related task category / filter: separates regular
+// appointments, follow-ups, and other tasks from First Payments (bank/
+// lender, red) and Pick Payments (dealership down payment, green) —
+// filtering by payment TYPE, which is what actually matters once both
+// kinds of payment share the calendar (a payment's Late/Upcoming status
+// still shows on its own badge either way, and the Payments dashboard
+// has a dedicated Late section for status-based triage). Pure
 // client-of-the-data filter applied to whatever range the active view
-// already loaded.
-type Category = "all" | "appointment" | "followup" | "task" | "payment_due" | "payment_late";
+// already loaded — doesn't touch how getCalendarEvents/getPastEvents
+// fetch.
+type Category = "all" | "appointment" | "followup" | "task" | "payment_first" | "payment_pick";
 
 const CATEGORIES: { value: Category; label: string }[] = [
   { value: "all", label: "All" },
   { value: "appointment", label: "Appointments" },
   { value: "followup", label: "Follow-Ups" },
   { value: "task", label: "Tasks" },
-  { value: "payment_due", label: "Future Down Payments" },
-  { value: "payment_late", label: "Overdue Payments" },
+  { value: "payment_first", label: "First Payments" },
+  { value: "payment_pick", label: "Pick Payments" },
 ];
 
 function matchesCategory(e: CalendarEvent, cat: Category): boolean {
   if (cat === "all") return true;
-  if (cat === "payment_due") return e.kind === "payment" && e.type === "PAYMENT_DUE";
-  if (cat === "payment_late") return e.kind === "payment" && e.type === "PAYMENT_LATE";
+  if (cat === "payment_first") return e.kind === "payment" && e.type.startsWith("PAYMENT_FIRST");
+  if (cat === "payment_pick") return e.kind === "payment" && e.type.startsWith("PAYMENT_PICK");
   return e.kind === cat;
 }
 
@@ -131,9 +136,9 @@ export default async function CalendarPage({
             className={cn(
               "rounded-full px-3 py-1 text-[12px] font-medium transition-colors",
               category === c.value
-                ? c.value === "payment_late"
+                ? c.value === "payment_first"
                   ? "bg-red-600 text-white"
-                  : c.value === "payment_due"
+                  : c.value === "payment_pick"
                     ? "bg-emerald-600 text-white"
                     : "bg-[var(--brand)] text-white"
                 : "border border-[var(--border)] text-[var(--text-muted)] hover:bg-[var(--bg-subtle)]"
@@ -143,6 +148,8 @@ export default async function CalendarPage({
           </Link>
         ))}
       </div>
+
+      <PaymentTypeLegend />
 
       {content}
     </div>

@@ -75,6 +75,14 @@ export async function getCustomerProfile(customerId: string, scope: Scope) {
         orderBy: { createdAt: "desc" },
         include: { payments: { orderBy: { dueDate: "asc" } }, createdBy: true, followUpTask: { include: { assignee: true } } },
       },
+      // First Payments never belong to a plan (planId is null — see the
+      // Payment model's paymentType comment), so they're fetched directly
+      // off the customer instead of nested under paymentPlans.
+      payments: {
+        where: { paymentType: "FIRST" },
+        orderBy: { dueDate: "desc" },
+        include: { paidBy: true },
+      },
       referralsMade: {
         orderBy: { createdAt: "desc" },
         include: { referredCustomer: { select: { id: true, firstName: true, lastName: true } } },

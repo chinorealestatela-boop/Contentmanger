@@ -187,6 +187,69 @@ export async function addPaymentsToPlan(_prev: SimpleActionState, formData: Form
   return { success: "Payment(s) added." };
 }
 
+const createFirstPaymentSchema = z.object({
+  customerId: z.string().min(1),
+  leadId: z.string().optional(),
+  paidToName: z.string().min(1, "Enter the bank, lender, or credit union this is owed to."),
+  amount: z.coerce.number().positive("Enter the payment amount."),
+  dueDate: z.string().min(1, "Enter the due date."),
+  notes: z.string().optional(),
+});
+
+/** Creates a First Payment — the customer's first loan payment to their
+ * bank/lender (or, per how BHPH is classified here, the first BHPH
+ * installment). Deliberately a standalone Payment with no planId: unlike
+ * a Pick Payment, this money was never owed to the dealership, so it must
+ * never be summed into any PaymentPlan's totalRequired/remaining-balance
+ * math (see the paymentType field's comment on the Payment model). A
+ * customer typically has exactly one of these, which is why this is its
+ * own small action/form rather than the multi-row scheduler Pick Payment
+ * uses — the two are kept as genuinely separate entry points (separate
+ * buttons) rather than one shared form with a type dropdown, so which
+ * kind you're creating is never ambiguous or a click away from being
+ * picked wrong. */
+export async function createFirstPayment(_prev: SimpleActionState, formData: FormData): Promise<SimpleActionState> {
+  const scope = await requireScope();
+  const parsed = createFirstPaymentSchema.safeParse({
+    customerId: formData.get("customerId"),
+    leadId: formData.get("leadId") || undefined,
+    paidToName: formData.get("paidToName"),
+    amount: formData.get("amount"),
+    dueDate: formData.get("dueDate"),
+    notes: formData.get("notes") || undefined,
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input." };
+  const d = parsed.data;
+
+  const payment = await prisma.payment.create({
+    data: {
+      customerId: d.customerId,
+      leadId: d.leadId,
+      paymentType: "FIRST",
+      paidToName: d.paidToName,
+      amount: d.amount,
+      dueDate: new Date(`${d.dueDate}T00:00:00`),
+      notes: d.notes,
+    },
+  });
+
+  await logActivity({
+    customerId: d.customerId,
+    leadId: d.leadId,
+    type: "FIRST_PAYMENT_CREATED",
+    description: `First payment scheduled — $${d.amount.toLocaleString()} due ${new Date(d.dueDate).toLocaleDateString()} to ${d.paidToName}.`,
+    actorId: scope.userId,
+    metadata: { paymentId: payment.id },
+  });
+  await recordFollowUpAction({ customerId: d.customerId, leadId: d.leadId, actorId: scope.userId, taskTypes: ["FOLLOW_UP", "OTHER", "CREDIT"], source: "First payment scheduled" });
+
+  revalidatePath(`/customers/${d.customerId}`);
+  revalidatePath("/payments");
+  revalidatePath("/dashboard");
+  revalidatePath("/calendar");
+  return { success: "First payment scheduled." };
+}
+
 const markPaidSchema = z.object({
   paymentId: z.string().min(1),
   amountPaid: z.coerce.number().positive("Enter the amount received."),
@@ -237,8 +300,10 @@ export async function markPaymentPaid(_prev: SimpleActionState, formData: FormDa
   // one-time thank-you/referral follow-up task + notification. Safe to
   // call every time a payment is marked paid — it's a no-op unless the
   // plan just became fully settled and hasn't already had one created
-  // (see src/lib/payments/followup.ts).
-  if (newStatus === "PAID") {
+  // (see src/lib/payments/followup.ts). A FIRST payment has no plan at
+  // all (planId is null — it isn't part of any down-payment schedule),
+  // so there's nothing to check completion on.
+  if (newStatus === "PAID" && payment.planId) {
     await checkAndCreateCompletionFollowUp(payment.planId, scope.userId);
   }
 
@@ -279,6 +344,7 @@ const editPaymentSchema = z.object({
   paymentId: z.string().min(1),
   amount: z.coerce.number().positive(),
   dueDate: z.string().min(1),
+  paidToName: z.string().optional(),
   notes: z.string().optional(),
 });
 
@@ -288,10 +354,11 @@ export async function updatePayment(_prev: SimpleActionState, formData: FormData
     paymentId: formData.get("paymentId"),
     amount: formData.get("amount"),
     dueDate: formData.get("dueDate"),
+    paidToName: formData.get("paidToName") || undefined,
     notes: formData.get("notes") || undefined,
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input." };
-  const { paymentId, amount, dueDate, notes } = parsed.data;
+  const { paymentId, amount, dueDate, paidToName, notes } = parsed.data;
 
   const payment = await prisma.payment.findUnique({ where: { id: paymentId } });
   if (!payment) return { error: "Payment not found." };
@@ -308,7 +375,14 @@ export async function updatePayment(_prev: SimpleActionState, formData: FormData
   const revertToPending = payment.status === "LATE" && newDueDate >= new Date(new Date().toDateString());
   await prisma.payment.update({
     where: { id: paymentId },
-    data: { amount, dueDate: newDueDate, notes, remindersSent: "[]", status: revertToPending ? "PENDING" : payment.status },
+    data: {
+      amount,
+      dueDate: newDueDate,
+      notes,
+      remindersSent: "[]",
+      status: revertToPending ? "PENDING" : payment.status,
+      ...(payment.paymentType === "FIRST" && paidToName ? { paidToName } : {}),
+    },
   });
 
   await logActivity({

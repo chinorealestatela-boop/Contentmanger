@@ -23,8 +23,16 @@ export function PaymentRow({ item }: { item: PaymentListItem }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
       <div className="min-w-0">
-        <Link href={`/customers/${item.customerId}`} className="text-[13.5px] font-semibold text-[var(--text)] hover:text-[var(--brand)] hover:underline">{item.customerName}</Link>
-        <p className="text-[11.5px] text-[var(--text-muted)]">{formatCurrency(item.amount)} due {formatDate(item.dueDate)}{item.vehicleLabel ? ` · ${item.vehicleLabel}` : ""} · {item.salespersonName}</p>
+        <div className="flex items-center gap-1.5">
+          <span className="rounded-full px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-wide text-white" style={{ background: item.paymentType === "FIRST" ? "#DC2626" : "#16A34A" }}>
+            {item.paymentType === "FIRST" ? "First" : "Pick"}
+          </span>
+          <Link href={`/customers/${item.customerId}`} className="text-[13.5px] font-semibold text-[var(--text)] hover:text-[var(--brand)] hover:underline">{item.customerName}</Link>
+        </div>
+        <p className="text-[11.5px] font-medium" style={{ color: item.paymentType === "FIRST" ? "#DC2626" : "#16A34A" }}>
+          {formatCurrency(item.amount)} due {formatDate(item.dueDate)}{item.paymentType === "FIRST" && item.paidToName ? ` · to ${item.paidToName}` : ""}
+        </p>
+        <p className="text-[11.5px] text-[var(--text-muted)]">{item.vehicleLabel ? `${item.vehicleLabel} · ` : ""}{item.salespersonName}</p>
         {item.notes && <p className="mt-0.5 text-[11px] text-[var(--text-faint)]">{item.notes}</p>}
       </div>
       <div className="flex shrink-0 items-center gap-1.5">
@@ -95,6 +103,9 @@ function EditModal({ item, onClose }: { item: PaymentListItem; onClose: () => vo
       <form action={formAction} className="space-y-4">
         <input type="hidden" name="paymentId" value={item.id} />
         {state?.error && <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{state.error}</p>}
+        {item.paymentType === "FIRST" && (
+          <div><label className="label">Bank / Lender Name</label><input name="paidToName" required defaultValue={item.paidToName ?? ""} className="input" /></div>
+        )}
         <div className="grid grid-cols-2 gap-3">
           <div><label className="label">Amount</label><input name="amount" type="number" step="0.01" required defaultValue={item.amount} className="input" /></div>
           <div><label className="label">Due Date</label><input name="dueDate" type="date" required defaultValue={dueStr} className="input" /></div>

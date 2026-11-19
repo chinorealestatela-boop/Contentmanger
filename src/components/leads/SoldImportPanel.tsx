@@ -20,10 +20,12 @@ export function SoldImportPanel() {
       </form>
 
       <p className="text-[12px] text-[var(--text-faint)]">
-        Expects the Sold Customers / Down Payment Report columns (Name, Phone, Email, Salesperson, Vehicle Year/Make/Model, VIN, Stock Number,
-        Transaction Date, Required Down Payment, Amount Paid, Down Payment Status, Next Payment Date/Amount, Payment Notes). Each row creates a sold
-        lead, a sale record, and a down payment schedule — visible right away on this page and on the customer&rsquo;s profile. Safe to re-upload: a
-        vehicle that already has a sale on file is skipped, not duplicated.
+        Accepts either the Sold Customers / Down Payment Report (Name, Phone, Email, Salesperson, Vehicle Year/Make/Model, VIN, Stock Number,
+        Transaction Date, Required Down Payment, Amount Paid, Down Payment Status, Next Payment Date/Amount, Payment Notes) or the richer Sold Customer
+        Audit export, which also carries lender fields (Lien Holder, Amount Financed, First Payment Due Date/Amount). Each row creates a sold lead, a
+        sale record, a Pick Payment schedule for anything still owed to the dealership, and — when both the due date and amount are on file — a First
+        Payment record for the customer&rsquo;s first loan payment to their bank or lender. All visible right away on this page and on the
+        customer&rsquo;s profile. Safe to re-upload: a vehicle that already has a sale on file is skipped, not duplicated.
       </p>
 
       {result && (
@@ -49,6 +51,16 @@ export function SoldImportPanel() {
               <span>
                 Couldn&rsquo;t match the salesperson name on file for {result.unmatchedSalespeople.length} row(s) — assigned to you instead, reassign
                 manually if needed: {result.unmatchedSalespeople.map((u) => `${u.row} (${u.name})`).join(", ")}
+              </span>
+            </div>
+          )}
+
+          {result.missingFirstPaymentInfo.length > 0 && (
+            <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12.5px] text-amber-800">
+              <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+              <span>
+                {result.missingFirstPaymentInfo.length} row(s) had only a First Payment Due Date <em>or</em> Amount, not both — no First Payment was
+                created, enter it manually on the customer&rsquo;s profile: {result.missingFirstPaymentInfo.map((m) => m.row).join(", ")}
               </span>
             </div>
           )}

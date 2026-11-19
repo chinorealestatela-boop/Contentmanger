@@ -3,15 +3,22 @@ import { AlertTriangle, CalendarClock, Clock, Settings, DollarSign, CheckCircle2
 import { requireScope } from "@/lib/queries/scope";
 import { getPaymentDashboardData, type PaymentListItem } from "@/lib/queries/payments";
 import { PaymentRow } from "@/components/payments/PaymentRow";
+import { PaymentTypeLegend } from "@/components/payments/PaymentTypeLegend";
 import { formatCurrency } from "@/lib/format";
 import { PAYMENT_STATUS_OPTIONS, getPaymentDisplayStatus } from "@/lib/payments/status";
 import { prisma } from "@/lib/prisma";
+import { cn } from "@/lib/utils";
 
 export const metadata = { title: "Payments | CRM" };
 
 const RANGE_LABELS: Record<string, string> = { "7": "Next 7 Days", "30": "Next 30 Days", "60": "Next 60 Days", "90": "Next 90 Days" };
+const TYPE_OPTIONS = [
+  { value: "all", label: "All" },
+  { value: "FIRST", label: "First Payments" },
+  { value: "PICK", label: "Pick Payments" },
+] as const;
 
-export default async function PaymentsPage({ searchParams }: { searchParams: Promise<{ range?: string; status?: string; customer?: string; salesperson?: string }> }) {
+export default async function PaymentsPage({ searchParams }: { searchParams: Promise<{ range?: string; status?: string; customer?: string; salesperson?: string; type?: string }> }) {
   const sp = await searchParams;
   const scope = await requireScope();
   const [data, users] = await Promise.all([
@@ -20,11 +27,21 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
   ]);
 
   const range = sp.range && ["7", "30", "60", "90"].includes(sp.range) ? sp.range : "7";
-  const upcoming: PaymentListItem[] = { "7": data.upcoming7, "30": data.upcoming30, "60": data.upcoming60, "90": data.upcoming90 }[range]!;
+  const type = TYPE_OPTIONS.find((t) => t.value === sp.type)?.value ?? "all";
+  const byType = (list: PaymentListItem[]) => (type === "all" ? list : list.filter((p) => p.paymentType === type));
+
+  const upcomingAll: PaymentListItem[] = { "7": data.upcoming7, "30": data.upcoming30, "60": data.upcoming60, "90": data.upcoming90 }[range]!;
+  const upcoming = byType(upcomingAll);
+  const dueToday = byType(data.dueToday);
+  const dueTomorrow = byType(data.dueTomorrow);
+  const due3Days = byType(data.due3Days);
+  const overdue = byType(data.overdue);
+  const overdueTotal = overdue.reduce((sum, p) => sum + (p.amount - p.amountPaid), 0);
+  const scheduledTotal = byType(data.all).length;
 
   const hasFilters = !!(sp.status || sp.customer || sp.salesperson);
   const filtered = hasFilters
-    ? data.all.filter((p) => {
+    ? byType(data.all).filter((p) => {
         if (sp.status && getPaymentDisplayStatus(p) !== sp.status) return false;
         if (sp.customer && !p.customerName.toLowerCase().includes(sp.customer.toLowerCase())) return false;
         if (sp.salesperson && p.salespersonId !== sp.salesperson) return false;
@@ -42,6 +59,25 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
         <Link href="/payments/settings" className="btn btn-secondary btn-sm"><Settings size={13} /> Automation &amp; Templates</Link>
       </div>
 
+      <PaymentTypeLegend />
+
+      <div className="flex flex-wrap gap-1.5">
+        {TYPE_OPTIONS.map((t) => (
+          <Link
+            key={t.value}
+            href={`/payments?${new URLSearchParams({ ...(sp.range ? { range: sp.range } : {}), type: t.value }).toString()}`}
+            className={cn(
+              "rounded-full px-3 py-1 text-[12px] font-medium transition-colors",
+              type === t.value
+                ? t.value === "FIRST" ? "bg-red-600 text-white" : t.value === "PICK" ? "bg-emerald-600 text-white" : "bg-[var(--brand)] text-white"
+                : "border border-[var(--border)] text-[var(--text-muted)] hover:bg-[var(--bg-subtle)]"
+            )}
+          >
+            {t.label}
+          </Link>
+        ))}
+      </div>
+
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <div className="card flex items-center gap-3 p-3.5">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--brand-soft)] text-[var(--brand)]"><DollarSign size={18} /></div>
@@ -53,45 +89,45 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
         </div>
         <div className="card flex items-center gap-3 p-3.5">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-700"><Clock size={18} /></div>
-          <div><p className="text-xl font-bold text-[var(--text)] tabular-nums">{data.dueToday.length}</p><p className="text-[11.5px] font-medium text-[var(--text-muted)]">Due Today</p></div>
+          <div><p className="text-xl font-bold text-[var(--text)] tabular-nums">{dueToday.length}</p><p className="text-[11.5px] font-medium text-[var(--text-muted)]">Due Today</p></div>
         </div>
         <div className="card flex items-center gap-3 p-3.5">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-100 text-red-700"><AlertTriangle size={18} /></div>
-          <div><p className="text-xl font-bold text-[var(--text)] tabular-nums">{data.overdue.length}</p><p className="text-[11.5px] font-medium text-[var(--text-muted)]">Late ({formatCurrency(data.overdueTotal)})</p></div>
+          <div><p className="text-xl font-bold text-[var(--text)] tabular-nums">{overdue.length}</p><p className="text-[11.5px] font-medium text-[var(--text-muted)]">Late ({formatCurrency(overdueTotal)})</p></div>
         </div>
         <div className="card flex items-center gap-3 p-3.5">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-100 text-sky-700"><Clock size={18} /></div>
-          <div><p className="text-xl font-bold text-[var(--text)] tabular-nums">{data.dueTomorrow.length}</p><p className="text-[11.5px] font-medium text-[var(--text-muted)]">Due Tomorrow</p></div>
+          <div><p className="text-xl font-bold text-[var(--text)] tabular-nums">{dueTomorrow.length}</p><p className="text-[11.5px] font-medium text-[var(--text-muted)]">Due Tomorrow</p></div>
         </div>
         <div className="card flex items-center gap-3 p-3.5">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-100 text-teal-700"><Clock size={18} /></div>
-          <div><p className="text-xl font-bold text-[var(--text)] tabular-nums">{data.due3Days.length}</p><p className="text-[11.5px] font-medium text-[var(--text-muted)]">Due in 3 Days</p></div>
+          <div><p className="text-xl font-bold text-[var(--text)] tabular-nums">{due3Days.length}</p><p className="text-[11.5px] font-medium text-[var(--text-muted)]">Due in 3 Days</p></div>
         </div>
         <div className="card flex items-center gap-3 p-3.5 sm:col-span-2">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--bg-subtle)] text-[var(--text-muted)]"><DollarSign size={18} /></div>
-          <div><p className="text-xl font-bold text-[var(--text)] tabular-nums">{data.totalScheduled}</p><p className="text-[11.5px] font-medium text-[var(--text-muted)]">Total Scheduled Payments</p></div>
+          <div><p className="text-xl font-bold text-[var(--text)] tabular-nums">{scheduledTotal}</p><p className="text-[11.5px] font-medium text-[var(--text-muted)]">Total Scheduled Payments</p></div>
         </div>
       </div>
 
       <section className="card">
         <div className="flex items-center justify-between border-b border-[var(--border)] px-5 py-4">
           <div className="flex items-center gap-1.5"><Clock size={16} className="text-amber-600" /><h2 className="text-[15px] font-semibold text-[var(--text)]">Today&rsquo;s Payments</h2></div>
-          <span className="badge bg-amber-100 text-amber-800">{data.dueToday.length}</span>
+          <span className="badge bg-amber-100 text-amber-800">{dueToday.length}</span>
         </div>
         <div className="divide-y divide-[var(--border)]">
-          {data.dueToday.length === 0 && <p className="px-5 py-8 text-center text-sm text-[var(--text-muted)]">Nothing due today.</p>}
-          {data.dueToday.map((item) => <PaymentRow key={item.id} item={item} />)}
+          {dueToday.length === 0 && <p className="px-5 py-8 text-center text-sm text-[var(--text-muted)]">Nothing due today.</p>}
+          {dueToday.map((item) => <PaymentRow key={item.id} item={item} />)}
         </div>
       </section>
 
-      {data.overdue.length > 0 && (
+      {overdue.length > 0 && (
         <section className="card border-red-200">
           <div className="flex items-center justify-between border-b border-red-200 bg-red-50 px-5 py-4">
             <div className="flex items-center gap-1.5"><AlertTriangle size={16} className="text-red-600" /><h2 className="text-[15px] font-semibold text-red-900">Late</h2></div>
-            <span className="badge bg-red-100 text-red-800">{data.overdue.length}</span>
+            <span className="badge bg-red-100 text-red-800">{overdue.length}</span>
           </div>
           <div className="divide-y divide-[var(--border)]">
-            {data.overdue.map((item) => <PaymentRow key={item.id} item={item} />)}
+            {overdue.map((item) => <PaymentRow key={item.id} item={item} />)}
           </div>
         </section>
       )}
@@ -101,7 +137,7 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
           <div className="flex items-center gap-1.5"><CalendarClock size={16} className="text-[var(--appointment)]" /><h2 className="text-[15px] font-semibold text-[var(--text)]">Upcoming Payments</h2></div>
           <div className="flex gap-1">
             {Object.entries(RANGE_LABELS).map(([value, label]) => (
-              <Link key={value} href={`/payments?range=${value}`} className={`rounded-lg px-2.5 py-1 text-[11.5px] font-semibold ${range === value ? "bg-[var(--brand)] text-white" : "bg-[var(--bg-subtle)] text-[var(--text-muted)] hover:bg-[var(--border)]"}`}>
+              <Link key={value} href={`/payments?${new URLSearchParams({ range: value, ...(type !== "all" ? { type } : {}) }).toString()}`} className={`rounded-lg px-2.5 py-1 text-[11.5px] font-semibold ${range === value ? "bg-[var(--brand)] text-white" : "bg-[var(--bg-subtle)] text-[var(--text-muted)] hover:bg-[var(--border)]"}`}>
                 {label.replace("Next ", "")}
               </Link>
             ))}
@@ -118,8 +154,11 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
           <ListFilter size={16} className="text-[var(--text-muted)]" />
           <h2 className="text-[15px] font-semibold text-[var(--text)]">Search &amp; Filter</h2>
         </div>
-        <form className="grid grid-cols-1 gap-3 border-b border-[var(--border)] p-4 sm:grid-cols-4" action="/payments">
+        <form className="grid grid-cols-1 gap-3 border-b border-[var(--border)] p-4 sm:grid-cols-5" action="/payments">
           <input name="customer" defaultValue={sp.customer} placeholder="Customer name…" className="input" />
+          <select name="type" defaultValue={type} className="input">
+            {TYPE_OPTIONS.map((t) => <option key={t.value} value={t.value}>{t.value === "all" ? "Any type" : t.label}</option>)}
+          </select>
           <select name="status" defaultValue={sp.status ?? ""} className="input">
             <option value="">Any status</option>
             <option value="UPCOMING">Upcoming</option>

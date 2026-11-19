@@ -23,7 +23,7 @@ export type CalendarEvent = {
   time: string;
   endTime: string | null;
   location: string | null;
-  type: string; // appointment type, Task.type, "FOLLOW_UP", or "PAYMENT_DUE" / "PAYMENT_LATE"
+  type: string; // appointment type, Task.type, "FOLLOW_UP", or "PAYMENT_FIRST_DUE" / "PAYMENT_FIRST_LATE" / "PAYMENT_PICK_DUE" / "PAYMENT_PICK_LATE"
   status: string;
   notes: string | null;
   vehicleId: string | null; // appointments only
@@ -115,13 +115,17 @@ async function paymentEvents(scope: Scope, where: { dueDate?: { gte: Date; lte: 
       customerName: `${p.customer.firstName} ${p.customer.lastName}`,
       customerPhone: p.customer.phone,
       leadId: p.leadId,
-      title: `Payment Due — ${formatCurrency(p.amount)}`,
+      title: `${p.paymentType === "FIRST" ? "First Payment" : "Pick Payment"} Due — ${formatCurrency(p.amount)}${p.paymentType === "FIRST" && p.paidToName ? ` (${p.paidToName})` : ""}`,
       subtitle: vehicleLabel,
       date: p.dueDate,
       time: PAYMENT_EVENT_TIME,
       endTime: null,
       location: null,
-      type: p.status === "LATE" ? "PAYMENT_LATE" : "PAYMENT_DUE",
+      // Encodes BOTH the payment type (FIRST=red/PICK=green, see
+      // eventMeta.ts) and its late-or-not status (still shown separately
+      // via the status badge EventRow renders from event.status) — see
+      // the type comment below for the full set of values this can be.
+      type: `PAYMENT_${p.paymentType}_${p.status === "LATE" ? "LATE" : "DUE"}`,
       status: p.status,
       notes: p.notes,
       vehicleId: null,

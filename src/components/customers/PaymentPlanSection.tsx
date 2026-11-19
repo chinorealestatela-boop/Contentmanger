@@ -97,10 +97,13 @@ export function PaymentPlanSection({
                 return (
                   <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
                     <div className="min-w-0">
-                      <p className="text-[13px] font-medium text-[var(--text)]">
-                        {formatCurrency(p.amount)} due {formatDate(p.dueDate)}
-                        {p.status === "PARTIALLY_PAID" && <span className="ml-1.5 text-[11.5px] font-normal text-[var(--text-muted)]">({formatCurrency(p.amountPaid)} received)</span>}
-                      </p>
+                      <div className="flex items-center gap-1.5">
+                        <span className="rounded-full px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white" style={{ background: "#16A34A" }}>Pick</span>
+                        <p className="text-[13px] font-medium" style={{ color: "#16A34A" }}>
+                          {formatCurrency(p.amount)} due {formatDate(p.dueDate)}
+                          {p.status === "PARTIALLY_PAID" && <span className="ml-1.5 text-[11.5px] font-normal text-[var(--text-muted)]">({formatCurrency(p.amountPaid)} received)</span>}
+                        </p>
+                      </div>
                       {p.notes && <p className="mt-0.5 text-[11.5px] text-[var(--text-muted)]">{p.notes}</p>}
                       {p.paidAt && p.paidBy && (
                         <p className="mt-0.5 text-[11px] text-[var(--text-faint)]">

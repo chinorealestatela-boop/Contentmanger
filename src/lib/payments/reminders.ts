@@ -26,7 +26,7 @@
 import { prisma } from "@/lib/prisma";
 import { getBookingSettings, wallClockInZone } from "@/lib/availability";
 import { getDealershipInfo } from "@/lib/messaging/notify";
-import { getActiveTemplateForStage, renderTemplate } from "@/lib/payments/templates";
+import { getActiveTemplateForStage, renderTemplate, paymentLabelFor } from "@/lib/payments/templates";
 import { PAYMENT_REMINDER_STAGES, type PaymentReminderStage } from "@/lib/payments/status";
 import { notifyAdmin } from "@/lib/notify/adminAlert";
 import { sendSms } from "@/lib/sms/provider";
@@ -120,7 +120,7 @@ function parseReminders(raw: string): ReminderEntry[] {
  * the result." */
 async function fireStage(params: {
   stage: PaymentReminderStage;
-  payment: { id: string; customerId: string; leadId: string | null; amount: number; dueDate: Date };
+  payment: { id: string; customerId: string; leadId: string | null; amount: number; dueDate: Date; paymentType: string; paidToName: string | null };
   customer: { firstName: string; lastName: string; phone: string | null; smsConsent: boolean };
   stageConfig: { notify: boolean; task: boolean; sms: boolean };
   assigneeId: string | null;
@@ -133,14 +133,20 @@ async function fireStage(params: {
   const amountLabel = formatCurrency(payment.amount);
   const dueDateLabel = formatDate(payment.dueDate);
   const stageLabel = STAGE_LABELS[stage];
+  const isFirst = payment.paymentType === "FIRST";
+  // "Pick payment" / "First bank payment" — the clear label the user asked
+  // for everywhere a reminder shows up, distinct from the lowercase
+  // {{paymentLabel}} phrase used mid-sentence in SMS templates.
+  const kindLabel = isFirst ? "First Bank Payment" : "Pick Payment";
+  const paymentLabel = paymentLabelFor(payment);
 
   if (stageConfig.notify && assigneeId) {
     const title =
-      stage === "DUE_DATE" ? `Payment Due Today — ${customerName}` : stage === "OVERDUE" ? `Late Payment — ${customerName}` : `Payment Due Soon — ${customerName}`;
+      stage === "DUE_DATE" ? `${kindLabel} Due Today — ${customerName}` : stage === "OVERDUE" ? `Late ${kindLabel} — ${customerName}` : `${kindLabel} Due Soon — ${customerName}`;
     const body =
       stage === "OVERDUE"
-        ? `${customerName} has an overdue payment of ${amountLabel}. Original due date: ${dueDateLabel}. Days overdue: ${daysOverdue ?? "?"}.`
-        : `${customerName} owes ${amountLabel} on ${dueDateLabel}.`;
+        ? `${customerName} has an overdue ${paymentLabel} of ${amountLabel}. Original due date: ${dueDateLabel}. Days overdue: ${daysOverdue ?? "?"}.`
+        : `${customerName}'s ${paymentLabel} of ${amountLabel} is due ${dueDateLabel}.`;
     await notifyAdmin({ userId: assigneeId, type: "PAYMENT_DUE", title, body, link: `/customers/${payment.customerId}` });
   }
 
@@ -151,8 +157,8 @@ async function fireStage(params: {
         leadId: payment.leadId,
         title:
           stage === "OVERDUE"
-            ? `Follow up — ${customerName}'s ${amountLabel} payment is overdue (was due ${dueDateLabel})`
-            : `Follow up with ${customerName} regarding ${amountLabel} payment due ${dueDateLabel}`,
+            ? `Follow up — ${customerName}'s ${amountLabel} ${paymentLabel} is overdue (was due ${dueDateLabel})`
+            : `Follow up with ${customerName} regarding ${amountLabel} ${paymentLabel} due ${dueDateLabel}`,
         type: "CALL",
         priority: stage === "OVERDUE" ? "URGENT" : stage === "DUE_DATE" ? "HIGH" : "NORMAL",
         dueDate: new Date(),
@@ -172,6 +178,7 @@ async function fireStage(params: {
         dueDate: dueDateLabel,
         agentName: bookingSettings.agentName,
         dealershipName,
+        paymentLabel,
       });
       const result = await sendSms({ customerId: payment.customerId, toPhone: customer.phone, type: "PAYMENT_REMINDER", body });
       sendLabel = result.simulated ? "SMS simulated (Twilio not connected)" : result.sent ? "SMS sent" : "SMS failed to send";
@@ -184,7 +191,7 @@ async function fireStage(params: {
     customerId: payment.customerId,
     leadId: payment.leadId,
     type: "AUTOMATION",
-    description: `Payment reminder (${stageLabel}) — ${amountLabel} due ${dueDateLabel}. ${sendLabel}.`,
+    description: `${kindLabel} reminder (${stageLabel}) — ${amountLabel} due ${dueDateLabel}. ${sendLabel}.`,
     metadata: { paymentId: payment.id, stage },
   });
 }
